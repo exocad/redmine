@@ -83,9 +83,9 @@
 <% include_calendar_headers_tags %>
 <% if @issue.safe_attribute? 'assigned_to_id' %>
   <%= javascript_tag do %>
-    var assignner_list = <%=  raw  [{:id => User.current.id, :label => "<< #{l(:label_me)} >>", :category => 'User'}]
-      .concat(@issue.assignable_users.select{|u|u.is_a?(User)}.map{|u|{:id => u.id, :label => u.name, :category => 'User'}})
-      .concat(@issue.assignable_users.select{|u|u.is_a?(Group)}.map{|u|{:id => u.id, :label => u.name, :category => 'Group'}}).to_json %>;
+    var assignner_list = <%=  raw  [{:id => User.current.id, :label => "<< #{l(:label_me)} >>", :category => 'User', :avatar => avatar(User.current, :size => "18", :class => "gravatar gravatar-child")}]
+      .concat(@issue.assignable_users.select{|u|u.is_a?(User)}.map{|u|{:id => u.id, :label => u.name, :category => 'User', :avatar => avatar(u, :size => "18", :class => "gravatar gravatar-child")}})
+      .concat(@issue.assignable_users.select{|u|u.is_a?(Group)}.map{|u|{:id => u.id, :label => u.name, :category => 'Group', :avatar => ''}}).to_json %>;
     observeAutocompleteField('issue_assigned_to_autocomplete', '', {
       source: assignner_list,
       minLength: 0,
@@ -115,7 +115,7 @@
         $(this).data('ui-autocomplete')._renderItem = function(ul, item){
           ul.css({'background':'#eee','overflow':'scroll'});
           return $('<li style="white-space:nowrap">')
-            .append('<div>'+item.label+'</div>')
+            .append('<div>'+item.avatar+' '+item.label+'</div>')
             .appendTo(ul);
         };
       }
