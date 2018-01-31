@@ -1,0 +1,3 @@
+[submodule "plugins/redmine_watcher_groups"]
+	path = plugins/redmine_watcher_groups
+	url = https://github.com/kamenf/redmine_watcher_groups
