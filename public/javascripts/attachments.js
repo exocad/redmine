@@ -99,10 +99,8 @@ function uploadBlob(blob, uploadUrl, attachmentId, options) {
   return $.ajax(uploadUrl, {
     type: 'POST',
     contentType: 'application/octet-stream',
-    beforeSend: function(jqXhr, settings) {
+    beforeSend: function(jqXhr) {
       jqXhr.setRequestHeader('Accept', 'application/js');
-      // attach proper File object 
-      settings.data = blob;
     },
     xhr: function() {
       var xhr = $.ajaxSettings.xhr();
@@ -119,7 +117,7 @@ function uploadBlob(blob, uploadUrl, attachmentId, options) {
 function addInputFiles(inputEl) {
   var clearedFileInput = $(inputEl).clone().val('');
 
-  if ($.ajaxSettings.xhr().upload && inputEl.files) {
+  if ('FileReader' in window && inputEl.files) {
     // upload files using ajax
     uploadAndAttachFiles(inputEl.files, inputEl);
     $(inputEl).remove();
