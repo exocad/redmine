@@ -1,3 +1,6 @@
 [submodule "plugins/redmine_extended_watchers"]
 	path = plugins/redmine_extended_watchers
 	url = https://github.com/exocad/redmine_extended_watchers.git
+[submodule "plugins/clipboard_image_paste"]
+	path = plugins/clipboard_image_paste
+	url = https://github.com/exocad/clipboard_image_paste.git
