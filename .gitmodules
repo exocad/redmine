@@ -7,3 +7,6 @@
 [submodule "plugins/latest_issues"]
 	path = plugins/latest_issues
 	url = https://github.com/exocad/latest-issues-redmine-plugin.git
+[submodule "plugins/redmine_tags"]
+	path = plugins/redmine_tags
+	url = https://github.com/exocad/redmine_tags.git
