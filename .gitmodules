@@ -12,4 +12,4 @@
 	url = https://github.com/exocad/redmine_tags.git
 [submodule "plugins/redmine_watcher_groups"]
 	path = plugins/redmine_watcher_groups
-	url = git://github.com/roma-sk3/redmine_watcher_groups.git
+	url = https://github.com/exocad/redmine_watcher_groups.git
