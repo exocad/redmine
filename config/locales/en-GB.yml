@@ -472,7 +472,7 @@ en-GB:
   label_role_plural: Roles
   label_role_new: New role
   label_role_and_permissions: Roles and permissions
-  label_role_anonymous: Anonymous
+  label_role_anonymous: Email
   label_role_non_member: Non member
   label_member: Member
   label_member_new: New member
@@ -804,7 +804,7 @@ en-GB:
   button_create: Create
   button_create_and_continue: Create and add another
   button_test: Test
-  button_edit: Edit
+  button_edit: Update
   button_edit_associated_wikipage: "Edit associated Wiki page: %{page_title}"
   button_add: Add
   button_change: Change
