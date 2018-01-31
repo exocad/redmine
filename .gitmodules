@@ -1,0 +1,3 @@
+[submodule "plugins/redmine_extended_watchers"]
+	path = plugins/redmine_extended_watchers
+	url = https://github.com/exocad/redmine_extended_watchers.git
