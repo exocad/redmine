@@ -41,7 +41,7 @@ class Mailer < ActionMailer::Base
     @issue_url = url_for(:controller => 'issues', :action => 'show', :id => issue)
     mail :to => to_users.map(&:mail),
       :cc => cc_users.map(&:mail),
-      :subject => "[#{issue.project.name} - #{issue.tracker.name} ##{issue.id}] (#{issue.status.name}) #{issue.subject}"
+      :subject => "[##{issue.id}] #{issue.subject}"
   end
 
   # Notifies users about a new issue
@@ -63,9 +63,7 @@ class Mailer < ActionMailer::Base
     message_id journal
     references issue
     @author = journal.user
-    s = "[#{issue.project.name} - #{issue.tracker.name} ##{issue.id}] "
-    s << "(#{issue.status.name}) " if journal.new_value_for('status_id')
-    s << issue.subject
+    s = "Re: [##{issue.id}] #{issue.subject}"
     @issue = issue
     @users = to_users + cc_users
     @journal = journal
