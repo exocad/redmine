@@ -469,7 +469,7 @@ en:
   setting_time_entry_list_defaults: Timelog list defaults
   setting_timelog_accept_0_hours: Accept time logs with 0 hours
   setting_timelog_max_hours_per_day: Maximum hours that can be logged per day and user
-
+  setting_enable_watcher_issue_visibility: Enable watcher issue visibility  
   permission_add_project: Create project
   permission_add_subprojects: Create subprojects
   permission_edit_project: Edit project
@@ -550,7 +550,7 @@ en:
   label_user: User
   label_user_plural: Users
   label_user_new: New user
-  label_user_anonymous: Anonymous
+  label_user_anonymous: Email
   label_project: Project
   label_project_new: New project
   label_project_plural: Projects
@@ -579,7 +579,7 @@ en:
   label_role_plural: Roles
   label_role_new: New role
   label_role_and_permissions: Roles and permissions
-  label_role_anonymous: Anonymous
+  label_role_anonymous: Email
   label_role_non_member: Non member
   label_member: Member
   label_member_new: New member
@@ -1032,7 +1032,8 @@ en:
   label_font_proportional: Proportional font
   label_last_notes: Last notes
   label_nothing_to_preview: Nothing to preview
-
+  label_issues_visibility_own_watch: Issues created by, assigned to, or watched by the user
+  label_issues_visibility_own_watch_contributed: Issues created by, assigned to, watched by, or contributed to by the user
   button_login: Login
   button_submit: Submit
   button_save: Save
@@ -1044,7 +1045,7 @@ en:
   button_create: Create
   button_create_and_continue: Create and continue
   button_test: Test
-  button_edit: Edit
+  button_edit: Update
   button_edit_associated_wikipage: "Edit associated Wiki page: %{page_title}"
   button_add: Add
   button_change: Change
