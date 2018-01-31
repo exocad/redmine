@@ -38,7 +38,9 @@ class Role < ActiveRecord::Base
   ISSUES_VISIBILITY_OPTIONS = [
     ['all', :label_issues_visibility_all],
     ['default', :label_issues_visibility_public],
-    ['own', :label_issues_visibility_own]
+    ['own', :label_issues_visibility_own],
+    ['own_watch', :label_issues_visibility_own_watch],
+    ['own_watch_contributed', :label_issues_visibility_own_watch_contributed]
   ]
 
   TIME_ENTRIES_VISIBILITY_OPTIONS = [
