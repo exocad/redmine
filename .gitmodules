@@ -13,3 +13,6 @@
 [submodule "plugins/redmine_watcher_groups"]
 	path = plugins/redmine_watcher_groups
 	url = https://github.com/exocad/redmine_watcher_groups.git
+[submodule "plugins/redmine_already_read"]
+	path = plugins/redmine_already_read
+	url = https://github.com/exocad/redmine_already_read.git
