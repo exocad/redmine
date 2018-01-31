@@ -454,6 +454,8 @@ en:
   setting_mail_handler_excluded_filenames: Exclude attachments by name
   setting_force_default_language_for_anonymous: Force default language for anonymous users
   setting_force_default_language_for_loggedin: Force default language for logged-in users
+  setting_enable_watcher_issue_visibility: Enable watcher issue visibility
+  
   setting_link_copied_issue: Link issues on copy
   setting_max_additional_emails: Maximum number of additional email addresses
   setting_search_results_per_page: Search results per page
@@ -544,7 +546,7 @@ en:
   label_user: User
   label_user_plural: Users
   label_user_new: New user
-  label_user_anonymous: Anonymous
+  label_user_anonymous: Email
   label_project: Project
   label_project_new: New project
   label_project_plural: Projects
@@ -973,6 +975,8 @@ en:
   label_check_for_updates: Check for updates
   label_latest_compatible_version: Latest compatible version
   label_unknown_plugin: Unknown plugin
+  label_issues_visibility_own_watch: Issues created by, assigned to, or watched by the user
+  label_issues_visibility_own_watch_contributed: Issues created by, assigned to, watched by, or contributed to by the user
   label_add_projects: Add projects
   label_users_visibility_all: All active users
   label_users_visibility_members_of_visible_projects: Members of visible projects
@@ -1031,7 +1035,7 @@ en:
   button_create: Create
   button_create_and_continue: Create and continue
   button_test: Test
-  button_edit: Edit
+  button_edit: Update
   button_edit_associated_wikipage: "Edit associated Wiki page: %{page_title}"
   button_add: Add
   button_change: Change
@@ -1138,7 +1142,7 @@ en:
   text_assign_time_entries_to_project: Assign reported hours to the project
   text_reassign_time_entries: 'Reassign reported hours to this issue:'
   text_user_wrote: "%{value} wrote:"
-  text_enumeration_destroy_question: "%{count} objects are assigned to the value ‚Äú%{name}‚Äù."
+  text_enumeration_destroy_question: "%{count} objects are assigned to the value ì%{name}î."
   text_enumeration_category_reassign_to: 'Reassign them to this value:'
   text_email_delivery_not_configured: "Email delivery is not configured, and notifications are disabled.\nConfigure your SMTP server in config/configuration.yml and restart the application to enable them."
   text_repository_usernames_mapping: "Select or update the Redmine user mapped to each username found in the repository log.\nUsers with the same Redmine and repository username or email are automatically mapped."
