@@ -12,7 +12,7 @@ pre, code {font-family: Consolas, Menlo, "Liberation Mono", Courier, monospace;}
 /***** Layout *****/
 #wrapper {background: white;overflow: hidden;}
 
-#top-menu {background: #3E5B76; color: #fff; height:1.8em; font-size: 0.8em; padding: 2px 2px 0px 6px;}
+#top-menu {background: #574d7b; color: #fff; height:1.8em; font-size: 0.8em; padding: 2px 2px 0px 6px;}
 #top-menu ul {margin: 0;  padding: 0;}
 #top-menu li {
   float:left;
@@ -26,7 +26,7 @@ pre, code {font-family: Consolas, Menlo, "Liberation Mono", Courier, monospace;}
 
 #account {float:right;}
 
-#header {min-height:5.3em;margin:0;background-color:#628DB6;color:#f8f8f8; padding: 4px 8px 20px 6px; position:relative;}
+#header {min-height:5.3em;margin:0;background-color:#47396c;color:#f8f8f8; padding: 4px 8px 20px 6px; position:relative;}
 #header a {color:#f8f8f8;}
 #header h1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap;}
 #header h1 .breadcrumbs { display:block; font-size: .5em; font-weight: normal; }
@@ -52,7 +52,7 @@ pre, code {font-family: Consolas, Menlo, "Liberation Mono", Courier, monospace;}
   margin: 0;
   padding: 4px 10px 4px 10px;
 }
-#main-menu li a:hover {background:#759FCF; color:#fff;}
+#main-menu li a:hover {background:#ef895f; color:#fff;}
 #main-menu li:hover ul.menu-children, #main-menu li ul.menu-children.visible {display: block;}
 #main-menu li a.selected, #main-menu li a.selected:hover {background:#fff; color:#555;}
 #main-menu li a.new-object { background-color:#759FCF; }
@@ -122,7 +122,7 @@ div.modal .box p {margin: 0.3em 0;}
 .mobile-show {display: none;}
 
 /***** Links *****/
-a, a:link, a:visited{ color: #169; text-decoration: none; }
+a, a:link, a:visited{ color: #47396c; text-decoration: none; }
 a:hover, a:active{ color: #c61a1a; text-decoration: underline;}
 a img{ border: 0; }
 
@@ -344,7 +344,7 @@ tr.group a.toggle-all { color: #aaa; font-size: 80%; display:none; float:right; 
 tr.group:hover a.toggle-all { display:inline;}
 a.toggle-all:hover {text-decoration:none;}
 
-table.list tbody tr:hover { background-color:#ffffdd; }
+table.list tbody tr:hover { background-color:#e6e7ed; }
 table.list tbody tr.group:hover { background-color:inherit; }
 table td {padding:2px;}
 table p {margin:0;}
@@ -423,9 +423,9 @@ div.square {
   overflow: hidden;
   width: .6em; height: .6em;
 }
-.contextual {float:right; white-space: nowrap; line-height:1.4em;margin:5px 0px; padding-left: 10px; font-size:0.9em;}
+.contextual {float:right; white-space: nowrap; line-height:1.4em;margin:5px 5px; padding-left: 10px; font-size:1.3em;}
 .contextual .icon {padding-top: 2px; padding-bottom: 3px;}
-.contextual input, .contextual select {font-size:0.9em;}
+.contextual input, .contextual select {font-size:1.3em;}
 .message .contextual { margin-top: 0; }
 
 .splitcontent {overflow:auto;}
