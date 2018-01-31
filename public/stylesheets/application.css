@@ -11,7 +11,7 @@ h4 {border-bottom: 1px dotted #bbb;}
 /***** Layout *****/
 #wrapper {background: white;}
 
-#top-menu {background: #3E5B76; color: #fff; height:1.8em; font-size: 0.8em; padding: 2px 2px 0px 6px;}
+#top-menu {background: #574d7b; color: #fff; height:1.8em; font-size: 0.8em; padding: 2px 2px 0px 6px;}
 #top-menu ul {margin: 0;  padding: 0;}
 #top-menu li {
   float:left;
@@ -25,7 +25,7 @@ h4 {border-bottom: 1px dotted #bbb;}
 
 #account {float:right;}
 
-#header {min-height:5.3em;margin:0;background-color:#628DB6;color:#f8f8f8; padding: 4px 8px 20px 6px; position:relative;}
+#header {min-height:5.3em;margin:0;background-color:#47396c;color:#f8f8f8; padding: 4px 8px 20px 6px; position:relative;}
 #header a {color:#f8f8f8;}
 #header h1 a.ancestor { font-size: 80%; }
 #quick-search {float:right;}
@@ -47,7 +47,7 @@ h4 {border-bottom: 1px dotted #bbb;}
   margin: 0;
   padding: 4px 10px 4px 10px;
 }
-#main-menu li a:hover {background:#759FCF; color:#fff;}
+#main-menu li a:hover {background:#ef895f; color:#fff;}
 #main-menu li a.selected, #main-menu li a.selected:hover {background:#fff; color:#555;}
 
 #admin-menu ul {margin: 0;  padding: 0;}
@@ -103,7 +103,7 @@ input#openid_url { background: url(../images/openid-bg.gif) no-repeat; backgroun
 .clear:after{ content: "."; display: block; height: 0; clear: both; visibility: hidden; }
 
 /***** Links *****/
-a, a:link, a:visited{ color: #169; text-decoration: none; }
+a, a:link, a:visited{ color: #47396c; text-decoration: none; }
 a:hover, a:active{ color: #c61a1a; text-decoration: underline;}
 a img{ border: 0; }
 
@@ -234,7 +234,7 @@ tr.group a.toggle-all { color: #aaa; font-size: 80%; font-weight: normal; displa
 tr.group:hover a.toggle-all { display:inline;}
 a.toggle-all:hover {text-decoration:none;}
 
-table.list tbody tr:hover { background-color:#ffffdd; }
+table.list tbody tr:hover { background-color:#e6e7ed; }
 table.list tbody tr.group:hover { background-color:inherit; }
 table td {padding:2px;}
 table p {margin:0;}
@@ -306,8 +306,8 @@ div.square {
   overflow: hidden;
   width: .6em; height: .6em;
 }
-.contextual {float:right; white-space: nowrap; line-height:1.4em;margin-top:5px; padding-left: 10px; font-size:0.9em;}
-.contextual input, .contextual select {font-size:0.9em;}
+.contextual {float:right; white-space: nowrap; line-height:1.4em;margin-top:5px; padding-left: 10px; font-size:1.3em;}
+.contextual input, .contextual select {font-size:1.3em;}
 .message .contextual { margin-top: 0; }
 
 .splitcontent {overflow:auto;}
