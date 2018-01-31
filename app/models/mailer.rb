@@ -371,7 +371,7 @@ class Mailer < ActionMailer::Base
     headers.merge! 'X-Mailer' => 'Redmine',
             'X-Redmine-Host' => Setting.host_name,
             'X-Redmine-Site' => Setting.app_title,
-            'X-Auto-Response-Suppress' => 'OOF',
+            'X-Auto-Response-Suppress' => 'All',
             'Auto-Submitted' => 'auto-generated',
             'From' => Setting.mail_from,
             'List-Id' => "<#{Setting.mail_from.to_s.gsub('@', '.')}>"
