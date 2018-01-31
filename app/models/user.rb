@@ -687,6 +687,17 @@ class User < Principal
     end
   end
 
+
+  # Returns true if user is arg or belongs to arg
+  def is_user?(arg)
+    if arg.is_a?(User)
+      self == arg
+    else
+      false
+    end
+  end
+
+
   # Return true if the user is allowed to do the specified action on a specific context
   # Action can be:
   # * a parameter-like Hash (eg. :controller => 'projects', :action => 'edit')
@@ -795,9 +806,9 @@ class User < Principal
         case mail_notification
         when 'selected', 'only_my_events'
           # user receives notifications for created/assigned issues on unselected projects
-          object.author == self || is_or_belongs_to?(object.assigned_to) || is_or_belongs_to?(object.previous_assignee)
+          object.author == self || is_user?(object.assigned_to)
         when 'only_assigned'
-          is_or_belongs_to?(object.assigned_to) || is_or_belongs_to?(object.previous_assignee)
+          is_user?(object.assigned_to)
         when 'only_owner'
           object.author == self
         end

@@ -131,12 +131,15 @@ class Issue < ActiveRecord::Base
           when 'own'
             user_ids = [user.id] + user.groups.pluck(:id).compact
             "(#{table_name}.author_id = #{user.id} OR #{table_name}.assigned_to_id IN (#{user_ids.join(',')}))"
+          when "own_watch"
+            user_ids = [user.id] + user.groups.map(&:id)
+            "(#{table_name}.author_id = #{user.id} OR #{table_name}.assigned_to_id IN (#{user_ids.join(',')}) OR #{table_name}.id IN (SELECT watchable_id FROM watchers WHERE user_id=#{user.id} AND watchable_type = 'Issue'))"
+          when "own_watch_contributed"
+            user_ids = [user.id] + user.groups.map(&:id)
+            "(#{table_name}.author_id = #{user.id} OR #{table_name}.assigned_to_id IN (#{user_ids.join(',')}) OR #{table_name}.id IN (SELECT watchable_id FROM watchers WHERE user_id=#{user.id} AND watchable_type = 'Issue') OR #{table_name}.id IN (SELECT journalized_id FROM journals where journalized_type = 'Issue' AND user_id=#{user.id} GROUP BY journalized_id))"
           else
               '1=0'
           end
-        else
-          "(#{table_name}.is_private = #{connection.quoted_false})"
-        end
       unless role.permissions_all_trackers?(:view_issues)
         tracker_ids = role.permissions_tracker_ids(:view_issues)
         if tracker_ids.any?
@@ -161,12 +164,13 @@ class Issue < ActiveRecord::Base
             !self.is_private? || (self.author == user || user.is_or_belongs_to?(assigned_to))
           when 'own'
             self.author == user || user.is_or_belongs_to?(assigned_to)
+          when 'own_watch'
+            self.author == user || user.is_or_belongs_to?(assigned_to) || self.watched_by?(user)
+          when 'own_watch_contributed'
+            self.author == user || user.is_or_belongs_to?(assigned_to) || self.watched_by?(user) || self.journals.where('journalized_id = ?', self.id).where('user_id = ?', user).count > 0
           else
             false
           end
-        else
-          !self.is_private?
-        end
       unless role.permissions_all_trackers?(:view_issues)
         visible &&= role.permissions_tracker_ids?(:view_issues, tracker_id)
       end
