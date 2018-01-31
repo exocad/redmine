@@ -410,7 +410,8 @@ en:
   setting_mail_handler_excluded_filenames: Exclude attachments by name
   setting_force_default_language_for_anonymous: Force default language for anonymous users
   setting_force_default_language_for_loggedin: Force default language for logged-in users
-
+  setting_enable_watcher_issue_visibility: Enable watcher issue visibility
+  
   permission_add_project: Create project
   permission_add_subprojects: Create subprojects
   permission_edit_project: Edit project
@@ -489,7 +490,7 @@ en:
   label_user: User
   label_user_plural: Users
   label_user_new: New user
-  label_user_anonymous: Anonymous
+  label_user_anonymous: Email
   label_project: Project
   label_project_new: New project
   label_project_plural: Projects
@@ -915,6 +916,8 @@ en:
   label_check_for_updates: Check for updates
   label_latest_compatible_version: Latest compatible version
   label_unknown_plugin: Unknown plugin
+  label_issues_visibility_own_watch: Issues created by, assigned to, or watched by the user
+  label_issues_visibility_own_watch_contributed: Issues created by, assigned to, watched by, or contributed to by the user
 
   button_login: Login
   button_submit: Submit
@@ -927,7 +930,7 @@ en:
   button_create: Create
   button_create_and_continue: Create and continue
   button_test: Test
-  button_edit: Edit
+  button_edit: Update
   button_edit_associated_wikipage: "Edit associated Wiki page: %{page_title}"
   button_add: Add
   button_change: Change

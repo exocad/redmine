@@ -715,7 +715,7 @@ de:
   label_roadmap_overdue: "%{value} verspätet"
   label_role: Rolle
   label_role_and_permissions: Rollen und Rechte
-  label_role_anonymous: Anonymous
+  label_role_anonymous: Email
   label_role_new: Neue Rolle
   label_role_non_member: Nichtmitglied
   label_role_plural: Rollen
