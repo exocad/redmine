@@ -16,3 +16,6 @@
 [submodule "plugins/redmine_already_read"]
 	path = plugins/redmine_already_read
 	url = https://github.com/exocad/redmine_already_read.git
+[submodule "plugins/redmine_contacts_helpdesk"]
+	path = plugins/redmine_contacts_helpdesk
+	url = https://github.com/exocad/redmine_contacts_helpdesk.git
