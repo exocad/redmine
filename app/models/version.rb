@@ -45,7 +45,7 @@ class Version < ActiveRecord::Base
   scope :like, lambda {|arg|
     if arg.present?
       pattern = "%#{arg.to_s.strip}%"
-      where("LOWER(#{Version.table_name}.name) LIKE :p", :p => pattern)
+      where([Redmine::Database.like("#{Version.table_name}.name", '?'), pattern])
     end
   }
   scope :open, lambda { where(:status => 'open') }
@@ -268,7 +268,7 @@ class Version < ActiveRecord::Base
   end
 
   def deletable?
-    fixed_issues.empty? && !referenced_by_a_custom_field?
+    fixed_issues.empty? && !referenced_by_a_custom_field? && attachments.empty?
   end
 
   def default_project_version

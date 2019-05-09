@@ -309,7 +309,7 @@ class Mailer < ActionMailer::Base
   end
 
   # Notifies user that his password was updated
-  def self.password_updated(user)
+  def self.password_updated(user, options={})
     # Don't send a notification to the dummy email address when changing the password
     # of the default admin account which is required after the first login
     # TODO: maybe not the best way to handle this
@@ -318,6 +318,8 @@ class Mailer < ActionMailer::Base
     security_notification(user,
       message: :mail_body_password_updated,
       title: :button_change_password,
+      remote_ip: options[:remote_ip],
+      originator: user,
       url: {controller: 'my', action: 'password'}
     ).deliver
   end
@@ -331,7 +333,6 @@ class Mailer < ActionMailer::Base
   end
 
   def security_notification(recipients, options={})
-    redmine_headers 'Sender' => User.current.login
     @user = Array(recipients).detect{|r| r.is_a? User }
     set_language_if_valid(@user.try :language)
     @message = l(options[:message],
@@ -339,7 +340,11 @@ class Mailer < ActionMailer::Base
       value: options[:value]
     )
     @title = options[:title] && l(options[:title])
+    @originator = options[:originator] || User.current
+    @remote_ip = options[:remote_ip] || @originator.remote_ip
     @url = options[:url] && (options[:url].is_a?(Hash) ? url_for(options[:url]) : options[:url])
+    redmine_headers 'Sender' => @originator.login
+    redmine_headers 'Url' => @url
     mail :to => recipients,
       :subject => "[#{Setting.app_title}] #{l(:mail_subject_security_notification)}"
   end

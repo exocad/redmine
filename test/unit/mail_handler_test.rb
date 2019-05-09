@@ -866,6 +866,21 @@ class MailHandlerTest < ActiveSupport::TestCase
     assert_equal 'Paella.jpg', detail.value
   end
 
+  def test_update_issue_should_discard_all_changes_on_validation_failure
+    Issue.any_instance.stubs(:valid?).returns(false)
+    assert_no_difference 'Journal.count' do
+      assert_no_difference 'JournalDetail.count' do
+        assert_no_difference 'Attachment.count' do
+          assert_no_difference 'Issue.count' do
+            journal = submit_email('ticket_with_attachment.eml') do |raw|
+              raw.gsub! /^Subject: .*$/, 'Subject: Re: [Cookbook - Feature #2] (New) Add ingredients categories'
+            end
+          end
+        end
+      end
+    end
+  end
+
   def test_update_issue_should_send_email_notification
     journal = submit_email('ticket_reply.eml')
     assert journal.is_a?(Journal)
@@ -1128,12 +1143,13 @@ class MailHandlerTest < ActiveSupport::TestCase
     options = MailHandler.extract_options_from_env({
       'tracker' => 'defect',
       'project' => 'foo',
-      'unknown_user' => 'create'
+      'unknown_user' => 'create',
+      'no_notification' => '1'
     })
 
     assert_equal({
       :issue => {:tracker => 'defect', :project => 'foo'},
-      :unknown_user => 'create'
+      :unknown_user => 'create', :no_notification => '1'
     }, options)
   end
 

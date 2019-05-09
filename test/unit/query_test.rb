@@ -876,6 +876,38 @@ class QueryTest < ActiveSupport::TestCase
     User.current = nil
   end
 
+  def test_filter_on_watched_issues_with_view_issue_watchers_permission
+    User.current = User.find(1)
+    User.current.admin = true
+    assert User.current.allowed_to?(:view_issue_watchers, Project.find(1))
+
+    Issue.find(1).add_watcher User.current
+    Issue.find(3).add_watcher User.find(3)
+    query = IssueQuery.new(:name => '_', :filters => { 'watcher_id' => {:operator => '=', :values => ['me', '3']}})
+    result = find_issues_with_query(query)
+    assert_includes result, Issue.find(1)
+    assert_includes result, Issue.find(3)
+  ensure
+    User.current.reload
+    User.current = nil
+  end
+
+  def test_filter_on_watched_issues_without_view_issue_watchers_permission
+    User.current = User.find(1)
+    User.current.admin = false
+    assert !User.current.allowed_to?(:view_issue_watchers, Project.find(1))
+
+    Issue.find(1).add_watcher User.current
+    Issue.find(3).add_watcher User.find(3)
+    query = IssueQuery.new(:name => '_', :filters => { 'watcher_id' => {:operator => '=', :values => ['me', '3']}})
+    result = find_issues_with_query(query)
+    assert_includes result, Issue.find(1)
+    assert_not_includes result, Issue.find(3)
+  ensure
+    User.current.reload
+    User.current = nil
+  end
+
   def test_filter_on_custom_field_should_ignore_projects_with_field_disabled
     field = IssueCustomField.generate!(:trackers => Tracker.all, :project_ids => [1, 3, 4], :is_for_all => false, :is_filter => true)
     Issue.generate!(:project_id => 3, :tracker_id => 2, :custom_field_values => {field.id.to_s => 'Foo'})
@@ -1458,6 +1490,12 @@ class QueryTest < ActiveSupport::TestCase
     assert_equal [['id', 'desc']], q.sort_criteria
   end
 
+  def test_sort_criteria_should_remove_blank_keys
+    q = IssueQuery.new
+    q.sort_criteria = [['priority', 'desc'], [nil, 'desc'], ['', 'asc'], ['project', 'asc']]
+    assert_equal [['priority', 'desc'], ['project', 'asc']], q.sort_criteria
+  end
+
   def test_set_sort_criteria_with_hash
     q = IssueQuery.new
     q.sort_criteria = {'0' => ['priority', 'desc'], '2' => ['tracker']}
@@ -1790,6 +1828,11 @@ class QueryTest < ActiveSupport::TestCase
 
     assert q.visible?(User.find(1))
     assert IssueQuery.visible(User.find(1)).find_by_id(q.id)
+
+    # Should ignore archived project memberships
+    Project.find(1).archive
+    assert !q.visible?(User.find(3))
+    assert_nil IssueQuery.visible(User.find(3)).find_by_id(q.id)
   end
 
   def test_query_with_private_visibility_should_be_visible_to_owner
@@ -2118,5 +2161,20 @@ class QueryTest < ActiveSupport::TestCase
     WorkflowTransition.create(:role_id => 1, :tracker_id => 2, :old_status_id => 1, :new_status_id => 3)
 
     assert_equal ['1','2','3','4','5','6'], query.available_filters['status_id'][:values].map(&:second)
+  end
+
+  def test_as_params_should_serialize_query
+    query = IssueQuery.new(name: "_")
+    query.add_filter('subject', '!~', ['asdf'])
+    query.group_by = 'tracker'
+    query.totalable_names = %w(estimated_hours)
+    query.column_names = %w(id subject estimated_hours)
+    assert hsh = query.as_params
+
+    new_query = IssueQuery.build_from_params(hsh)
+    assert_equal query.filters, new_query.filters
+    assert_equal query.group_by, new_query.group_by
+    assert_equal query.column_names, new_query.column_names
+    assert_equal query.totalable_names, new_query.totalable_names
   end
 end

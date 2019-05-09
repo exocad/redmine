@@ -277,6 +277,21 @@ class VersionTest < ActiveSupport::TestCase
     assert_equal false, version.deletable?
   end
 
+  def test_deletable_should_return_false_when_referenced_by_an_attachment
+    version = Version.generate!
+    Attachment.generate!(:container => version, :filename => 'test.txt')
+
+    assert_equal false, version.deletable?
+  end
+
+  def test_like_scope
+    version = Version.create!(:project => Project.find(1), :name => 'Version for like scope test')
+
+    assert_includes Version.like('VERSION FOR LIKE SCOPE TEST'), version
+    assert_includes Version.like('version for like scope test'), version
+    assert_includes Version.like('like scope'), version
+  end
+
   private
 
   def add_issue(version, attributes={})

@@ -542,7 +542,10 @@ STR
   end
 
   def test_should_allow_valid_language_class_attribute_on_code_tags
+    # language name is double-quoted
     assert_html_output({"<code class=\"ruby\">test</code>" => "<code class=\"ruby syntaxhl\"><span class=\"CodeRay\">test</span></code>"}, false)
+    # language name is single-quoted
+    assert_html_output({"<code class='ruby'>test</code>" => "<code class=\"ruby syntaxhl\"><span class=\"CodeRay\">test</span></code>"}, false)
   end
 
   def test_should_not_allow_valid_language_class_attribute_on_non_code_offtags
@@ -575,6 +578,28 @@ STR
     assert_html_output({
       '!(wiki-class-foo#wiki-id-bar)test.png!' => "<p><img src=\"test.png\" class=\"wiki-class-foo\" id=\"wiki-id-bar\" alt=\"\" /></p>",
     }, false)
+  end
+
+  # TODO: Remove this test after migrating to RedCloth 4
+  def test_should_not_crash_with_special_input
+    assert_nothing_raised { to_html(" \f") }
+    assert_nothing_raised { to_html(" \v") }
+  end
+
+  def test_should_not_handle_as_preformatted_text_tags_that_starts_with_pre
+    text = <<-STR
+<pree>
+  This is some text
+</pree>
+STR
+
+    expected = <<-EXPECTED
+<p>&lt;pree&gt;<br />
+  This is some text<br />
+&lt;/pree&gt;</p>
+EXPECTED
+
+    assert_equal expected.gsub(%r{[\r\n\t]}, ''), to_html(text).gsub(%r{[\r\n\t]}, '')
   end
 
   private
