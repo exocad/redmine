@@ -6,7 +6,7 @@
 	url = https://github.com/exocad/redmine_contacts_helpdesk
 	branch = redmine_contacts_helpdesk-4_0_2
 [submodule "redmine_contacts"]
-	path = redmine_contacts
+	path = plugins/redmine_contacts
 	url = https://github.com/exocad/redmine_contacts
 	branch = exomine-redmine_contacts-4_2_4-pro
 [submodule "plugins/clipboard_image_paste"]
