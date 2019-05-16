@@ -4,6 +4,8 @@
 /.powrc
 /.rvmrc
 /.ruby-version
+/.vscode
+/.github
 /config/additional_environment.rb
 /config/configuration.yml
 /config/database.yml

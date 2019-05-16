@@ -1,21 +1,6 @@
-[submodule "plugins/redmine_extended_watchers"]
-	path = plugins/redmine_extended_watchers
-	url = https://github.com/exocad/redmine_extended_watchers.git
-[submodule "plugins/clipboard_image_paste"]
-	path = plugins/clipboard_image_paste
-	url = https://github.com/exocad/clipboard_image_paste.git
-[submodule "plugins/latest_issues"]
-	path = plugins/latest_issues
-	url = https://github.com/exocad/latest-issues-redmine-plugin.git
 [submodule "plugins/redmine_tags"]
 	path = plugins/redmine_tags
 	url = https://github.com/exocad/redmine_tags.git
-[submodule "plugins/redmine_watcher_groups"]
-	path = plugins/redmine_watcher_groups
-	url = https://github.com/exocad/redmine_watcher_groups.git
-[submodule "plugins/redmine_already_read"]
-	path = plugins/redmine_already_read
-	url = https://github.com/exocad/redmine_already_read.git
 [submodule "plugins/redmine_contacts_helpdesk"]
 	path = plugins/redmine_contacts_helpdesk
 	url = https://github.com/exocad/redmine_contacts_helpdesk.git
@@ -24,3 +9,6 @@
 	path = redmine_contacts
 	url = https://github.com/exocad/redmine_contacts.git
 	branch = exomine-redmine_contacts-4_2_4-pro
+[submodule "plugins/clipboard_image_paste"]
+	path = plugins/clipboard_image_paste
+	url = https://github.com/exocad/clipboard_image_paste

@@ -76,6 +76,8 @@ end
 
 group :development do
   gem "yard"
+  gem "ruby-debug-ide"
+  gem "debase"
 end
 
 group :test do
