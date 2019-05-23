@@ -12,3 +12,6 @@
 [submodule "plugins/clipboard_image_paste"]
 	path = plugins/clipboard_image_paste
 	url = https://github.com/exocad/clipboard_image_paste
+[submodule "/public/themes/exocad"]
+	path = public/themes/exocad
+	url = https://github.com/exocad/exocadRedmineTheme
