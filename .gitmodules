@@ -19,5 +19,5 @@
 	url = https://github.com/exocad/redmine_already_read
 [submodule "plugins/redmine_contacts_helpdesk"]
 	path = plugins/redmine_contacts_helpdesk
-	url = https://github.com/exocad/redmine_contacs_helpdesk
+	url = https://github.com/exocad/redmine_contacts_helpdesk
 	branch = exomine-redmine_contacts_helpdesk-4_0_2
