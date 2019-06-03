@@ -127,7 +127,7 @@ end %>
 </div>
 <% end %>
 
-<%= render partial: 'action_menu_edit' if User.current.wants_comments_in_reverse_order? %>
+<%= render partial: 'action_menu_edit' %>
 
 <% if @journals.present? %>
 <div id="history">
