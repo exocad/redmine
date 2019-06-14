@@ -21,3 +21,6 @@
 	path = plugins/redmine_contacts_helpdesk
 	url = https://github.com/exocad/redmine_contacts_helpdesk
 	branch = exomine-redmine_contacts_helpdesk-4_0_2
+[submodule "plugins/latest_issues"]
+	path = plugins/latest_issues
+	url = https://github.com/exocad/latest-issues-redmine-plugin
