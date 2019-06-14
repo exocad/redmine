@@ -127,9 +127,8 @@ end %>
 </div>
 <% end %>
 
-
 <% if @journals.present? %>
-<%= render partial: User.current.wants_comments_in_reverse_order? ? 'action_menu_edit' : 'action_menu'  %>
+<%= render partial: 'action_menu'  %>
 <div style="clear:both;"></div>
 <div id="history">
 <h3><%=l(:label_history)%></h3>
@@ -137,7 +136,8 @@ end %>
 </div>
 <% end %>
 
-<%= render partial: User.current.wants_comments_in_reverse_order? ? 'action_menu' : 'action_menu_edit'  %>
+<%= render partial: 'action_menu_edit'  %>
+<div style="clear:both;"></div>
 
 <% other_formats_links do |f| %>
   <%= f.link_to 'Atom', :url => {:key => User.current.rss_key} %>
