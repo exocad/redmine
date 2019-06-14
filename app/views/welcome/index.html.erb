@@ -5,10 +5,6 @@
   <div class="wiki">
     <%= textilizable Setting.welcome_text %>
   </div>
-  <%= call_hook(:view_welcome_index_left) %>
-</div>
-
-<div class="splitcontentright">
   <% if @news.any? %>
   <div class="news box">
   <h3><%=l(:label_news_latest)%></h3>
@@ -16,6 +12,10 @@
     <%= link_to l(:label_news_view_all), :controller => 'news' %>
   </div>
   <% end %>
+  <%= call_hook(:view_welcome_index_left) %>
+</div>
+
+<div class="splitcontentright">
   <%= call_hook(:view_welcome_index_right) %>
 </div>
 </div>
