@@ -24,3 +24,6 @@
 [submodule "plugins/latest_issues"]
 	path = plugins/latest_issues
 	url = https://github.com/exocad/latest-issues-redmine-plugin
+[submodule "plugins/redmine_agile"]
+	path = plugins/redmine_agile
+	url = https://github.com/exocad/redmine_agile
