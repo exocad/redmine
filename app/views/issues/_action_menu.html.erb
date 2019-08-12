@@ -1,4 +1,4 @@
-<div class="contextual">
+<div class="contextual issue-action-menu">
 <%= link_to l(:button_edit), edit_issue_path(@issue),
             :onclick => 'showAndScrollTo("update", "issue_notes"); return false;',
             :class => 'icon icon-edit', :accesskey => accesskey(:edit) if @issue.editable? %>
