@@ -10,7 +10,7 @@ function addFile(inputEl, file, eagerUpload) {
     var attachmentId = addFile.nextAttachmentId++;
     var fileSpan = $('<span>', { id: 'attachments_' + attachmentId });
     var param = $(inputEl).data('param');
-    if (!param) {param = 'attachments'};
+    if (!param) {param = 'attachments';};
 
     fileSpan.append(
         $('<input>', { type: 'text', 'class': 'icon icon-attachment filename readonly', name: param +'[' + attachmentId + '][filename]', readonly: 'readonly'} ).val(file.name),
@@ -134,7 +134,7 @@ function addInputFiles(inputEl) {
   var clearedFileInput = $(inputEl).clone().val('');
   var sizeExceeded = false;
   var param = $(inputEl).data('param');
-  if (!param) {param = 'attachments'};
+  if (!param) {param = 'attachments';};
 
   if ($.ajaxSettings.xhr().upload && inputEl.files) {
     // upload files using ajax
@@ -218,7 +218,7 @@ function addInlineAttachmentMarkup(file) {
     var description = $textarea.val();
     var sanitizedFilename = file.name.replace(/[\/\?\%\*\:\|\"\'<>\n\r]+/, '_');
     var inlineFilename = encodeURIComponent(sanitizedFilename)
-      .replace(/[!()]/g, function(match) { return "%" + match.charCodeAt(0).toString(16) });
+      .replace(/[!()]/g, function(match) { return "%" + match.charCodeAt(0).toString(16); });
     var newLineBefore = true;
     var newLineAfter = true;
     if(cursorPosition === 0 || description.substr(cursorPosition-1,1).match(/\r|\n/)) {
