@@ -67,7 +67,7 @@
 
     <%= f.hidden_field :lock_version %>
     <%= hidden_field_tag 'last_journal_id', params[:last_journal_id] || @issue.last_journal_id %>
-    <%= submit_tag 'Submit as INTERNAL note', class: 'btn-submit-internal' %>
+    <%= submit_tag 'Submit as INTERNAL note', class: 'btn-submit-internal btn-large' %>
     <%= link_to l(:button_cancel), issue_path(id: @issue.id), :onclick => params[:action] == 'show' ? "$('#update').hide(); return false;" : '' %>
 
     <%= hidden_field_tag 'prev_issue_id', @prev_issue_id if @prev_issue_id %>
