@@ -201,8 +201,7 @@ function setupFileDrop() {
       $(this).on({
           dragover: dragOverHandler,
           dragleave: dragOutHandler,
-          drop: handleFileDropEvent,
-          paste: copyImageFromClipboard
+          drop: handleFileDropEvent
       }).addClass('filedroplistner');
     });
   }
@@ -251,25 +250,6 @@ function addInlineAttachmentMarkup(file) {
   }
 }
 
-function copyImageFromClipboard(e) {
-  if (!$(e.target).hasClass('wiki-edit')) { return; }
-  var clipboardData = e.clipboardData || e.originalEvent.clipboardData
-  if (!clipboardData) { return; }
-
-  var items = clipboardData.items
-  for (var i = 0 ; i < items.length ; i++) {
-    var item = items[i];
-    if (item.type.indexOf("image") != -1) {
-      var blob = item.getAsFile();
-      var date = new Date();
-      var filename = 'clipboard-' + date.getTime() + '.' + blob.name.split('.').pop();
-      var file = new File([blob], filename, {type: blob.type});
-      var inputEl = $('input:file.filedrop').first()
-      handleFileDropEvent.target = e.target;
-      addFile(inputEl, file, true);
-    }
-  }
-}
 
 $(document).ready(setupFileDrop);
 $(document).ready(function(){
