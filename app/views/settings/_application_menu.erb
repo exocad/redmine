@@ -1,0 +1,22 @@
+<%= form_tag({:action => 'edit', :tab => 'application_menu'}) do %>
+
+<div class="box tabular settings all-checkable">
+	<p>
+		<%=
+			setting_multiselect(:app_menu_hidden_items,
+        Redmine::MenuManager.items(:application_menu).root.children.collect {|m| [l_or_humanize(m.caption, :prefix => "app_menu_hidden_"), m.name.to_s]})
+		%>
+	</p>
+	<div><a id="btn-checkall" href="javascript:;">Check all</a>&nbsp;|&nbsp;<a id="btn-uncheckall" href="javascript:;">Uncheck all</a></div>
+</div>
+<script>
+	$('.all-checkable #btn-checkall').click(function() {
+		$('.all-checkable input[type=checkbox]').prop('checked', true);
+	});
+	$('.all-checkable #btn-uncheckall').click(function() {
+		$('.all-checkable input[type=checkbox]').prop('checked', false);
+	});
+</script>
+
+<%= submit_tag l(:button_save) %>
+<% end %>

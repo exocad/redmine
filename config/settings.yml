@@ -328,3 +328,6 @@ timelog_accept_future_dates:
   default: 1
 show_status_changes_in_mail_subject:
   default: 1
+app_menu_hidden_items:
+   serialized: true
+   default: {}

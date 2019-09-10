@@ -487,6 +487,7 @@ en:
   setting_project_list_defaults: Projects list defaults
 
   setting_enable_watcher_issue_visibility: Enable watcher issue visibility  
+  setting_app_menu_hidden_items: Check items to hide them in application menu
   permission_add_project: Create project
   permission_add_subprojects: Create subprojects
   permission_edit_project: Edit project
@@ -1081,6 +1082,7 @@ en:
 
   label_issues_visibility_own_watch: Issues created by, assigned to, or watched by the user
   label_issues_visibility_own_watch_contributed: Issues created by, assigned to, watched by, or contributed to by the user
+  label_application_menu: 'Application menu'
   button_login: Login
   button_submit: Submit
   button_save: Save
