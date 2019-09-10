@@ -190,8 +190,12 @@ module Redmine
       end
 
       def menu_items_for(menu, project=nil)
-        items = []
-        Redmine::MenuManager.items(menu).root.children.each do |node|
+				items = []
+				children = Redmine::MenuManager.items(menu).root.children
+				if menu == :application_menu
+					children = children.select{ |c| !(Setting.app_menu_hidden_items.include? c.name.to_s) }
+				end
+        children.each do |node|
           if node.allowed?(User.current, project)
             if block_given?
               yield node

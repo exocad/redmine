@@ -308,3 +308,6 @@ timelog_accept_0_hours:
 timelog_max_hours_per_day:
   format: int
   default: 999
+app_menu_hidden_items:
+   serialized: true
+   default: {}

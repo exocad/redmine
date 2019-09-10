@@ -24,6 +24,7 @@ module SettingsHelper
             {:name => 'authentication', :partial => 'settings/authentication', :label => :label_authentication},
             {:name => 'api', :partial => 'settings/api', :label => :label_api},
             {:name => 'projects', :partial => 'settings/projects', :label => :label_project_plural},
+            {:name => 'application_menu', :partial => 'settings/application_menu', :label => :label_application_menu},
             {:name => 'users', :partial => 'settings/users', :label => :label_user_plural},
             {:name => 'issues', :partial => 'settings/issues', :label => :label_issue_tracking},
             {:name => 'timelog', :partial => 'settings/timelog', :label => :label_time_tracking},
