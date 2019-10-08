@@ -27,3 +27,6 @@
 [submodule "plugins/redmine_agile"]
 	path = plugins/redmine_agile
 	url = https://github.com/exocad/redmine_agile
+[submodule "plugins/ticket_reminder"]
+	path = plugins/ticket_reminder
+	url = https://github.com/exocad/redmineTicketReminder
