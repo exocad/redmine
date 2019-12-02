@@ -93,7 +93,14 @@ module IssuesHelper
 
   def render_descendants_tree(issue)
     manage_relations = User.current.allowed_to?(:manage_subtasks, issue.project)
-    s = +'<table class="list issues odd-even">'
+    s = +'<table class="list issues odd-even">' << content_tag('thead', content_tag('tr',
+			content_tag('th') +
+			content_tag('th', l(:field_status)) +
+			content_tag('th', l(:field_priority)) +
+			content_tag('th', l(:field_assigned_to)) +
+			content_tag('th') +
+			content_tag('th')
+		))
     issue_list(
       issue.descendants.visible.
         preload(:status, :priority, :tracker,
@@ -126,6 +133,7 @@ module IssuesHelper
                            :project => (issue.project_id != child.project_id)),
                          :class => 'subject') +
              content_tag('td', h(child.status), :class => 'status') +
+             content_tag('td', child.priority, :class => 'priority') +
              content_tag('td', link_to_user(child.assigned_to), :class => 'assigned_to') +
              content_tag('td', format_date(child.start_date), :class => 'start_date') +
              content_tag('td', format_date(child.due_date), :class => 'due_date') +
@@ -166,6 +174,16 @@ module IssuesHelper
         end
       buttons << link_to_context_menu
       s <<
+        content_tag('thead', content_tag('tr',
+  				content_tag('th') +
+  				content_tag('th', l(:field_status)) +
+  				content_tag('th', l(:field_priority)) +
+  				content_tag('th', l(:field_assigned_to)) +
+  				content_tag('th', l(:field_start_date)) +
+  				content_tag('th', l(:field_due_date)) +
+  				content_tag('th') +
+  				content_tag('th')
+  			))
         content_tag(
           'tr',
           content_tag('td',
@@ -181,6 +199,7 @@ module IssuesHelper
                          }.html_safe,
                          :class => 'subject') +
              content_tag('td', other_issue.status, :class => 'status') +
+             content_tag('td', other_issue.priority, :class => 'priority') +
              content_tag('td', link_to_user(other_issue.assigned_to), :class => 'assigned_to') +
              content_tag('td', format_date(other_issue.start_date), :class => 'start_date') +
              content_tag('td', format_date(other_issue.due_date), :class => 'due_date') +
