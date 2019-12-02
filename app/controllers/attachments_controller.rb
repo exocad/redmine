@@ -58,7 +58,8 @@ class AttachmentsController < ApplicationController
         elsif @attachment.is_image?
           render :action => 'image'
         else
-          render :action => 'other'
+					# render :action => 'other'
+					redirect_to download_named_attachment_url(@attachment, @attachment.filename)
         end
       }
       format.api
