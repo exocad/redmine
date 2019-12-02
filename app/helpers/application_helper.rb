@@ -97,7 +97,11 @@ module ApplicationHelper
   # * :text - Link text (default to attachment filename)
   # * :download - Force download (default: false)
   def link_to_attachment(attachment, options={})
-    text = options.delete(:text) || attachment.filename
+		text = options.delete(:text) || attachment.filename
+		if(User.current.pref.open_attachments_in_new_tab == '1')
+			options[:target] = '_blank'
+		end
+
     if options.delete(:download)
       route_method = :download_named_attachment_url
       options[:filename] = attachment.filename
@@ -273,7 +277,8 @@ module ApplicationHelper
       attachment_path(
         attachment
       ),
-      :title => attachment.filename
+			:title => attachment.filename,
+			:target => User.current.pref.open_attachments_in_new_tab == '1' ? '_blank' : nil
     )
   end
 

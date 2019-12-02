@@ -28,7 +28,8 @@ class UserPreference < ActiveRecord::Base
   safe_attributes 'hide_mail',
     'time_zone',
     'comments_sorting',
-    'warn_on_leaving_unsaved',
+		'warn_on_leaving_unsaved',
+		'open_attachments_in_new_tab',
     'no_self_notified',
     'textarea_font'
 
@@ -77,7 +78,10 @@ class UserPreference < ActiveRecord::Base
   def comments_sorting=(order); self[:comments_sorting]=order end
 
   def warn_on_leaving_unsaved; self[:warn_on_leaving_unsaved] || '1'; end
-  def warn_on_leaving_unsaved=(value); self[:warn_on_leaving_unsaved]=value; end
+	def warn_on_leaving_unsaved=(value); self[:warn_on_leaving_unsaved]=value; end
+	
+  def open_attachments_in_new_tab; self[:open_attachments_in_new_tab] || '0'; end
+  def open_attachments_in_new_tab=(value); self[:open_attachments_in_new_tab]=value; end
 
   def no_self_notified; (self[:no_self_notified] == true || self[:no_self_notified] == '1'); end
   def no_self_notified=(value); self[:no_self_notified]=value; end
