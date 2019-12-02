@@ -12,7 +12,7 @@
 </p>
 
 <fieldset class="box">
-  <legend><%= toggle_checkboxes_link('p#search-types input') %></legend>
+  <legend><%= toggle_checkboxes_link('p#search-types input', true) %></legend>
   <p id="search-types">
   <% @object_types.each do |t| %>
   <label><%= check_box_tag t, 1, @scope.include?(t) %> <%= link_to type_label(t), "#" %></label>

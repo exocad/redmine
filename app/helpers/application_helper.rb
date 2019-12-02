@@ -1326,8 +1326,8 @@ module ApplicationHelper
     link_to_function(l(:button_uncheck_all), "checkAll('#{form_name}', false)")
   end
 
-  def toggle_checkboxes_link(selector)
-    link_to_function '',
+  def toggle_checkboxes_link(selector, label=false)
+    link_to_function label ? "#{l(:button_check_all)} / #{l(:button_uncheck_all)}" : '',
       "toggleCheckboxesBySelector('#{selector}')",
       :title => "#{l(:button_check_all)} / #{l(:button_uncheck_all)}",
       :class => 'icon icon-checked'
