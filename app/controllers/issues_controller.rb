@@ -183,7 +183,8 @@ class IssuesController < ApplicationController
       flash[:notice] = l(:notice_successful_update) unless @issue.current_journal.new_record? || params[:no_flash]
 
       respond_to do |format|
-        format.html { redirect_back_or_default issue_path(@issue, previous_and_next_issue_ids_params) }
+        # format.html { redirect_back_or_default issue_path(@issue, previous_and_next_issue_ids_params) }
+        format.html { redirect_back_or_default issue_path(@issue) }
         format.api  { render_api_ok }
       end
     else
