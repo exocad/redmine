@@ -155,6 +155,16 @@ module IssuesHelper
   def render_issue_relations(issue, relations)
     manage_relations = User.current.allowed_to?(:manage_issue_relations, issue.project)
     s = ''.html_safe
+		s << content_tag('thead', content_tag('tr',
+			content_tag('th') +
+			content_tag('th', l(:field_status)) +
+			content_tag('th', l(:field_priority)) +
+			content_tag('th', l(:field_start_date)) +
+			content_tag('th', l(:field_due_date)) +
+			content_tag('th') +
+			content_tag('th')
+		))
+
     relations.each do |relation|
       other_issue = relation.other_issue(issue)
       css = "issue hascontextmenu #{other_issue.css_classes}"
