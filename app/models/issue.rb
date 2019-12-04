@@ -45,7 +45,13 @@ class Issue < ActiveRecord::Base
   acts_as_watchable
   acts_as_searchable :columns => ['subject', "#{table_name}.description"],
                      :preload => [:project, :status, :tracker],
-                     :scope => lambda {|options| options[:open_issues] ? self.open : self.all}
+										 :scope => lambda { |options|
+												r = (options[:open_issues] ? self.open : self.all)
+												r = r.assigned_to(User.current) if options[:issues_assigned]
+												r = r.where(:author => User.current) if options[:issues_created]
+												r = r.where("(#{table_name}.author_id=? OR #{table_name}.assigned_to_id=? OR #{table_name}.id IN (SELECT watchable_id FROM watchers WHERE user_id=? AND watchable_type = 'Issue') OR #{table_name}.id IN (SELECT journalized_id FROM journals where journalized_type='Issue' AND user_id=? GROUP BY journalized_id))", User.current.id, User.current.id, User.current.id, User.current.id)
+												r
+											}
 
   acts_as_event :title => Proc.new {|o| "#{o.tracker.name} ##{o.id} (#{o.status}): #{o.subject}"},
                 :url => Proc.new {|o| {:controller => 'issues', :action => 'show', :id => o.id}},
