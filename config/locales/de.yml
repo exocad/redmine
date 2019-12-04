@@ -1152,6 +1152,9 @@ de:
   label_search_attachments_no: Keine Anhänge suchen
   label_search_attachments_only: Nur Anhänge suchen
   label_search_open_issues_only: Nur offene Tickets
+  label_search_issues_assigned_to_me: Nur mir zugewiesene Tickets
+  label_search_issues_iam_involved: Nur Tickets die ich beobachte oder an denen ich mitarbeite
+  label_search_issues_i_created: Nur von mir erstellte Tickets
   field_address: E-Mail
   setting_max_additional_emails: Maximale Anzahl zusätzlicher E-Mailadressen
   label_email_address_plural: E-Mails

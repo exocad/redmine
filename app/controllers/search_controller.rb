@@ -25,7 +25,11 @@ class SearchController < ApplicationController
     @all_words = params[:all_words] ? params[:all_words].present? : true
     @titles_only = params[:titles_only] ? params[:titles_only].present? : false
     @search_attachments = params[:attachments].presence || '0'
-    @open_issues = params[:open_issues] ? params[:open_issues].present? : false
+		@open_issues = params[:open_issues] ? params[:open_issues].present? : false
+		
+		@issues_assigned = params[:issues_assigned] ? params[:issues_assigned].present? : false
+		@issues_involved = params[:issues_involved] ? params[:issues_involved].present? : false
+		@issues_created = params[:issues_created] ? params[:issues_created].present? : false
 
     case params[:format]
     when 'xml', 'json'
@@ -67,7 +71,8 @@ class SearchController < ApplicationController
 
     fetcher = Redmine::Search::Fetcher.new(
       @question, User.current, @scope, projects_to_search,
-      :all_words => @all_words, :titles_only => @titles_only, :attachments => @search_attachments, :open_issues => @open_issues,
+			:all_words => @all_words, :titles_only => @titles_only, :attachments => @search_attachments, :open_issues => @open_issues,
+			:issues_assigned => @issues_assigned, :issues_involved => @issues_involved, :issues_created => @issues_created,
       :cache => params[:page].present?, :params => params.to_unsafe_hash
     )
 
