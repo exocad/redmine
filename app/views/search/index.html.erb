@@ -28,6 +28,9 @@
   <legend onclick="toggleFieldset(this);" class="icon icon-collapsed"><%= l(:label_options) %></legend>
   <div id="options-content" style="display:none;">
     <p><label><%= check_box_tag 'open_issues', 1, @open_issues %> <%= l(:label_search_open_issues_only) %></label></p>
+    <p><label><%= check_box_tag 'issues_assigned', 1, @issues_assigned %> <%= l(:label_search_issues_assigned_to_me) %></label></p>
+    <p><label><%= check_box_tag 'issues_created', 1, @issues_created %> <%= l(:label_search_issues_i_created) %></label></p>
+    <p><label><%= check_box_tag 'issues_involved', 1, @issues_involved %> <%= l(:label_search_issues_iam_involved) %></label></p>
     <p>
       <label><%= radio_button_tag 'attachments', '0', @search_attachments == '0' %> <%= l(:label_search_attachments_no) %></label>
       <label><%= radio_button_tag 'attachments', '1', @search_attachments == '1' %> <%= l(:label_search_attachments_yes) %></label>
