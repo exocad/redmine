@@ -998,7 +998,8 @@ en:
   label_search_attachments_only: Search attachments only
   label_search_open_issues_only: Open issues only
   label_search_issues_assigned_to_me: Only issues assigned to me
-  label_search_issues_iam_involved: Only issues I am involved or watcher
+  label_search_issues_iam_involved_or_watcher: Only issues I am involved or watcher
+  label_search_issues_iam_involved: Only issues I am involved
   label_search_issues_i_created: Only issues I created
   label_email_address_plural: Emails
   label_email_address_add: Add email address
