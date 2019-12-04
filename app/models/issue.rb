@@ -49,7 +49,7 @@ class Issue < ActiveRecord::Base
 												r = (options[:open_issues] ? self.open : self.all)
 												r = r.assigned_to(User.current) if options[:issues_assigned]
 												r = r.where(:author => User.current) if options[:issues_created]
-												r = r.where("(#{table_name}.author_id=? OR #{table_name}.assigned_to_id=? OR #{table_name}.id IN (SELECT watchable_id FROM watchers WHERE user_id=? AND watchable_type = 'Issue') OR #{table_name}.id IN (SELECT journalized_id FROM journals where journalized_type='Issue' AND user_id=? GROUP BY journalized_id))", User.current.id, User.current.id, User.current.id, User.current.id)
+												r = r.where("(#{table_name}.author_id=? OR #{table_name}.assigned_to_id=? OR #{table_name}.id IN (SELECT watchable_id FROM watchers WHERE user_id=? AND watchable_type = 'Issue') OR #{table_name}.id IN (SELECT journalized_id FROM journals where journalized_type='Issue' AND user_id=? GROUP BY journalized_id))", User.current.id, User.current.id, User.current.id, User.current.id) if options[:issues_involved]
 												r
 											}
 
