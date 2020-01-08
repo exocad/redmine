@@ -916,7 +916,7 @@ module ApplicationHelper
 				if(comment_suffix && comment_id && !identifier)
 					identifier = "#{_issue.id}"
 				end
-				self_referenced_note = _issue.id == identifier.to_i
+				self_referenced_note = _issue.id == identifier.to_i && comment_id && !comment_id.blank?
 			end
 
       if tag_content
