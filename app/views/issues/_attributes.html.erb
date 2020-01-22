@@ -15,7 +15,7 @@
 <% end %>
 
 <% if @issue.safe_attribute? 'assigned_to_id' %>
-<p><%= f.select :assigned_to_id, principals_options_for_select(@issue.assignable_users, @issue.assigned_to), :include_blank => true, :required => @issue.required_attribute?('assigned_to_id') %></p>
+<p><label><%= l(:field_assigned_to) %></label> <%= text_field_tag :issue_assigned_to_autocomplete, @issue.assigned_to ? @issue.assigned_to.name : '' %><%= f.hidden_field :assigned_to_id %></p>
 <% end %>
 
 <% if @issue.safe_attribute?('category_id') && @issue.project.issue_categories.any? %>
@@ -81,3 +81,34 @@
 <% end %>
 
 <% include_calendar_headers_tags %>
+<% if @issue.safe_attribute? 'assigned_to_id' %>
+  <%= javascript_tag do %>
+    var assignner_list = <%=  raw  @issue.assignable_users.map {|u| {:id => u.id, :label => u.name, :css => u.class.to_s.downcase}}.to_json %>;
+    observeAutocompleteField('issue_assigned_to_autocomplete', '', {
+      source: assignner_list,
+      minLength: 0,
+      select: function(event, ui) {$('#issue_assigned_to_id').val(ui.item.id);},
+      change: function(event, ui) {
+        var assigners = $.grep(assignner_list, function(item, i){return(item.label.toLowerCase()==$('#issue_assigned_to_autocomplete').val().toLowerCase());});
+
+        if(assigners.length==1){
+          $('#issue_assigned_to_autocomplete').val(assigners[0].label);
+          $('#issue_assigned_to_id').val(assigners[0].id);
+        }else{
+          $('#issue_assigned_to_autocomplete, #issue_assigned_to_id').val('');
+        }
+       },
+      create: function(){
+        $(this).data('ui-autocomplete')._renderItem = function(ul, item){
+          ul.css({'background':'#eee'});
+          return $('<li style="white-space:nowrap">')
+            .append('<div><i class="icon icon-'+item.css+'"></i>'+item.label+'</div>')
+            .appendTo(ul);
+        };
+      }
+    });
+    $('#issue_assigned_to_autocomplete').focus(function(){
+      $(this).data("uiAutocomplete").search($(this).val());
+    });
+  <% end %>
+<% end %>
