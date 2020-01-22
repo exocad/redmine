@@ -83,26 +83,39 @@
 <% include_calendar_headers_tags %>
 <% if @issue.safe_attribute? 'assigned_to_id' %>
   <%= javascript_tag do %>
-    var assignner_list = <%=  raw  @issue.assignable_users.map {|u| {:id => u.id, :label => u.name, :css => u.class.to_s.downcase}}.to_json %>;
+    var assignner_list = <%=  raw  [{:id => User.current.id, :label => "<< #{l(:label_me)} >>", :category => 'User'}]
+      .concat(@issue.assignable_users.select{|u|u.is_a?(User)}.map{|u|{:id => u.id, :label => u.name, :category => 'User'}})
+      .concat(@issue.assignable_users.select{|u|u.is_a?(Group)}.map{|u|{:id => u.id, :label => u.name, :category => 'Group'}}).to_json %>;
     observeAutocompleteField('issue_assigned_to_autocomplete', '', {
       source: assignner_list,
       minLength: 0,
-      select: function(event, ui) {$('#issue_assigned_to_id').val(ui.item.id);},
-      change: function(event, ui) {
+      select: function(event, ui){$('#issue_assigned_to_id').val(ui.item.id);},
+      change: function(event, ui){
         var assigners = $.grep(assignner_list, function(item, i){return(item.label.toLowerCase()==$('#issue_assigned_to_autocomplete').val().toLowerCase());});
-
         if(assigners.length==1){
           $('#issue_assigned_to_autocomplete').val(assigners[0].label);
           $('#issue_assigned_to_id').val(assigners[0].id);
         }else{
           $('#issue_assigned_to_autocomplete, #issue_assigned_to_id').val('');
         }
-       },
+      },
       create: function(){
+        $(this).data('ui-autocomplete')._renderMenu = function(ul, items){
+          var self = this, category = null;
+          $.each(items, function(index, item){
+            if(item.category!=category && item.category=='Group'){
+              ul.append("<li class='ui-autocomplete-group' style='padding-top:2px'>")
+                .append("<div> -- <i class='icon icon-group'></i><%= l(:label_group_plural) %> -- </div>");
+            }
+            category=item.category;
+            self._renderItemData(ul, item);
+          });
+          self.widget().menu( "option", "items", "> li:not(.ui-autocomplete-group)" );
+        };
         $(this).data('ui-autocomplete')._renderItem = function(ul, item){
-          ul.css({'background':'#eee'});
+          ul.css({'background':'#eee','overflow':'scroll'});
           return $('<li style="white-space:nowrap">')
-            .append('<div><i class="icon icon-'+item.css+'"></i>'+item.label+'</div>')
+            .append('<div>'+item.label+'</div>')
             .appendTo(ul);
         };
       }
