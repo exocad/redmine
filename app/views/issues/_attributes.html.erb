@@ -15,7 +15,7 @@
 <% end %>
 
 <% if @issue.safe_attribute? 'assigned_to_id' %>
-<p><label><%= l(:field_assigned_to) %></label> <%= text_field_tag :issue_assigned_to_autocomplete, @issue.assigned_to ? @issue.assigned_to.name : '' %><%= f.hidden_field :assigned_to_id %></p>
+<p><label><%= l(:field_assigned_to) %></label> <%= text_field_tag :issue_assigned_to_autocomplete, @issue.assigned_to ? @issue.assigned_to.name : '', :style => 'width:250px' %><%= f.hidden_field :assigned_to_id %></p>
 <% end %>
 
 <% if @issue.safe_attribute?('category_id') && @issue.project.issue_categories.any? %>
@@ -102,6 +102,7 @@
       create: function(){
         $(this).data('ui-autocomplete')._renderMenu = function(ul, items){
           var self = this, category = null;
+					ul.css({'max-height': '400px' });
           $.each(items, function(index, item){
             if(item.category!=category && item.category=='Group'){
               ul.append("<li class='ui-autocomplete-group' style='padding-top:2px'>")
