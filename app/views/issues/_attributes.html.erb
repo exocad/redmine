@@ -102,6 +102,7 @@
       create: function(){
         $(this).data('ui-autocomplete')._renderMenu = function(ul, items){
           var self = this, category = null;
+					ul.css({'max-height': '400px' });
           $.each(items, function(index, item){
             if(item.category!=category && item.category=='Group'){
               ul.append("<li class='ui-autocomplete-group' style='padding-top:2px'>")
