@@ -617,7 +617,7 @@ function observeAutocompleteField(fieldId, url, options) {
   });
 }
 
-function observeSearchfield(fieldId, targetId, url) {
+function observeSearchfield(fieldId, targetId, url, done) {
   $('#'+fieldId).each(function() {
     var $this = $(this);
     $this.addClass('autocomplete');
@@ -632,7 +632,7 @@ function observeSearchfield(fieldId, targetId, url) {
           data: {q: $this.val()},
           success: function(data){ if(targetId) $('#'+targetId).html(data); },
           beforeSend: function(){ $this.addClass('ajax-loading'); },
-          complete: function(){ $this.removeClass('ajax-loading'); }
+          complete: function(){ $this.removeClass('ajax-loading'); (typeof done === 'function') && done(); }
         });
       }
     };
