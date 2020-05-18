@@ -30,3 +30,6 @@
 [submodule "plugins/ticket_reminder"]
 	path = plugins/ticket_reminder
 	url = https://github.com/exocad/redmineTicketReminder
+[submodule "plugins/redmine_searchextension"]
+	path = plugins/redmine_searchextension
+	url = https://github.com/exocad/redmineSearchExtension
