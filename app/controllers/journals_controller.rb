@@ -61,16 +61,18 @@ class JournalsController < ApplicationController
 
   def new
     @journal = Journal.visible.find(params[:journal_id]) if params[:journal_id]
+		note_id = nil
     if @journal
       user = @journal.user
       text = @journal.notes
+			note_id = @journal.journalized.journals.where('id <= ?', params[:journal_id]).count.to_s
     else
       user = @issue.author
       text = @issue.description
     end
     # Replaces pre blocks with [...]
     text = text.to_s.strip.gsub(%r{<pre>(.*?)</pre>}m, '[...]')
-    @content = "#{ll(Setting.default_language, :text_user_wrote, user)}\n> "
+    @content = "#{ll(Setting.default_language, :text_user_wrote, user.to_s + (note_id.nil? ? '' : ' (#note-'+note_id+')'))}\n> "
     @content << text.gsub(/(\r?\n|\r\n?)/, "\n> ") + "\n\n"
   rescue ActiveRecord::RecordNotFound
     render_404
