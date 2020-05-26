@@ -30,6 +30,7 @@ class UserPreference < ActiveRecord::Base
     'comments_sorting',
 		'warn_on_leaving_unsaved',
 		'open_attachments_in_new_tab',
+		'separate_closed_issue_relations',
     'no_self_notified',
     'textarea_font'
 
@@ -82,6 +83,9 @@ class UserPreference < ActiveRecord::Base
 	
   def open_attachments_in_new_tab; self[:open_attachments_in_new_tab] || '0'; end
   def open_attachments_in_new_tab=(value); self[:open_attachments_in_new_tab]=value; end
+	
+  def separate_closed_issue_relations; self[:separate_closed_issue_relations] || '0'; end
+  def separate_closed_issue_relations=(value); self[:separate_closed_issue_relations]=value; end
 
   def no_self_notified; (self[:no_self_notified] == true || self[:no_self_notified] == '1'); end
   def no_self_notified=(value); self[:no_self_notified]=value; end
