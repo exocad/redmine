@@ -358,6 +358,7 @@ en:
   field_warn_on_leaving_unsaved: "Warn me when leaving a page with unsaved text"
   field_issues_visibility: Issues visibility
   field_open_attachments_in_new_tab: "Open attachments in new tab"
+  field_separate_closed_issue_relations: "Display closed sub/related issues separately"
   field_is_private: Private
   field_commit_logs_encoding: Commit messages encoding
   field_scm_path_encoding: Path encoding

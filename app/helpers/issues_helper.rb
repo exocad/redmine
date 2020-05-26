@@ -101,10 +101,11 @@ module IssuesHelper
 			content_tag('th') +
 			content_tag('th')
 		))
-    issue_list(
-      issue.descendants.visible.
+    issues = issue.descendants.visible.
         preload(:status, :priority, :tracker,
-                :assigned_to).sort_by(&:lft)) do |child, level|
+                :assigned_to).sort_by(&:lft)
+    issues = issues.sort{|a,b| (a.closed? ? 1 : 0) - (b.closed? ? 1 : 0)  } if separate_closed_issue_relations?
+    issue_list(issues) do |child, level|
       css = +"issue issue-#{child.id} hascontextmenu #{child.css_classes}"
       css << " idnt idnt-#{level}" if level > 0
       buttons =
@@ -151,6 +152,11 @@ module IssuesHelper
     s.html_safe
   end
 
+  def separate_closed_issue_relations?
+    User.current.pref.separate_closed_issue_relations == '1'
+  end
+
+
   # Renders the list of related issues on the issue details view
   def render_issue_relations(issue, relations)
     manage_relations = User.current.allowed_to?(:manage_issue_relations, issue.project)
@@ -165,6 +171,7 @@ module IssuesHelper
 			content_tag('th')
 		))
 
+    relations = relations.sort{|a,b| (a.other_issue(@issue).closed? ? 1 : 0) - (b.other_issue(@issue).closed? ? 1 : 0)  } if separate_closed_issue_relations?
     relations.each do |relation|
       other_issue = relation.other_issue(issue)
       css = "issue hascontextmenu #{other_issue.css_classes}"
