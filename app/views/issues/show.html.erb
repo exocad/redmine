@@ -128,15 +128,20 @@ end %>
 <% end %>
 
 <% if @journals.present? %>
-<%= render partial: 'action_menu'  %>
-<div style="clear:both;"></div>
+<% if User.current.wants_comments_in_reverse_order? %>
+  <%= render partial: 'action_menu_edit' %>
+  <div style="clear:both;border-top:1px solid #c8c8c8;margin-top:1em;padding-top:1em;"></div>
+<% else %>
+  <%= render partial: 'action_menu' %>
+  <div style="clear:both;"></div>
+<% end %>
 <div id="history">
 <h3><%=l(:label_history)%></h3>
 <%= render :partial => 'history', :locals => { :issue => @issue, :journals => @journals } %>
 </div>
 <% end %>
 
-<%= render partial: 'action_menu_edit'  %>
+<%= render partial: User.current.wants_comments_in_reverse_order? ? 'action_menu' : 'action_menu_edit' %>
 <div style="clear:both;"></div>
 
 <% other_formats_links do |f| %>
