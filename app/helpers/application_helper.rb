@@ -781,6 +781,10 @@ module ApplicationHelper
     text = text.dup
     macros = catch_macros(text)
 
+    text.gsub!(%r{(?:https?://)?#{Setting.host_name}/issues/(?<issue>\d+)}) do |m|
+      "#"+$~[:issue]
+    end
+
     if options[:formatting] == false
       text = h(text)
     else
