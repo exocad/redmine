@@ -31,7 +31,7 @@ class AutoCompletesController < ApplicationController
       if issue_id.present?
         scope = scope.where.not(:id => issue_id.to_i)
       end
-      if q.match(/\A#?(\d+)\z/)
+      if q.match(%r{(?:https?://)?#{Setting.host_name}/issues/(\d+)}) || q.match(/\A#?(\d+)\z/)
         issues << scope.find_by_id($1.to_i)
       end
 
