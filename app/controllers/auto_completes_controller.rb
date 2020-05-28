@@ -33,6 +33,10 @@ class AutoCompletesController < ApplicationController
       if q =~ /\A#?(\d+)\z/
         issues << scope.find_by(:id => $1.to_i)
       end
+      if q.match(%r{(?:https?://)?#{Setting.host_name}/issues/(\d+)}) || q.match(/\A#?(\d+)\z/)
+        issues << scope.find_by_id($1.to_i)
+      end
+
       issues += scope.like(q).order(:id => :desc).limit(10).to_a
       issues.compact!
     else
