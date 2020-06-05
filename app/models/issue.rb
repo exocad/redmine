@@ -147,6 +147,7 @@ class Issue < ActiveRecord::Base
           else
               '1=0'
           end
+        end
       unless role.permissions_all_trackers?(:view_issues)
         tracker_ids = role.permissions_tracker_ids(:view_issues)
         if tracker_ids.any?
@@ -178,6 +179,7 @@ class Issue < ActiveRecord::Base
           else
             false
           end
+        end
       unless role.permissions_all_trackers?(:view_issues)
         visible &&= role.permissions_tracker_ids?(:view_issues, tracker_id)
       end

@@ -121,12 +121,13 @@ end %>
 </div>
 
 <% if @journals.present? %>
-<% if User.current.wants_comments_in_reverse_order? %>
-  <%= render partial: 'action_menu_edit' %>
-  <div style="clear:both;border-top:1px solid #c8c8c8;margin-top:1em;padding-top:1em;"></div>
-<% else %>
-  <%= render partial: 'action_menu' %>
-  <div style="clear:both;"></div>
+  <% if User.current.wants_comments_in_reverse_order? %>
+    <%= render partial: 'action_menu_edit' %>
+    <div style="clear:both;border-top:1px solid #c8c8c8;margin-top:1em;padding-top:1em;"></div>
+  <% else %>
+    <%= render partial: 'action_menu' %>
+    <div style="clear:both;"></div>
+  <% end %>
 <% end %>
 <div id="history">
 <%= render_tabs issue_history_tabs, issue_history_default_tab %>
