@@ -141,7 +141,7 @@ end %>
 </div>
 <% end %>
 
-<%= render partial: User.current.wants_comments_in_reverse_order? ? 'action_menu' : 'action_menu_edit' %>
+<%= render partial: User.current.wants_comments_in_reverse_order? && @journals.present? ? 'action_menu' : 'action_menu_edit' %>
 <div style="clear:both;"></div>
 
 <% other_formats_links do |f| %>
