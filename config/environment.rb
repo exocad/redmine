@@ -12,11 +12,7 @@ if Dir.glob(File.join(vendor_plugins_dir, "*")).any?
   exit 1
 end
 
-# subfolder-configuration must be configured via environment-variable (RAILS_RELATIVE_URL_ROOT)
-# RedmineApp::Application.routes.default_scope = { :path => '/exomine', :shallow_path => '/exomine' }
 
 # Initialize the Rails application
 Rails.application.initialize!
-
-# Redmine::Utils::relative_url_root = "/exomine"
 
