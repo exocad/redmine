@@ -168,6 +168,17 @@ module Redmine
         )
       end
 
+      desc "Prints the id of this issue. Will not resolve for types other than issue."
+      macro :id do |obj, args, text|
+        if(obj.class == Issue)
+          return obj.id
+        elsif(obj.class == Journal && obj.journalized_type == 'Issue')
+          return obj.journalized_id
+        else
+          return false # do not not resolve macro
+        end
+      end
+
       desc "Displays a list of all available macros, including description if available."
       macro :macro_list do |obj, args|
         out = ''.html_safe
