@@ -1,0 +1,39 @@
+[submodule "plugins/redmine_contacts"]
+	path = plugins/redmine_contacts
+	url = https://github.com/exocad/redmine_contacts
+	branch = 4_3_1-exomine
+[submodule "plugins/redmine_contacts_helpdesk"]
+	path = plugins/redmine_contacts_helpdesk
+	url = https://github.com/exocad/redmine_contacts_helpdesk
+	branch = 4_1_9-exocad
+[submodule "plugins/redmine_tags"]
+	path = plugins/redmine_tags
+	url = https://github.com/exocad/redmine_tags
+[submodule "plugins/clipboard_image_paste"]
+	path = plugins/clipboard_image_paste
+	url = https://github.com/exocad/clipboard_image_paste
+[submodule "plugins/redmine_watcher_groups"]
+	path = plugins/redmine_watcher_groups
+	url = https://github.com/exocad/redmine_watcher_groups
+[submodule "plugins/redmine_already_read"]
+	path = plugins/redmine_already_read
+	url = https://github.com/exocad/redmine_already_read
+[submodule "plugins/redmine_elasticsearch"]
+	path = plugins/redmine_elasticsearch
+	url = https://github.com/exocad/redmine_elasticsearch
+	branch = es7
+[submodule "plugins/latest_issues"]
+	path = plugins/latest_issues
+	url = https://github.com/exocad/latest-issues-redmine-plugin
+[submodule "plugins/ticket_reminder"]
+	path = plugins/ticket_reminder
+	url = https://github.com/exocad/redmineTicketReminder
+[submodule "plugins/redmine_searchextension"]
+	path = plugins/redmine_searchextension
+	url = https://github.com/exocad/redmineSearchExtension
+[submodule "plugins/redmine_exotransfer"]
+	path = plugins/redmine_exotransfer
+	url = https://github.com/exocad/redmine_exotransfer
+[submodule "public/themes/exocad"]
+	path = public/themes/exocad
+	url = https://github.com/exocad/exocadRedmineTheme
