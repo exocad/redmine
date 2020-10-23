@@ -37,3 +37,6 @@
 [submodule "public/themes/exocad"]
 	path = public/themes/exocad
 	url = https://github.com/exocad/exocadRedmineTheme
+[submodule "plugins/redmine_polls"]
+	path = plugins/redmine_polls
+	url = https://github.com/exocad/redmine_polls
