@@ -94,8 +94,8 @@ class UserPreference < ActiveRecord::Base
   def _original_no_self_notified=(value); self[:no_self_notified]=value; end
 
   # second: make no/always_self_notified matching the original api but new functionality
-  def no_self_notified; (self[:self_notification_setting] == 'never'); end
-  def always_self_notified; (self[:self_notification_setting] == 'always'); end
+  def no_self_notified; (self_notification_setting == 'never'); end
+  def always_self_notified; (self_notification_setting == 'always'); end
 
   # third: define a setting compatible with radiob-uttons or combo-box.
   def self_notification_setting
