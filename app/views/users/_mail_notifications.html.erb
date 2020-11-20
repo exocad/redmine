@@ -24,8 +24,21 @@
 <% end %>
 
 <%= fields_for :pref, @user.pref do |pref_fields| %>
-<p>
-  <%= pref_fields.check_box :no_self_notified %>
-  <label for="pref_no_self_notified"><%= l(:label_user_mail_no_self_notified) %></label>
-</p>
+<div>
+  <label style="font-weight:600;"><%= l(:label_user_mail_self_notification) %></label><br>
+  <div style="margin-left: 2em">
+    <label>
+      <%= pref_fields.radio_button :self_notification_setting, 'na' %>
+      <%= l(:label_user_mail_not_specified_self_notified) %>
+    </label><br>
+    <label>
+      <%= pref_fields.radio_button :self_notification_setting, 'never' %>
+      <%= l(:label_user_mail_no_self_notified) %>
+    </label><br>
+    <label>
+      <%= pref_fields.radio_button :self_notification_setting, 'always' %>
+      <%= l(:label_user_mail_always_self_notified) %>
+    </label>
+  </div>
+</div>
 <% end %>

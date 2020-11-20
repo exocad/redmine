@@ -888,7 +888,10 @@ en:
   label_user_mail_option_only_my_events: "Only for things I watch or I'm involved in"
   label_user_mail_option_only_assigned: "Only for things I watch or I am assigned to"
   label_user_mail_option_only_owner: "Only for things I watch or I am the owner of"
-  label_user_mail_no_self_notified: "I don't want to be notified of changes that I make myself"
+  label_user_mail_self_notification: "Notification of changes I make myself"
+  label_user_mail_not_specified_self_notified: "Just like all changes (default)"
+  label_user_mail_no_self_notified: "I don't want to be notified"
+  label_user_mail_always_self_notified: "I want to be notified always"
   label_registration_activation_by_email: account activation by email
   label_registration_manual_activation: manual account activation
   label_registration_automatic_activation: automatic account activation

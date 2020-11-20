@@ -103,7 +103,10 @@ class Message < ActiveRecord::Base
   end
 
   def notified_users
-    project.notified_users.reject {|user| !visible?(user)}
+    notified = project.notified_users.reject {|user| !visible?(user)}
+    notified << User.current if User.current.pref.always_self_notified
+    notified.uniq!
+    notified
   end
 
   private

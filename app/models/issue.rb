@@ -1053,6 +1053,7 @@ class Issue < ActiveRecord::Base
     notified = notified.select {|u| u.active? && u.notify_about?(self)}
 
     notified += project.notified_users
+    notified << User.current if User.current.pref.always_self_notified
     notified.uniq!
     # Remove users that can not view the issue
     notified.reject! {|user| !visible?(user)}

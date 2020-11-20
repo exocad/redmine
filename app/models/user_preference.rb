@@ -31,7 +31,7 @@ class UserPreference < ActiveRecord::Base
 		'warn_on_leaving_unsaved',
 		'open_attachments_in_new_tab',
 		'separate_closed_issue_relations',
-    'no_self_notified',
+    'self_notification_setting',
     'textarea_font'
 
   TEXTAREA_FONT_OPTIONS = ['monospace', 'proportional']
@@ -45,8 +45,8 @@ class UserPreference < ActiveRecord::Base
       unless attributes && attributes.key?(:time_zone)
         self.time_zone = Setting.default_users_time_zone
       end
-      unless attributes && attributes.key?(:no_self_notified)
-        self.no_self_notified = true
+      unless attributes && attributes.key?(:self_notification_setting)
+        self.self_notification_setting = 'na'
       end
     end
     self.others ||= {}
@@ -87,8 +87,30 @@ class UserPreference < ActiveRecord::Base
   def separate_closed_issue_relations; self[:separate_closed_issue_relations] || '0'; end
   def separate_closed_issue_relations=(value); self[:separate_closed_issue_relations]=value; end
 
-  def no_self_notified; (self[:no_self_notified] == true || self[:no_self_notified] == '1'); end
-  def no_self_notified=(value); self[:no_self_notified]=value; end
+  ## exocad patch: introduce option for opt-in any self-notification with keeping comaptibility to unpatched version
+
+  # first: rename no_self_notified-method to prevent redmine from using it
+  def _original_no_self_notified; (self[:no_self_notified] == true || self[:no_self_notified] == '1'); end
+  def _original_no_self_notified=(value); self[:no_self_notified]=value; end
+
+  # second: make no/always_self_notified matching the original api but new functionality
+  def no_self_notified; (self[:self_notification_setting] == 'never'); end
+  def always_self_notified; (self[:self_notification_setting] == 'always'); end
+
+  # third: define a setting compatible with radiob-uttons or combo-box.
+  def self_notification_setting
+    if self[:self_notification_setting] != nil
+      self[:self_notification_setting]
+    else
+      _original_no_self_notified ? 'never' : 'na' # fallback to original option in case user did not come across this patch
+    end
+  end
+  def self_notification_setting=(value)
+    self[:self_notification_setting]=value
+    _original_no_self_notified = value == 'never' # this will keep the setting in case of un-patching
+  end
+  ## exocad patch end
+
 
   def activity_scope; Array(self[:activity_scope]) ; end
   def activity_scope=(value); self[:activity_scope]=value ; end

@@ -54,7 +54,10 @@ class News < ActiveRecord::Base
   end
 
   def notified_users
-    project.users.select {|user| user.notify_about?(self) && user.allowed_to?(:view_news, project)}
+    notified = project.users.select {|user| user.notify_about?(self) && user.allowed_to?(:view_news, project)}
+    notified << User.current if User.current.pref.always_self_notified
+    notified.uniq!
+    notified
   end
 
   def recipients
