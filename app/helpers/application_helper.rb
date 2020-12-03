@@ -1008,7 +1008,6 @@ module ApplicationHelper
       comment_suffix = $~[:comment_suffix]
       comment_id = $~[:comment_id]
 
-			self_referenced_note = false
 			_issue = nil
 			if(obj.respond_to? :journalized)
 				_issue = obj.journalized if obj.journalized.class == Issue
@@ -1016,10 +1015,9 @@ module ApplicationHelper
 				_issue = obj
 			end
 			if(_issue) 
-				if(comment_suffix && comment_id && !identifier)
-					identifier = "#{_issue.id}"
-				end
-				self_referenced_note = _issue.id == identifier.to_i && comment_id && !comment_id.blank?
+        if(_issue.id == identifier.to_i && comment_id && !comment_id.blank?)
+           identifier = "note"
+        end
 			end
 
       if tag_content
