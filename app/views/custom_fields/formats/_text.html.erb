@@ -2,5 +2,11 @@
 <p><%= f.check_box :text_formatting, {:label => :setting_text_formatting}, 'full', '' %></p>
 <% if @custom_field.class.name == "IssueCustomField" %>
 <p><%= f.check_box :full_width_layout %></p>
+<p><%= f.text_field(:full_width_placeholder, size: 50) %>
+  <em class="info"><%= l(:field_full_width_placeholder_quickinfo) %></em>
+</p>
+<script>
+$('#custom_field_full_width_layout').change(function() { $('#custom_field_full_width_placeholder').attr('disabled', !this.checked) }).trigger('change');
+</script>
 <% end %>
 <p><%= f.text_area(:default_value, :rows => 5) %></p>

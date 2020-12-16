@@ -707,6 +707,7 @@ select.expandable {vertical-align:top;}
 
 textarea#custom_field_possible_values {width: 95%; resize:vertical}
 textarea#custom_field_default_value {width: 95%; resize:vertical}
+.custom_field_full_width_placeholder {color: #959595; font-style:italic;}
 .sort-handle {display:inline-block; vertical-align:middle;}
 
 input#content_comments {width: 99%}

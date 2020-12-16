@@ -110,7 +110,7 @@ module Redmine
         CustomField.store_accessor :format_store, *args
       end
 
-      field_attributes :url_pattern, :full_width_layout
+      field_attributes :url_pattern, :full_width_layout, :full_width_placeholder
 
       def name
         self.class.format_name
@@ -412,6 +412,8 @@ module Redmine
             else
               view.simple_format(html_escape(value))
             end
+          elsif custom_field.full_width_placeholder?
+            ('<p class="custom_field_full_width_placeholder">' + custom_field.full_width_placeholder + '</p>').html_safe
           else
             ''
           end

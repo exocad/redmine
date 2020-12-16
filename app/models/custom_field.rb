@@ -93,7 +93,8 @@ class CustomField < ActiveRecord::Base
     'user_role',
     'version_status',
     'extensions_allowed',
-    'full_width_layout')
+    'full_width_layout',
+    'full_width_placeholder')
 
   def format
     @format ||= Redmine::FieldFormat.find(field_format)
@@ -192,6 +193,10 @@ class CustomField < ActiveRecord::Base
 
   def full_width_layout?
     full_width_layout == '1'
+  end
+
+  def full_width_placeholder?
+    !(full_width_placeholder.nil? || full_width_placeholder.empty?)
   end
 
   def full_text_formatting?
