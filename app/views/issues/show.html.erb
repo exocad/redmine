@@ -36,7 +36,8 @@
         <p class="author">
         <%= authoring @issue.created_on, @issue.author %>.
         <% if @issue.created_on != @issue.updated_on %>
-        <%= l(:label_updated_time, time_tag(@issue.updated_on)).html_safe %>.
+          <%= l(:label_updated_time, time_tag(@issue.updated_on)).html_safe %>
+          <%= copy_text_tag(format_time(@issue.updated_on), :label_copy_timestamp_to_clipboard) %>.
         <% end %>
         </p>
 

@@ -616,7 +616,7 @@ module ApplicationHelper
   end
 
   def authoring(created, author, options={})
-    l(options[:label] || :label_added_time_by, :author => link_to_user(author), :age => time_tag(created)).html_safe
+    l(options[:label] || :label_added_time_by, :author => link_to_user(author), :age => time_tag(created)).html_safe + copy_text_tag(format_time(time_tag(created)), :label_copy_timestamp_to_clipboard).html_safe
   end
 
   def time_tag(time)
@@ -626,6 +626,14 @@ module ApplicationHelper
     else
       content_tag('abbr', text, :title => format_time(time))
     end
+  end
+
+  def copy_text_tag(text, label)
+    content_tag('a', '',
+      class: 'icon-only icon-copy', title: l(label),
+        href: 'javascript:void(0);',
+        onclick: "(function(el) { el.select();el.setSelectionRange(0,99999);document.execCommand('copy');el.remove(); })($('<textarea>#{text}</textarea>').appendTo($(document.body))[0])"
+      ).html_safe;
   end
 
   def syntax_highlight_lines(name, content)

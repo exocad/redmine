@@ -1096,6 +1096,8 @@ en:
   label_issues_visibility_own_watch: Issues created by, assigned to, or watched by the user
   label_issues_visibility_own_watch_contributed: Issues created by, assigned to, watched by, or contributed to by the user
   label_application_menu: 'Application menu'
+  label_copy_timestamp_to_clipboard: "Copy timestamp to clipboard"
+
   button_login: Login
   button_submit: Submit
   button_save: Save
