@@ -242,6 +242,14 @@ class Setting < ActiveRecord::Base
     Object.const_defined?(:OpenID) && self[:openid].to_i > 0
   end
 
+  def self.wiki_text_formatting
+    if(self[:wiki_text_formatting_proxy] == '(inherit)')
+      self.text_formatting
+    else
+      self[:wiki_text_formatting_proxy]
+    end
+  end
+
   # Checks if settings have changed since the values were read
   # and clears the cache hash if it's the case
   # Called once per request

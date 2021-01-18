@@ -796,7 +796,7 @@ module ApplicationHelper
     if options[:formatting] == false
       text = h(text)
     else
-      formatting = Setting.text_formatting
+      formatting = @content.is_a?(WikiContent) || controller.is_a?(WikiController) ? Setting.wiki_text_formatting : Setting.text_formatting
       text = Redmine::WikiFormatting.to_html(formatting, text, :object => obj, :attribute => attr)
     end
 
@@ -1706,7 +1706,7 @@ module ApplicationHelper
   private
 
   def wiki_helper
-    helper = Redmine::WikiFormatting.helper_for(Setting.text_formatting)
+    helper = Redmine::WikiFormatting.helper_for(@content.is_a?(WikiContent) ? Setting.wiki_text_formatting : Setting.text_formatting)
     extend helper
     return self
   end
