@@ -18,10 +18,6 @@
 [submodule "plugins/redmine_already_read"]
 	path = plugins/redmine_already_read
 	url = git@github.com:exocad/redmine_already_read
-[submodule "plugins/redmine_elasticsearch"]
-	path = plugins/redmine_elasticsearch
-	url = git@github.com:exocad/redmine_elasticsearch
-	branch = es7
 [submodule "plugins/latest_issues"]
 	path = plugins/latest_issues
 	url = git@github.com:exocad/latest-issues-redmine-plugin
@@ -31,9 +27,6 @@
 [submodule "plugins/redmine_searchextension"]
 	path = plugins/redmine_searchextension
 	url = git@github.com:exocad/redmineSearchExtension
-[submodule "plugins/redmine_exotransfer"]
-	path = plugins/redmine_exotransfer
-	url = git@github.com:exocad/redmine_exotransfer
 [submodule "public/themes/exocad"]
 	path = public/themes/exocad
 	url = git@github.com:exocad/exocadRedmineTheme
