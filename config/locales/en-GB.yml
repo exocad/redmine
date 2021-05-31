@@ -446,7 +446,7 @@ en-GB:
   label_user: User
   label_user_plural: Users
   label_user_new: New user
-  label_user_anonymous: Anonymous
+  label_user_anonymous: Email
   label_project: Project
   label_project_new: New project
   label_project_plural: Projects
@@ -801,7 +801,7 @@ en-GB:
   button_create: Create
   button_create_and_continue: Create and add another
   button_test: Test
-  button_edit: Edit
+  button_edit: Update
   button_edit_associated_wikipage: "Edit associated Wiki page: %{page_title}"
   button_add: Add
   button_change: Change

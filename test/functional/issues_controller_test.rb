@@ -2073,7 +2073,7 @@ class IssuesControllerTest < Redmine::ControllerTest
     assert_response :success
     assert_select 'div.issue div.description', :text => /Unable to print recipes/
     assert_select '#content>.contextual:first-child' do
-      assert_select 'a', {:count => 1, :text => 'Edit'}
+      assert_select 'a', {:count => 1, :text => 'Update'}
       assert_select 'a', {:count => 0, :text => 'Log time'}
       assert_select 'a', {:count => 0, :text => 'Watch'}
       assert_select 'a', {:count => 0, :text => 'Copy'}
@@ -2095,7 +2095,7 @@ class IssuesControllerTest < Redmine::ControllerTest
     get(:show, :params => {:id => 1})
     assert_select 'a', :text => /Quote/
     assert_select '#content>.contextual:first-child' do
-      assert_select 'a', {:count => 1, :text => 'Edit'}
+      assert_select 'a', {:count => 1, :text => 'Update'}
       assert_select 'a', {:count => 1, :text => 'Log time'}
       assert_select 'a', {:count => 1, :text => 'Watch'}
       assert_select 'a', {:count => 1, :text => 'Copy'}
@@ -3008,7 +3008,7 @@ class IssuesControllerTest < Redmine::ControllerTest
     @request.session[:user_id] = 1
     get(:show, :params => {:id => 1})
     assert_response :success
-    assert_select 'a', :text => 'Edit'
+    assert_select 'a', :text => 'Update'
     assert_select 'a', :text => 'Delete'
   end
 
@@ -3017,7 +3017,7 @@ class IssuesControllerTest < Redmine::ControllerTest
     @request.session[:user_id] = 1
     get(:show, :params => {:id => 1})
     assert_response :success
-    assert_select 'a', :text => 'Edit', :count => 0
+    assert_select 'a', :text => 'Update', :count => 0
     assert_select 'a', :text => 'Delete', :count => 0
   end
 
@@ -3119,7 +3119,7 @@ class IssuesControllerTest < Redmine::ControllerTest
     assert_response :success
 
     assert_select 'div[id=?]', 'time-entry-3' do
-      assert_select 'a[title=?][href=?]', 'Edit', '/time_entries/3/edit'
+      assert_select 'a[title=?][href=?]', 'Update', '/time_entries/3/edit'
       assert_select 'a[title=?][href=?]', 'Delete', '/time_entries/3'
 
       assert_select 'ul[class=?]', 'details', :text => /1.00 h/

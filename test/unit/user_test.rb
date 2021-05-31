@@ -966,7 +966,7 @@ class UserTest < ActiveSupport::TestCase
   def test_roles_for_project_with_anonymous_with_public_project_should_return_anonymous
     set_language_if_valid 'en'
     roles = User.anonymous.roles_for_project(Project.find(1))
-    assert_equal ["Anonymous"], roles.map(&:name)
+    assert_equal ["Email"], roles.map(&:name)
   end
 
   def test_roles_for_project_with_anonymous_with_public_project_and_override_should_return_override_roles

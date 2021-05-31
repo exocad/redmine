@@ -46,7 +46,7 @@ class ContextMenusControllerTest < Redmine::ControllerTest
     )
     assert_response :success
 
-    assert_select 'a.icon-edit[href=?]', '/issues/1/edit', :text => 'Edit'
+    assert_select 'a.icon-edit[href=?]', '/issues/1/edit', :text => 'Update'
     assert_select 'a.icon-copy[href=?]', '/projects/ecookbook/issues/1/copy', :text => 'Copy'
     assert_select 'a.icon-del[href=?]', '/issues?ids%5B%5D=1', :text => 'Delete'
 
@@ -88,7 +88,7 @@ class ContextMenusControllerTest < Redmine::ControllerTest
 
     ids = [1, 2].map {|i| "ids%5B%5D=#{i}"}.join('&')
 
-    assert_select 'a.icon-edit[href=?]', "/issues/bulk_edit?#{ids}", :text => 'Edit'
+    assert_select 'a.icon-edit[href=?]', "/issues/bulk_edit?#{ids}", :text => 'Update'
     assert_select 'a.icon-copy[href=?]', "/issues/bulk_edit?copy=1&#{ids}", :text => 'Copy'
     assert_select 'a.icon-del[href=?]', "/issues?#{ids}", :text => 'Delete'
 
@@ -109,7 +109,7 @@ class ContextMenusControllerTest < Redmine::ControllerTest
 
     ids = [1, 2, 6].map {|i| "ids%5B%5D=#{i}"}.join('&')
 
-    assert_select 'a.icon-edit[href=?]', "/issues/bulk_edit?#{ids}", :text => 'Edit'
+    assert_select 'a.icon-edit[href=?]', "/issues/bulk_edit?#{ids}", :text => 'Update'
     assert_select 'a.icon-del[href=?]', "/issues?#{ids}", :text => 'Delete'
 
     assert_select 'a[href=?]', "/issues/bulk_update?#{ids}&issue%5Bstatus_id%5D=5", :text => 'Closed'
@@ -354,8 +354,8 @@ class ContextMenusControllerTest < Redmine::ControllerTest
     )
     assert_response :success
 
-    assert_select 'a:not(.disabled)', :text => 'Edit'
-  end
+    assert_select 'a:not(.disabled)', :text => 'Update'
+  end 
 
   def test_context_menu_for_one_time_entry
     @request.session[:user_id] = 2
@@ -367,7 +367,7 @@ class ContextMenusControllerTest < Redmine::ControllerTest
     )
     assert_response :success
 
-    assert_select 'a:not(.disabled)', :text => 'Edit'
+    assert_select 'a:not(.disabled)', :text => 'Update'
   end
 
   def test_time_entries_context_menu_should_include_custom_fields
@@ -406,7 +406,7 @@ class ContextMenusControllerTest < Redmine::ControllerTest
     )
     assert_response :success
 
-    assert_select 'a:not(.disabled)', :text => 'Edit'
+    assert_select 'a:not(.disabled)', :text => 'Update'
   end
 
   def test_time_entries_context_menu_without_edit_permission
@@ -420,6 +420,6 @@ class ContextMenusControllerTest < Redmine::ControllerTest
     )
     assert_response :success
 
-    assert_select 'a.disabled', :text => 'Edit'
+    assert_select 'a.disabled', :text => 'Update'
   end
 end

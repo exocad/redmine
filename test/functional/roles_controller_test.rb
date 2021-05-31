@@ -286,7 +286,7 @@ class RolesControllerTest < Redmine::ControllerTest
     permissions = permissions.group_by{|p| p.project_module.to_s}.sort.collect(&:last).flatten
     assert_equal permissions.size + 1, lines.size
     # Header
-    assert_equal 'Module,Permissions,Manager,Developer,Reporter,Non member,Anonymous', lines.first
+    assert_equal 'Module,Permissions,Manager,Developer,Reporter,Non member,Email', lines.first
     # Details
     to_test = {
       :add_project => '"",Create project,Yes,No,No,No,""',
