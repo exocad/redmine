@@ -502,6 +502,33 @@ class IssueTest < ActiveSupport::TestCase
     end
   end
 
+  # exocad-patch: introduced visibility scope introduced "own_watch/own_watch_contributed"
+  # 
+  def test_visible_scope_user_is_only_watcher_or_contributor
+    user = User.find(7); # User on no project
+    role = Role.find(3); # Reporter
+    issue = Issue.find(1);
+    Member.create! project: issue.project, user: user, roles: [role]
+    watcher = Watcher.create!(user: user, watchable: issue)
+    
+    role.update! issues_visibility: 'own'
+    assert_not issue.visible? user
+
+    role.update! issues_visibility: 'own_watch'
+    user.reload
+    assert issue.visible? user
+    
+    watcher.destroy
+    issue.journals.first.update! user: user
+    issue.reload
+    user.reload
+    assert_not issue.visible? user
+
+    role.update! issues_visibility: 'own_watch_contributed'
+    user.reload
+    assert issue.visible? user
+  end
+
   def test_open_scope
     issues = Issue.open.to_a
     assert_nil issues.detect(&:closed?)
@@ -2057,21 +2084,23 @@ class IssueTest < ActiveSupport::TestCase
     end
   end
 
-  def test_recipients_should_include_previous_assignee
-    user = User.find(3)
-    user.members.update_all ["mail_notification = ?", false]
-    user.update! :mail_notification => 'only_assigned'
-    issue = Issue.find(2)
+  # exocad-patch: only the current/new assignee is notified, thus this test is obsolete
+  #
+  # def test_recipients_should_include_previous_assignee
+  #   user = User.find(3)
+  #   user.members.update_all ["mail_notification = ?", false]
+  #   user.update! :mail_notification => 'only_assigned'
+  #   issue = Issue.find(2)
 
-    issue.assigned_to = nil
-    assert_include user.mail, issue.recipients
-    issue.save!
-    assert_include user.mail, issue.recipients
+  #   issue.assigned_to = nil
+  #   assert_include user.mail, issue.recipients
+  #   issue.save!
+  #   assert_include user.mail, issue.recipients
 
-    issue.assigned_to = User.find(2)
-    issue.save!
-    assert !issue.recipients.include?(user.mail)
-  end
+  #   issue.assigned_to = User.find(2)
+  #   issue.save!
+  #   assert !issue.recipients.include?(user.mail)
+  # end
 
   def test_recipients_should_not_include_users_that_cannot_view_the_issue
     issue = Issue.find(12)
@@ -2082,15 +2111,17 @@ class IssueTest < ActiveSupport::TestCase
     assert !copy.recipients.include?(copy.author.mail)
   end
 
-  def test_recipients_should_include_the_assigned_group_members
-    group_member = User.generate!
-    group = Group.generate!
-    group.users << group_member
+  # exocad-patch: when issue is assigned to group, particular users should not be notified, thus this test is obsolete
+  # 
+  # def test_recipients_should_include_the_assigned_group_members
+  #   group_member = User.generate!
+  #   group = Group.generate!
+  #   group.users << group_member
 
-    issue = Issue.find(12)
-    issue.assigned_to = group
-    assert issue.recipients.include?(group_member.mail)
-  end
+  #   issue = Issue.find(12)
+  #   issue.assigned_to = group
+  #   assert issue.recipients.include?(group_member.mail)
+  # end
 
   def test_watcher_recipients_should_not_include_users_that_cannot_view_the_issue
     user = User.find(3)

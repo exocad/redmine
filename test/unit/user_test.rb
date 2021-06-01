@@ -1256,28 +1256,30 @@ class UserTest < ActiveSupport::TestCase
     end
   end
 
-  def test_notify_about_issue_for_previous_assignee
-    assignee = User.generate!(:mail_notification => 'only_assigned')
-    Member.create!(:user => assignee, :project_id => 1, :role_ids => [1])
-    new_assignee = User.generate!(:mail_notification => 'only_assigned')
-    Member.create!(:user => new_assignee, :project_id => 1, :role_ids => [1])
-    issue = Issue.generate!(:assigned_to => assignee)
+  # exocad-patch: only the current/new assignee is notified, thus this test is obsolete
+  #
+  # def test_notify_about_issue_for_previous_assignee
+  #   assignee = User.generate!(:mail_notification => 'only_assigned')
+  #   Member.create!(:user => assignee, :project_id => 1, :role_ids => [1])
+  #   new_assignee = User.generate!(:mail_notification => 'only_assigned')
+  #   Member.create!(:user => new_assignee, :project_id => 1, :role_ids => [1])
+  #   issue = Issue.generate!(:assigned_to => assignee)
 
-    assert assignee.notify_about?(issue)
-    assert !new_assignee.notify_about?(issue)
+  #   assert assignee.notify_about?(issue)
+  #   assert !new_assignee.notify_about?(issue)
 
-    issue.assigned_to = new_assignee
-    assert assignee.notify_about?(issue)
-    assert new_assignee.notify_about?(issue)
+  #   issue.assigned_to = new_assignee
+  #   assert assignee.notify_about?(issue)
+  #   assert new_assignee.notify_about?(issue)
 
-    issue.save!
-    assert assignee.notify_about?(issue)
-    assert new_assignee.notify_about?(issue)
+  #   issue.save!
+  #   assert assignee.notify_about?(issue)
+  #   assert new_assignee.notify_about?(issue)
 
-    issue.save!
-    assert !assignee.notify_about?(issue)
-    assert new_assignee.notify_about?(issue)
-  end
+  #   issue.save!
+  #   assert !assignee.notify_about?(issue)
+  #   assert new_assignee.notify_about?(issue)
+  # end
 
   def test_notify_about_news
     user = User.generate!
