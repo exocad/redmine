@@ -167,7 +167,7 @@ module IssuesHelper
 			content_tag('th') +
 			content_tag('th', l(:field_status)) +
 			content_tag('th', l(:field_priority)) +
-			content_tag('th', l(:field_user)) +
+			content_tag('th', l(:field_assigned_to)) +
 			content_tag('th', l(:field_start_date)) +
 			content_tag('th', l(:field_due_date)) +
 			content_tag('th') +
