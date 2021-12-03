@@ -115,7 +115,7 @@ module ApplicationHelper
 			options[:target] = '_blank'
 		end
 
-    if options.delete(:download)
+    if options.fetch(:download, false)
       route_method = :download_named_attachment_url
       options[:filename] = attachment.filename
     else
