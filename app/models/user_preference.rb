@@ -37,7 +37,8 @@ class UserPreference < ActiveRecord::Base
     'self_notification_setting',
     'textarea_font',
     'recently_used_projects',
-    'history_default_tab')
+    'history_default_tab',
+    'large_select_search_activated')
 
   TEXTAREA_FONT_OPTIONS = ['monospace', 'proportional']
 
@@ -91,6 +92,9 @@ class UserPreference < ActiveRecord::Base
 	
   def separate_closed_issue_relations; self[:separate_closed_issue_relations] || '0'; end
   def separate_closed_issue_relations=(value); self[:separate_closed_issue_relations]=value; end
+
+  def large_select_search_activated; self[:make_large_selects_searchable] || '0'; end
+  def large_select_search_activated=(value); self[:make_large_selects_searchable]=value; end
 
   ## exocad patch: introduce option for opt-in any self-notification with keeping comaptibility to unpatched version
 

@@ -333,3 +333,5 @@ show_status_changes_in_mail_subject:
 app_menu_hidden_items:
    serialized: true
    default: {}
+large_select_search_enabled:
+  default: 0

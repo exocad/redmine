@@ -126,5 +126,8 @@
 </div>
 </div>
 <%= call_hook :view_layouts_base_body_bottom %>
+<%= hidden_field_tag 'large_select_search_enabled', Setting.large_select_search_enabled %>
+<%= hidden_field_tag 'large_select_search_activated', User.current.pref.large_select_search_activated %>
+
 </body>
 </html>
