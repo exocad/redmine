@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -33,12 +33,10 @@ class ApplicationController < ActionController::Base
   helper :avatars
 
   class_attribute :accept_api_auth_actions
-  class_attribute :accept_rss_auth_actions
+  class_attribute :accept_atom_auth_actions
   class_attribute :model_object
 
   layout 'base'
-
-  protect_from_forgery
 
   def verify_authenticity_token
     unless api_request?
@@ -48,11 +46,16 @@ class ApplicationController < ActionController::Base
 
   def handle_unverified_request
     unless api_request?
-      super
-      cookies.delete(autologin_cookie_name)
-      self.logged_user = nil
-      set_localization
-      render_error :status => 422, :message => l(:error_invalid_authenticity_token)
+      begin
+        super
+      rescue ActionController::InvalidAuthenticityToken => e
+        logger.error("ActionController::InvalidAuthenticityToken: #{e.message}") if logger
+      ensure
+        cookies.delete(autologin_cookie_name)
+        self.logged_user = nil
+        set_localization
+        render_error :status => 422, :message => l(:error_invalid_authenticity_token)
+      end
     end
   end
 
@@ -117,9 +120,9 @@ class ApplicationController < ActionController::Base
           end
       elsif autologin_user = try_to_autologin
         user = autologin_user
-      elsif params[:format] == 'atom' && params[:key] && request.get? && accept_rss_auth?
-        # RSS key authentication does not start a session
-        user = User.find_by_rss_key(params[:key])
+      elsif params[:format] == 'atom' && params[:key] && request.get? && accept_atom_auth?
+        # ATOM key authentication does not start a session
+        user = User.find_by_atom_key(params[:key])
       end
     end
     if user.nil? && Setting.rest_api_enabled? && accept_api_auth?
@@ -129,7 +132,14 @@ class ApplicationController < ActionController::Base
       elsif /\ABasic /i.match?(request.authorization.to_s)
         # HTTP Basic, either username/password or API key/random
         authenticate_with_http_basic do |username, password|
-          user = User.try_to_login(username, password) || User.find_by_api_key(username)
+          user = User.try_to_login(username, password)
+          # Don't allow using username/password when two-factor auth is active
+          if user&.twofa_active?
+            render_error :message => 'HTTP Basic authentication is not allowed. Use API key instead', :status => 401
+            return
+          end
+
+          user ||= User.find_by_api_key(username)
         end
         if user && user.must_change_password?
           render_error :message => 'You must change your password', :status => 403
@@ -413,10 +423,18 @@ class ApplicationController < ActionController::Base
 
   def parse_params_for_bulk_update(params)
     attributes = (params || {}).reject {|k, v| v.blank?}
-    attributes.keys.each {|k| attributes[k] = '' if attributes[k] == 'none'}
     if custom = attributes[:custom_field_values]
       custom.reject! {|k, v| v.blank?}
-      custom.keys.each do |k|
+    end
+
+    replace_none_values_with_blank(attributes)
+  end
+
+  def replace_none_values_with_blank(params)
+    attributes = (params || {})
+    attributes.each_key {|k| attributes[k] = '' if attributes[k] == 'none'}
+    if (custom = attributes[:custom_field_values])
+      custom.each_key do |k|
         if custom[k].is_a?(Array)
           custom[k] << '' if custom[k].delete('__none__')
         else
@@ -606,16 +624,27 @@ class ApplicationController < ActionController::Base
            :content_type => 'application/atom+xml'
   end
 
-  def self.accept_rss_auth(*actions)
+  def self.accept_atom_auth(*actions)
     if actions.any?
-      self.accept_rss_auth_actions = actions
+      self.accept_atom_auth_actions = actions
     else
-      self.accept_rss_auth_actions || []
+      self.accept_atom_auth_actions || []
     end
   end
 
+  def self.accept_rss_auth(*actions)
+    ActiveSupport::Deprecation.warn "Application#self.accept_rss_auth is deprecated and will be removed in Redmine 6.0. Please use #self.accept_atom_auth instead."
+    self.class.accept_atom_auth(*actions)
+  end
+
+  def accept_atom_auth?(action=action_name)
+    self.class.accept_atom_auth.include?(action.to_sym)
+  end
+
+  # TODO: remove in Redmine 6.0
   def accept_rss_auth?(action=action_name)
-    self.class.accept_rss_auth.include?(action.to_sym)
+    ActiveSupport::Deprecation.warn "Application#accept_rss_auth? is deprecated and will be removed in Redmine 6.0. Please use #accept_atom_auth? instead."
+    accept_atom_auth?(action)
   end
 
   def self.accept_api_auth(*actions)
@@ -692,7 +721,7 @@ class ApplicationController < ActionController::Base
 
   # Returns a string that can be used as filename value in Content-Disposition header
   def filename_for_content_disposition(name)
-    %r{(MSIE|Trident|Edge)}.match?(request.env['HTTP_USER_AGENT'].to_s) ? ERB::Util.url_encode(name) : name
+    name
   end
 
   def api_request?
@@ -725,6 +754,13 @@ class ApplicationController < ActionController::Base
     render_error l(:error_query_statement_invalid)
   end
 
+  def query_error(exception)
+    Rails.logger.debug "#{exception.class.name}: #{exception.message}"
+    Rails.logger.debug "    #{exception.backtrace.join("\n    ")}"
+
+    render_404
+  end
+
   # Renders a 204 response for successful updates or deletions via the API
   def render_api_ok
     render_api_head :no_content
@@ -744,7 +780,7 @@ class ApplicationController < ActionController::Base
 
   def render_api_errors(*messages)
     @error_messages = messages.flatten
-    render :template => 'common/error_messages.api', :status => :unprocessable_entity, :layout => nil
+    render :template => 'common/error_messages', :format => [:api], :status => :unprocessable_entity, :layout => nil
   end
 
   # Overrides #_include_layout? so that #render with no arguments

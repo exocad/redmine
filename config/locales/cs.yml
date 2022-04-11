@@ -308,7 +308,6 @@ cs:
   field_parent_title: Rodičovská stránka
   field_editable: Editovatelný
   field_watcher: Sleduje
-  field_identity_url: OpenID URL
   field_content: Obsah
   field_group_by: Seskupovat výsledky podle
   field_sharing: Sdílení
@@ -326,7 +325,6 @@ cs:
   setting_attachment_max_size: Maximální velikost přílohy
   setting_issues_export_limit: Limit pro export úkolů
   setting_mail_from: Odesílat emaily z adresy
-  setting_bcc_recipients: Příjemci jako skrytá kopie (bcc)
   setting_plain_text_mail: pouze prostý text (ne HTML)
   setting_host_name: Jméno serveru
   setting_text_formatting: Formátování textu
@@ -359,7 +357,6 @@ cs:
   setting_diff_max_lines_displayed: Maximální počet zobrazených řádků rozdílu
   setting_file_max_size_displayed: Maximální velikost textových souborů zobrazených přímo na stránce
   setting_repository_log_display_limit: Maximální počet revizí zobrazených v logu souboru
-  setting_openid: Umožnit přihlašování a registrace s OpenID
   setting_password_min_length: Minimální délka hesla
   setting_new_project_user_role_id: Role přiřazená uživateli bez práv administrátora, který projekt vytvořil
   setting_default_projects_modules: Výchozí zapnutné moduly pro nový projekt
@@ -488,7 +485,6 @@ cs:
   label_information: Informace
   label_information_plural: Informace
   label_register: Registrovat
-  label_login_with_open_id_option: nebo se přihlašte s OpenID
   label_password_lost: Zapomenuté heslo
   label_home: Úvodní
   label_my_page: Moje stránka
@@ -1383,21 +1379,58 @@ cs:
   error_attachment_not_found: Příloha %{name} nenalezena
   permission_delete_project: Odstranit projekt
   field_twofa_scheme: Schéma dvou-fázového ověření
-  text_user_destroy_confirmation: Are you sure you want to delete this user and remove
-    all references to them? This cannot be undone. Often, locking a user instead of
-    deleting them is the better solution. To confirm, please enter their login (%{login})
-    below.
-  text_project_destroy_enter_identifier: To confirm, please enter the project's identifier
-    (%{identifier}) below.
-  button_add_subtask: Add subtask
-  notice_invalid_watcher: 'Invalid watcher: User will not receive any notifications
-    because it does not have access to view this object.'
-  button_fetch_changesets: Fetch commits
-  permission_view_message_watchers: View message watchers list
-  permission_add_message_watchers: Add message watchers
-  permission_delete_message_watchers: Delete message watchers
-  label_message_watchers: Watchers
-  button_copy_link: Copy link
-  error_invalid_authenticity_token: Invalid form authenticity token.
-  error_query_statement_invalid: An error occurred while executing the query and has
-    been logged. Please report this error to your Redmine administrator.
+  text_user_destroy_confirmation: Jste si jisti, že chcete odstranit tohoto uživatele a
+    všechny reference na něj? Tato akce nemůže být vzata zpět. Často je užamčení uživatele
+    místo jeho smazání vhodnějším řešením. Pro potvrzení, prosím zadjte níže jeho login (%{login}).
+  text_project_destroy_enter_identifier: Pro potvrzení, prosím zadejte níže identifikátor projektu
+    (%{identifier}).
+  button_add_subtask: Přidat podúkol
+  notice_invalid_watcher: 'Neplatný sledovatel: Uživatel nebude dostávat žádné notifikace,
+    protože nemá přístup pro zobrazení tohoto objektu.'
+  button_fetch_changesets: Stáhnout commity
+  permission_view_message_watchers: Zobrazení seznamu sledovatelů příspěvků
+  permission_add_message_watchers: Přidávání sledovatelů příspěvků
+  permission_delete_message_watchers: Mazání sledovatelů příspěvků
+  label_message_watchers: Sledující
+  button_copy_link: Kopírovat odkaz
+  error_invalid_authenticity_token: Neplatný token pravosti formuláře.
+  error_query_statement_invalid: Nastala chyba při vykonávání dotazu a
+    byla zaznamenána. Prosím oznamte tuto chybu svému Redmine administrátorovi.
+  permission_view_wiki_page_watchers: View wiki page watchers list
+  permission_add_wiki_page_watchers: Add wiki page watchers
+  permission_delete_wiki_page_watchers: Delete wiki page watchers
+  label_wiki_page_watchers: Watchers
+  label_attachment_description: File description
+  error_no_data_in_file: The file does not contain any data
+  field_twofa_required: Require two factor authentication
+  twofa_hint_optional_html: Setting <strong>%{label}</strong> will let users set up
+    two-factor authentication at will, unless it is required by one of their groups.
+  twofa_text_group_required: This setting is only effective when the global two factor
+    authentication setting is set to 'optional'. Currently, two factor authentication
+    is required for all users.
+  twofa_text_group_disabled: This setting is only effective when the global two factor
+    authentication setting is set to 'optional'. Currently, two factor authentication
+    is disabled.
+  field_default_issue_query: Default issue query
+  label_default_queries:
+    for_all_projects: For all projects
+    for_current_project: For current project
+    for_all_users: For all users
+  text_allowed_queries_to_select: Public (to any users) queries only selectable
+  text_all_migrations_have_been_run: All database migrations have been run
+  button_save_object: Save %{object_name}
+  button_edit_object: Edit %{object_name}
+  button_delete_object: Delete %{object_name}
+  text_setting_config_change: You can configure the behaviour in config/configuration.yml.
+    Please restart the application after editing it.
+  label_bulk_edit: Bulk edit
+  button_create_and_follow: Create and follow
+  label_subtask: Subtask
+  label_default_query: Default query
+  field_default_project_query: Default project query
+  label_required_administrators: required for administrators
+  twofa_hint_required_administrators_html: Setting <strong>%{label}</strong> behaves
+    like optional, but will require all users with administration rights to set up two-factor
+    authentication at their next login.
+  label_auto_watch_on: Auto watch
+  label_auto_watch_on_issue_contributed_to: Issues I contributed to

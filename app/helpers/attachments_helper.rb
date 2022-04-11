@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -92,7 +92,7 @@ module AttachmentsHelper
 
   def render_file_content(attachment, content)
     if attachment.is_markdown?
-      render :partial => 'common/markup', :locals => {:markup_text_formatting => 'markdown', :markup_text => content}
+      render :partial => 'common/markup', :locals => {:markup_text_formatting => markdown_formatter, :markup_text => content}
     elsif attachment.is_textile?
       render :partial => 'common/markup', :locals => {:markup_text_formatting => 'textile', :markup_text => content}
     else

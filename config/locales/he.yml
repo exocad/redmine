@@ -308,7 +308,6 @@ he:
   field_parent_title: דף אב
   field_editable: ניתן לעריכה
   field_watcher: צופה
-  field_identity_url: כתובת OpenID
   field_content: תוכן
   field_group_by: קבץ את התוצאות לפי
   field_sharing: שיתוף
@@ -323,7 +322,6 @@ he:
   setting_attachment_max_size: גודל דבוקה מקסימאלי
   setting_issues_export_limit: גבול יצוא נושאים
   setting_mail_from: כתובת שליחת דוא"ל
-  setting_bcc_recipients: מוסתר (bcc)
   setting_plain_text_mail: טקסט פשוט בלבד (ללא HTML)
   setting_host_name: שם שרת
   setting_text_formatting: עיצוב טקסט
@@ -355,7 +353,6 @@ he:
   setting_diff_max_lines_displayed: מספר מירבי של שורות בתצוגת שינויים
   setting_file_max_size_displayed: גודל מירבי של מלל המוצג בתוך השורה
   setting_repository_log_display_limit: מספר מירבי של מהדורות המוצגות ביומן קובץ
-  setting_openid: אפשר התחברות ורישום באמצעות OpenID
   setting_password_min_length: אורך סיסמה מינימאלי
   setting_new_project_user_role_id: התפקיד שמוגדר למשתמש פשוט אשר יוצר פרויקט
   setting_default_projects_modules: מודולים מאופשרים בברירת מחדל עבור פרויקטים חדשים
@@ -481,7 +478,6 @@ he:
   label_information: מידע
   label_information_plural: מידע
   label_register: הרשמה
-  label_login_with_open_id_option: או התחבר באמצעות OpenID
   label_password_lost: אבדה הסיסמה?
   label_home: דף הבית
   label_my_page: הדף שלי
@@ -1417,3 +1413,41 @@ he:
   error_invalid_authenticity_token: Invalid form authenticity token.
   error_query_statement_invalid: An error occurred while executing the query and has
     been logged. Please report this error to your Redmine administrator.
+  permission_view_wiki_page_watchers: View wiki page watchers list
+  permission_add_wiki_page_watchers: Add wiki page watchers
+  permission_delete_wiki_page_watchers: Delete wiki page watchers
+  label_wiki_page_watchers: Watchers
+  label_attachment_description: File description
+  error_no_data_in_file: The file does not contain any data
+  field_twofa_required: Require two factor authentication
+  twofa_hint_optional_html: Setting <strong>%{label}</strong> will let users set up
+    two-factor authentication at will, unless it is required by one of their groups.
+  twofa_text_group_required: This setting is only effective when the global two factor
+    authentication setting is set to 'optional'. Currently, two factor authentication
+    is required for all users.
+  twofa_text_group_disabled: This setting is only effective when the global two factor
+    authentication setting is set to 'optional'. Currently, two factor authentication
+    is disabled.
+  field_default_issue_query: Default issue query
+  label_default_queries:
+    for_all_projects: For all projects
+    for_current_project: For current project
+    for_all_users: For all users
+  text_allowed_queries_to_select: Public (to any users) queries only selectable
+  text_all_migrations_have_been_run: All database migrations have been run
+  button_save_object: Save %{object_name}
+  button_edit_object: Edit %{object_name}
+  button_delete_object: Delete %{object_name}
+  text_setting_config_change: You can configure the behaviour in config/configuration.yml.
+    Please restart the application after editing it.
+  label_bulk_edit: Bulk edit
+  button_create_and_follow: Create and follow
+  label_subtask: Subtask
+  label_default_query: Default query
+  field_default_project_query: Default project query
+  label_required_administrators: required for administrators
+  twofa_hint_required_administrators_html: Setting <strong>%{label}</strong> behaves
+    like optional, but will require all users with administration rights to set up two-factor
+    authentication at their next login.
+  label_auto_watch_on: Auto watch
+  label_auto_watch_on_issue_contributed_to: Issues I contributed to

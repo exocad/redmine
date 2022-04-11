@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -24,7 +24,11 @@ module Redmine
     extend Redmine::Utils::Shell
 
     CONVERT_BIN = (Redmine::Configuration['imagemagick_convert_command'] || 'convert').freeze
-    GS_BIN = (Redmine::Configuration['gs_command'] || 'gs').freeze
+    GS_BIN = (
+      Redmine::Configuration['gs_command'] ||
+      ('gswin64c' if Redmine::Platform.mswin?) ||
+      'gs'
+    ).freeze
     ALLOWED_TYPES = %w(image/bmp image/gif image/jpeg image/png application/pdf)
 
     # Generates a thumbnail for the source image to target
@@ -32,14 +36,14 @@ module Redmine
       return nil unless convert_available?
       return nil if is_pdf && !gs_available?
 
-      unless File.exists?(target)
+      unless File.exist?(target)
         # Make sure we only invoke Imagemagick if the file type is allowed
         mime_type = File.open(source) {|f| Marcel::MimeType.for(f)}
         return nil if !ALLOWED_TYPES.include? mime_type
         return nil if is_pdf && mime_type != "application/pdf"
 
         directory = File.dirname(target)
-        unless File.exists?(directory)
+        unless File.exist?(directory)
           FileUtils.mkdir_p directory
         end
         size_option = "#{size}x#{size}>"
@@ -73,15 +77,11 @@ module Redmine
     def self.gs_available?
       return @gs_available if defined?(@gs_available)
 
-      if Redmine::Platform.mswin?
+      begin
+        `#{shell_quote GS_BIN} -version`
+        @gs_available = $?.success?
+      rescue
         @gs_available = false
-      else
-        begin
-          `#{shell_quote GS_BIN} -version`
-          @gs_available = $?.success?
-        rescue
-          @gs_available = false
-        end
       end
       logger.warn("gs binary (#{GS_BIN}) not available") unless @gs_available
       @gs_available

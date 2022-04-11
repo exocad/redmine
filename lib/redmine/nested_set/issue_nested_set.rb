@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -147,7 +147,7 @@ module Redmine
       end
 
       def reload_nested_set_values
-        self.root_id, self.lft, self.rgt = self.class.where(:id => id).pluck(:root_id, :lft, :rgt).first
+        self.root_id, self.lft, self.rgt = self.class.where(:id => id).pick(:root_id, :lft, :rgt)
       end
 
       def save_nested_set_values

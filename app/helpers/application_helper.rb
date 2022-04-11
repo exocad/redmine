@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -51,17 +51,31 @@ module ApplicationHelper
 
   # Displays a link to user's account page if active
   def link_to_user(user, options={})
-    if user.is_a?(User)
-      name = h(user.name(options[:format]))
-      if user.active? || (User.current.admin? && user.logged?)
-        only_path = options[:only_path].nil? ? true : options[:only_path]
-        link_to name, user_url(user, :only_path => only_path), :class => user.css_classes
-      else
-        name
+    user.is_a?(User) ? link_to_principal(user, options) : h(user.to_s)
+  end
+
+  # Displays a link to user's account page or group page
+  def link_to_principal(principal, options={})
+    only_path = options[:only_path].nil? ? true : options[:only_path]
+    case principal
+    when User
+      name = h(principal.name(options[:format]))
+      name = "@" + name if options[:mention]
+      css_classes = ''
+      if principal.active? || (User.current.admin? && principal.logged?)
+        url = user_url(principal, :only_path => only_path)
+        css_classes += principal.css_classes
       end
+    when Group
+      name = h(principal.to_s)
+      url = group_url(principal, :only_path => only_path)
+      css_classes = principal.css_classes
     else
-      h(user.to_s)
+      name = h(principal.to_s)
     end
+
+    css_classes += " #{options[:class]}" if css_classes && options[:class].present?
+    url ? link_to(name, url, :class => css_classes) : name
   end
 
   # Displays a link to edit group page if current user is admin
@@ -253,8 +267,8 @@ module ApplicationHelper
       object.to_s
     when 'Float'
       sprintf "%.2f", object
-    when 'User'
-      html ? link_to_user(object) : object.to_s
+    when 'User', 'Group'
+      html ? link_to_principal(object) : object.to_s
     when 'Project'
       html ? link_to_project(object) : object.to_s
     when 'Version'
@@ -307,7 +321,8 @@ module ApplicationHelper
       image_tag(
         thumbnail_path(attachment),
         :srcset => "#{thumbnail_path(attachment, :size => thumbnail_size * 2)} 2x",
-        :style => "max-width: #{thumbnail_size}px; max-height: #{thumbnail_size}px;"
+        :style => "max-width: #{thumbnail_size}px; max-height: #{thumbnail_size}px;",
+        :loading => "lazy"
       ),
       attachment_path(
         attachment
@@ -764,7 +779,7 @@ module ApplicationHelper
 
   # Sets the html title
   # Returns the html title when called without arguments
-  # Current project name and app_title and automatically appended
+  # Current project name and app_title are automatically appended
   # Exemples:
   #   html_title 'Foo', 'Bar'
   #   html_title # => 'Foo - Bar - My Project - Redmine'
@@ -918,7 +933,11 @@ module ApplicationHelper
 
     # when using an image link, try to use an attachment, if possible
     attachments = options[:attachments] || []
-    attachments += obj.attachments if obj.respond_to?(:attachments)
+    if obj.is_a?(Journal)
+      attachments += obj.journalized.attachments if obj.journalized.respond_to?(:attachments)
+    else
+      attachments += obj.attachments if obj.respond_to?(:attachments)
+    end
     if attachments.present?
       text.gsub!(/src="([^\/"]+\.(bmp|gif|jpg|jpe|jpeg|png))"(\s+alt="([^"]*)")?/i) do |m|
         filename, ext, alt, alttext = $1, $2, $3, $4
@@ -929,7 +948,7 @@ module ApplicationHelper
           if !desc.blank? && alttext.blank?
             alt = " title=\"#{desc}\" alt=\"#{desc}\""
           end
-          "src=\"#{image_url}\"#{alt}"
+          "src=\"#{image_url}\"#{alt} loading=\"lazy\""
         else
           m
         end
@@ -976,7 +995,7 @@ module ApplicationHelper
           wiki_page = link_project.wiki.find_page(page)
           url =
             if anchor.present? && wiki_page.present? &&
-                 (obj.is_a?(WikiContent) || obj.is_a?(WikiContent::Version)) &&
+                 (obj.is_a?(WikiContent) || obj.is_a?(WikiContentVersion)) &&
                  obj.page == wiki_page
               "##{anchor}"
             else
@@ -1247,7 +1266,7 @@ module ApplicationHelper
           elsif sep == "@"
             name = remove_double_quotes(identifier)
             u = User.visible.find_by("LOWER(login) = :s AND type = 'User'", :s => name.downcase)
-            link = link_to_user(u, :only_path => only_path) if u
+            link = link_to_user(u, :only_path => only_path, :class => 'user-mention', :mention => true) if u
           end
         end
         (leading + (link || "#{project_prefix}#{prefix}#{repo_prefix}#{sep}#{identifier}#{comment_suffix}"))
@@ -1330,7 +1349,7 @@ module ApplicationHelper
       anchor = sanitize_anchor_name(item)
       # used for single-file wiki export
       if options[:wiki_links] == :anchor && (obj.is_a?(WikiContent) ||
-           obj.is_a?(WikiContent::Version))
+           obj.is_a?(WikiContentVersion))
         anchor = "#{obj.page.title}_#{anchor}"
       end
       @heading_anchors[anchor] ||= 0
@@ -1493,14 +1512,14 @@ module ApplicationHelper
     html.html_safe
   end
 
-  def delete_link(url, options={})
+  def delete_link(url, options={}, button_name=l(:button_delete))
     options = {
       :method => :delete,
       :data => {:confirm => l(:text_are_you_sure)},
       :class => 'icon icon-del'
     }.merge(options)
 
-    link_to l(:button_delete), url, options
+    link_to button_name, url, options
   end
 
   def link_to_function(name, function, html_options={})
@@ -1702,8 +1721,7 @@ module ApplicationHelper
   # Returns the javascript tags that are included in the html layout head
   def javascript_heads
     tags = javascript_include_tag(
-      'jquery-3.5.1-ui-1.12.1-ujs-5.2.4.5',
-      'jquery-migrate-3.3.2.min.js',
+      'jquery-3.6.0-ui-1.12.1-ujs-6.1.3.1',
       'tribute-5.1.3.min',
       'tablesort-5.2.1.min.js',
       'tablesort-5.2.1.number.min.js',
@@ -1802,19 +1820,20 @@ module ApplicationHelper
     end
   end
 
-  def autocomplete_data_sources(project)
-    {
-      issues: auto_complete_issues_path(:project_id => project, :q => ''),
-      wiki_pages: auto_complete_wiki_pages_path(:project_id => project, :q => '')
-    }
-  end
-
   def heads_for_auto_complete(project)
     data_sources = autocomplete_data_sources(project)
     javascript_tag(
       "rm = window.rm || {};" \
       "rm.AutoComplete = rm.AutoComplete || {};" \
-      "rm.AutoComplete.dataSources = '#{data_sources.to_json}';"
+      "rm.AutoComplete.dataSources = JSON.parse('#{data_sources.to_json}');"
+    )
+  end
+
+  def update_data_sources_for_auto_complete(data_sources)
+    javascript_tag(
+      "const currentDataSources = rm.AutoComplete.dataSources;" \
+      "const newDataSources = JSON.parse('#{data_sources.to_json}'); " \
+      "rm.AutoComplete.dataSources = Object.assign(currentDataSources, newDataSources);"
     )
   end
 
@@ -1824,6 +1843,16 @@ module ApplicationHelper
       class: 'icon icon-copy-link',
       data: {'clipboard-text' => url}
     )
+  end
+
+  # Returns the markdown formatter: markdown or common_mark
+  # ToDo: Remove this when markdown will be removed
+  def markdown_formatter
+    if Setting.text_formatting == "common_mark"
+      "common_mark"
+    else
+      "markdown"
+    end
   end
 
   private
@@ -1838,5 +1867,12 @@ module ApplicationHelper
   def remove_double_quotes(identifier)
     name = identifier.gsub(%r{^"(.*)"$}, "\\1")
     return CGI.unescapeHTML(name)
+  end
+
+  def autocomplete_data_sources(project)
+    {
+      issues: auto_complete_issues_path(project_id: project, q: ''),
+      wiki_pages: auto_complete_wiki_pages_path(project_id: project, q: ''),
+    }
   end
 end

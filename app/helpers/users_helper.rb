@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -29,6 +29,30 @@ module UsersHelper
     user.valid_notification_options.collect {|o| [l(o.last), o.first]}
   end
 
+  def default_issue_query_options(user)
+    global_queries = IssueQuery.for_all_projects
+    global_public_queries = global_queries.only_public
+    global_user_queries = global_queries.where(user_id: user.id).where.not(id: global_public_queries.pluck(:id))
+    label = user == User.current ? 'label_my_queries' : 'label_default_queries.for_this_user'
+    grouped = {
+      l('label_default_queries.for_all_users') => global_public_queries.pluck(:name, :id),
+      l(".#{label}") => global_user_queries.pluck(:name, :id),
+    }
+    grouped_options_for_select(grouped, user.pref.default_issue_query)
+  end
+
+  def default_project_query_options(user)
+    global_queries = ProjectQuery
+    global_public_queries = global_queries.only_public
+    global_user_queries = global_queries.where(user_id: user.id).where.not(id: global_public_queries.ids)
+    label = user == User.current ? 'label_my_queries' : 'label_default_queries.for_this_user'
+    grouped = {
+      l('label_default_queries.for_all_users') => global_public_queries.pluck(:name, :id),
+      l(".#{label}") => global_user_queries.pluck(:name, :id),
+    }
+    grouped_options_for_select(grouped, user.pref.default_project_query)
+  end
+
   def textarea_font_options
     [[l(:label_font_default), '']] + UserPreference::TEXTAREA_FONT_OPTIONS.map {|o| [l("label_font_#{o}"), o]}
   end
@@ -40,6 +64,10 @@ module UsersHelper
      [l('label_time_entry_plural'), 'time_entries'],
      [l('label_associated_revisions'), 'changesets'],
      [l('label_last_tab_visited'), 'last_tab_visited']]
+  end
+
+  def auto_watch_on_options
+    UserPreference::AUTO_WATCH_ON_OPTIONS.index_by {|o| l("label_auto_watch_on_#{o}")}
   end
 
   def change_status_link(user)

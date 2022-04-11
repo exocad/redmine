@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -30,7 +30,7 @@ class Project < ActiveRecord::Base
   IDENTIFIER_MAX_LENGTH = 100
 
   # Specific overridden Activities
-  has_many :time_entry_activities
+  has_many :time_entry_activities, :dependent => :destroy
   has_many :memberships, :class_name => 'Member', :inverse_of => :project
   # Memberships of active users only
   has_many :members,
@@ -43,7 +43,7 @@ class Project < ActiveRecord::Base
   belongs_to :default_version, :class_name => 'Version'
   belongs_to :default_assigned_to, :class_name => 'Principal'
   has_many :time_entries, :dependent => :destroy
-  has_many :queries, :dependent => :delete_all
+  has_many :queries, :dependent => :destroy
   has_many :documents, :dependent => :destroy
   has_many :news, lambda {includes(:author)}, :dependent => :destroy
   has_many :issue_categories, lambda {order(:name)}, :dependent => :delete_all
@@ -58,6 +58,8 @@ class Project < ActiveRecord::Base
                           :class_name => 'IssueCustomField',
                           :join_table => "#{table_name_prefix}custom_fields_projects#{table_name_suffix}",
                           :association_foreign_key => 'custom_field_id'
+  # Default Custom Query
+  belongs_to :default_issue_query, :class_name => 'IssueQuery'
 
   acts_as_attachable :view_permission => :view_files,
                      :edit_permission => :manage_files,
@@ -72,7 +74,7 @@ class Project < ActiveRecord::Base
                 :author => nil
 
   validates_presence_of :name, :identifier
-  validates_uniqueness_of :identifier, :if => proc {|p| p.identifier_changed?}
+  validates_uniqueness_of :identifier, :if => proc {|p| p.identifier_changed?}, :case_sensitive => true
   validates_length_of :name, :maximum => 255
   validates_length_of :homepage, :maximum => 255
   validates_length_of :identifier, :maximum => IDENTIFIER_MAX_LENGTH
@@ -105,8 +107,8 @@ class Project < ActiveRecord::Base
   end)
   scope :like, (lambda do |arg|
     if arg.present?
-      pattern = "%#{arg.to_s.strip}%"
-      where("LOWER(identifier) LIKE LOWER(:p) OR LOWER(name) LIKE LOWER(:p)", :p => pattern)
+      pattern = "%#{sanitize_sql_like arg.to_s.strip}%"
+      where("LOWER(identifier) LIKE LOWER(:p) ESCAPE :s OR LOWER(name) LIKE LOWER(:p) ESCAPE :s", :p => pattern, :s => '\\')
     end
   end)
   scope :sorted, lambda {order(:lft)}
@@ -557,14 +559,6 @@ class Project < ActiveRecord::Base
     end
   end
 
-  # TODO: Remove this method in Redmine 5.0
-  def members_by_role
-    ActiveSupport::Deprecation.warn(
-      "Project#members_by_role will be removed. Use Project#principals_by_role instead."
-    )
-    principals_by_role
-  end
-
   # Adds user as a project member with the default role
   # Used for when a non-admin user creates a project
   def add_default_member(user)
@@ -832,6 +826,7 @@ class Project < ActiveRecord::Base
     'issue_custom_field_ids',
     'parent_id',
     'default_version_id',
+    'default_issue_query_id',
     'default_assigned_to_id')
 
   safe_attributes(
@@ -1017,7 +1012,7 @@ class Project < ActiveRecord::Base
   def add_inherited_member_roles
     if inherit_members? && parent
       parent.memberships.each do |parent_member|
-        member = Member.find_or_new(self.id, parent_member.user_id)
+        member = Member.find_or_initialize_by(:project_id => self.id, :user_id => parent_member.user_id)
         parent_member.member_roles.each do |parent_member_role|
           member.member_roles <<
             MemberRole.new(:role => parent_member_role.role,
@@ -1240,6 +1235,9 @@ class Project < ActiveRecord::Base
       new_query.user_id = query.user_id
       new_query.role_ids = query.role_ids if query.visibility == ::Query::VISIBILITY_ROLES
       self.queries << new_query
+      if query == project.default_issue_query
+        self.default_issue_query = new_query
+      end
     end
   end
 

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -114,5 +114,9 @@ class UserImport < Import
 
     object.send(:safe_attributes=, attributes, user)
     object
+  end
+
+  def extend_object(row, item, object)
+    Mailer.deliver_account_information(object, object.password) if yes?(settings['notifications'])
   end
 end

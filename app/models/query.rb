@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -16,8 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-
-require 'redmine/sort_criteria'
 
 class QueryColumn
   attr_accessor :name, :totalable, :default_order
@@ -239,6 +237,9 @@ class Query < ActiveRecord::Base
   class StatementInvalid < ::ActiveRecord::StatementInvalid
   end
 
+  class QueryError < StandardError
+  end
+
   include Redmine::SubclassFactory
 
   VISIBILITY_PRIVATE = 0
@@ -338,6 +339,13 @@ class Query < ActiveRecord::Base
   end)
 
   scope :sorted, lambda {order(:name, :id)}
+  scope :only_public, ->{ where(visibility: VISIBILITY_PUBLIC) }
+
+  # to be implemented in subclasses that have a way to determine a default
+  # query for the given options
+  def self.default(**_)
+    nil
+  end
 
   # Scope of visible queries, can be used from subclasses only.
   # Unlike other visible scopes, a class methods is used as it
@@ -1087,7 +1095,7 @@ class Query < ActiveRecord::Base
     end
     if column.is_a?(QueryCustomFieldColumn)
       custom_field = column.custom_field
-      send "total_for_custom_field", custom_field, scope
+      send :total_for_custom_field, custom_field, scope
     else
       send "total_for_#{column.name}", scope
     end
@@ -1143,7 +1151,7 @@ class Query < ActiveRecord::Base
       assoc = $1
       customized_key = "#{assoc}_id"
       customized_class = queried_class.reflect_on_association(assoc.to_sym).klass.base_class rescue nil
-      raise "Unknown #{queried_class.name} association #{assoc}" unless customized_class
+      raise QueryError, "Unknown #{queried_class.name} association #{assoc}" unless customized_class
     end
     where = sql_for_field(field, operator, value, db_table, db_field, true)
     if /[<>]/.match?(operator)
@@ -1420,7 +1428,7 @@ class Query < ActiveRecord::Base
     when "$"
       sql = sql_contains("#{db_table}.#{db_field}", value.first, :ends_with => true)
     else
-      raise "Unknown query operator #{operator}"
+      raise QueryError, "Unknown query operator #{operator}"
     end
 
     return sql
@@ -1433,11 +1441,28 @@ class Query < ActiveRecord::Base
     prefix = suffix = nil
     prefix = '%' if options[:ends_with]
     suffix = '%' if options[:starts_with]
-    prefix = suffix = '%' if prefix.nil? && suffix.nil?
-    queried_class.send(
-      :sanitize_sql_for_conditions,
-      [Redmine::Database.like(db_field, '?', :match => options[:match]), "#{prefix}#{value}#{suffix}"])
+    if prefix || suffix
+      value = queried_class.sanitize_sql_like value
+      queried_class.sanitize_sql_for_conditions(
+        [Redmine::Database.like(db_field, '?', :match => options[:match]), "#{prefix}#{value}#{suffix}"]
+      )
+    else
+      queried_class.sanitize_sql_for_conditions(
+        ::Query.tokenized_like_conditions(db_field, value, **options)
+      )
+    end
   end
+
+  # rubocop:disable Lint/IneffectiveAccessModifier
+  def self.tokenized_like_conditions(db_field, value, **options)
+    tokens = Redmine::Search::Tokenizer.new(value).tokens
+    tokens = [value] unless tokens.present?
+    sql, values = tokens.map do |token|
+      [Redmine::Database.like(db_field, '?', options), "%#{sanitize_sql_like token}%"]
+    end.transpose
+    [sql.join(" AND "), *values]
+  end
+  # rubocop:enable Lint/IneffectiveAccessModifier
 
   # Adds a filter for the given custom field
   def add_custom_field_filter(field, assoc=nil)

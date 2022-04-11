@@ -1,5 +1,5 @@
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -37,6 +37,22 @@ namespace :redmine do
     desc 'Removes expired tokens.'
     task :prune => :environment do
       Token.destroy_expired
+    end
+  end
+
+  namespace :users do
+    desc 'Removes registered users that have not been activated after a number of days. Use DAYS to set the number of days, defaults to 30 days.'
+    task :prune => :environment do
+      days = 30
+      env_days = ENV['DAYS']
+      if env_days
+        if env_days.to_i <= 0
+          abort "Invalid DAYS #{env_days} given. The value must be a integer."
+        else
+          days = env_days.to_i
+        end
+      end
+      User.prune(days.days)
     end
   end
 
@@ -150,7 +166,7 @@ DESC
       name = ENV['NAME']
 
       begin
-        Redmine::Plugin.mirror_assets(name)
+        Redmine::PluginLoader.mirror_assets(name)
       rescue Redmine::PluginNotFound
         abort "Plugin #{name} was not found."
       end

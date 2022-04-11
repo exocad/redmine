@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -18,14 +18,14 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 class WikisController < ApplicationController
-  menu_item :settings
+  menu_item :wiki
   before_action :find_project, :authorize
 
   # Delete a project's wiki
   def destroy
     if request.post? && params[:confirm] && @project.wiki
       @project.wiki.destroy
-      redirect_to settings_project_path(@project, :tab => 'wiki')
+      redirect_to project_path(@project)
     end
   end
 end

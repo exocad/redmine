@@ -25,9 +25,6 @@
   <% unless @user.force_default_language? %>
   <p><%= f.select :language, lang_options_for_select %></p>
   <% end %>
-  <% if Setting.openid? %>
-  <p><%= f.text_field :identity_url  %></p>
-  <% end %>
   <% if Setting.twofa? -%>
   <p>
     <label><%=l :setting_twofa -%></label>
@@ -56,6 +53,11 @@
 <fieldset class="box">
   <legend><%=l(:field_mail_notification)%></legend>
   <%= render :partial => 'users/mail_notifications' %>
+</fieldset>
+
+<fieldset class="box">
+  <legend><%=l(:label_auto_watch_on)%></legend>
+  <%= render :partial => 'users/auto_watch_on' %>
 </fieldset>
 
 <fieldset class="box tabular">

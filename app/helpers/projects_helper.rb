@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -112,6 +112,15 @@ module ProjectsHelper
   def project_default_assigned_to_options(project)
     assignable_users = (project.assignable_users.to_a + [project.default_assigned_to]).uniq.compact
     principals_options_for_select(assignable_users, project.default_assigned_to)
+  end
+
+  def project_default_issue_query_options(project)
+    public_queries = IssueQuery.only_public
+    grouped = {
+      l('label_default_queries.for_all_projects')    => public_queries.where(project_id: nil).pluck(:name, :id),
+      l('label_default_queries.for_current_project') => public_queries.where(project: project).pluck(:name, :id)
+    }
+    grouped_options_for_select(grouped, project.default_issue_query_id)
   end
 
   def format_version_sharing(sharing)

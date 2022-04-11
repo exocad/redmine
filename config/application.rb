@@ -7,7 +7,7 @@ require 'rails'
 require 'active_model/railtie'
 require 'active_job/railtie'
 require 'active_record/railtie'
-require 'active_storage/engine'
+# require 'active_storage/engine'
 require 'action_controller/railtie'
 require 'action_mailer/railtie'
 require 'action_view/railtie'
@@ -24,7 +24,7 @@ module RedmineApp
     # -- all .rb files in that directory are automatically loaded.
 
     # Custom directories with classes and modules you want to be autoloadable.
-    config.autoload_paths += %W(#{config.root}/lib)
+    config.autoloader = :zeitwerk
 
     # Only load the plugins named here, in the order given (default is alphabetical).
     # :all can be used as a placeholder for all plugins not explicitly named.
@@ -32,6 +32,8 @@ module RedmineApp
 
     config.active_record.store_full_sti_class = true
     config.active_record.default_timezone = :local
+
+    config.action_mailer.delivery_job = "ActionMailer::MailDeliveryJob"
 
     # Set Time.zone default to the specified zone and make Active Record auto-convert to this zone.
     # Run "rake -D time" for a list of tasks for finding time zone names. Default is UTC.
@@ -56,8 +58,8 @@ module RedmineApp
     # Do not include all helpers
     config.action_controller.include_all_helpers = false
 
-    # Since Redmine 4.0, boolean values are stored in sqlite3 databases as 1 and 0
-    config.active_record.sqlite3.represent_boolean_as_integer = true
+    # Add forgery protection
+    config.action_controller.default_protect_from_forgery = true
 
     # Sets the Content-Length header on responses with fixed-length bodies
     config.middleware.insert_before Rack::Sendfile, Rack::ContentLength
@@ -84,7 +86,7 @@ module RedmineApp
       :same_site => :lax
     )
 
-    if File.exists?(File.join(File.dirname(__FILE__), 'additional_environment.rb'))
+    if File.exist?(File.join(File.dirname(__FILE__), 'additional_environment.rb'))
       instance_eval File.read(File.join(File.dirname(__FILE__), 'additional_environment.rb'))
     end
   end

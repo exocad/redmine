@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -87,7 +87,7 @@ class User < Principal
                           :after_remove => Proc.new {|user, group| group.user_removed(user)}
   has_many :changesets, :dependent => :nullify
   has_one :preference, :dependent => :destroy, :class_name => 'UserPreference'
-  has_one :rss_token, lambda {where "action='feeds'"}, :class_name => 'Token'
+  has_one :atom_token, lambda {where "action='feeds'"}, :class_name => 'Token'
   has_one :api_token, lambda {where "action='api'"}, :class_name => 'Token'
   has_one :email_address, lambda {where :is_default => true}, :autosave => true
   has_many :email_addresses, :dependent => :delete_all
@@ -103,7 +103,7 @@ class User < Principal
   attr_accessor :remote_ip
 
   LOGIN_LENGTH_LIMIT = 60
-  MAIL_LENGTH_LIMIT = 60
+  MAIL_LENGTH_LIMIT = 254
 
   validates_presence_of :login, :firstname, :lastname, :if => Proc.new {|user| !user.is_a?(AnonymousUser)}
   validates_uniqueness_of :login, :if => Proc.new {|user| user.login_changed? && user.login.present?}, :case_sensitive => false
@@ -111,7 +111,6 @@ class User < Principal
   validates_format_of :login, :with => /\A[a-z0-9_\-@\.]*\z/i
   validates_length_of :login, :maximum => LOGIN_LENGTH_LIMIT
   validates_length_of :firstname, :lastname, :maximum => 30
-  validates_length_of :identity_url, maximum: 255
   validates_inclusion_of :mail_notification, :in => MAIL_NOTIFICATION_OPTIONS.collect(&:first), :allow_blank => true
   Setting::PASSWORD_CHAR_CLASSES.each do |k, v|
     validates_format_of :password, :with => v, :message => :"must_contain_#{k}", :allow_blank => true, :if => Proc.new {Setting.password_required_char_classes.include?(k)}
@@ -196,28 +195,6 @@ class User < Principal
 
   def mails
     email_addresses.pluck(:address)
-  end
-
-  def self.find_or_initialize_by_identity_url(url)
-    user = where(:identity_url => url).first
-    unless user
-      user = User.new
-      user.identity_url = url
-    end
-    user
-  end
-
-  def identity_url=(url)
-    if url.blank?
-      write_attribute(:identity_url, '')
-    else
-      begin
-        write_attribute(:identity_url, OpenIdAuthentication.normalize_identifier(url))
-      rescue OpenIdAuthentication::InvalidOpenId
-        # Invalid url, don't save
-      end
-    end
-    self.read_attribute(:identity_url)
   end
 
   # Returns the user that matches provided login and password, or nil
@@ -407,7 +384,11 @@ class User < Principal
   end
 
   def must_activate_twofa?
-    Setting.twofa == '2' && !twofa_active?
+    return false if twofa_active?
+
+    return true if Setting.twofa_required?
+    return true if Setting.twofa_required_for_administrators? && admin?
+    return true if Setting.twofa_optional? && groups.any?(&:twofa_required?)
   end
 
   def pref
@@ -434,12 +415,18 @@ class User < Principal
     self.pref[:comments_sorting] == 'desc'
   end
 
-  # Return user's RSS key (a 40 chars long string), used to access feeds
-  def rss_key
-    if rss_token.nil?
-      create_rss_token(:action => 'feeds')
+  # Return user's ATOM key (a 40 chars long string), used to access feeds
+  def atom_key
+    if atom_token.nil?
+      create_atom_token(:action => 'feeds')
     end
-    rss_token.value
+    atom_token.value
+  end
+
+  # TODO: remove in Redmine 6.0
+  def rss_key
+    ActiveSupport::Deprecation.warn "User.rss_key is deprecated and will be removed in Redmine 6.0. Please use User.atom_key instead."
+    atom_key
   end
 
   # Return user's API key (a 40 chars long string), used to access the API
@@ -489,7 +476,14 @@ class User < Principal
     if Setting.session_timeout?
       scope = scope.where("updated_on > ?", Setting.session_timeout.to_i.minutes.ago)
     end
-    scope.update_all(:updated_on => Time.now) == 1
+    last_updated = scope.maximum(:updated_on)
+    if last_updated.nil?
+      false
+    elsif last_updated <= 1.minute.ago
+      scope.update_all(:updated_on => Time.now) == 1
+    else
+      true
+    end
   end
 
   # Return an array of project ids for which the user has explicitly turned mail notifications on
@@ -542,8 +536,14 @@ class User < Principal
     end
   end
 
-  def self.find_by_rss_key(key)
+  def self.find_by_atom_key(key)
     Token.find_active_user('feeds', key)
+  end
+
+  # TODO: remove in Redmine 6.0
+  def self.find_by_rss_key(key)
+    ActiveSupport::Deprecation.warn "User.find_by_rss_key is deprecated and will be removed in Redmine 6.0. Please use User.find_by_atom_key instead."
+    self.find_by_atom_key(key)
   end
 
   def self.find_by_api_key(key)
@@ -622,6 +622,15 @@ class User < Principal
       Role.joins(members: :project).
         where(["#{Project.table_name}.status <> ?", Project::STATUS_ARCHIVED]).
           where(Member.arel_table[:user_id].eq(id)).distinct
+
+    if @roles.blank?
+      group_class = anonymous? ? GroupAnonymous : GroupNonMember
+      @roles = Role.joins(members: :project).
+        where(["#{Project.table_name}.status <> ? AND #{Project.table_name}.is_public = ?", Project::STATUS_ARCHIVED, true]).
+        where(Member.arel_table[:user_id].eq(group_class.first.id)).distinct
+    end
+
+    @roles
   end
 
   # Returns the user's bult-in role
@@ -665,7 +674,7 @@ class User < Principal
       return @project_ids_by_role if @project_ids_by_role
 
       group_class = anonymous? ? GroupAnonymous.unscoped : GroupNonMember.unscoped
-      group_id = group_class.pluck(:id).first
+      group_id = group_class.pick(:id)
 
       members = Member.joins(:project, :member_roles).
         where("#{Project.table_name}.status <> 9").
@@ -808,8 +817,7 @@ class User < Principal
     'notified_project_ids',
     'language',
     'custom_field_values',
-    'custom_fields',
-    'identity_url')
+    'custom_fields')
   safe_attributes(
     'login',
     :if => lambda {|user, current_user| user.new_record?})
@@ -898,6 +906,10 @@ class User < Principal
     project_ids.map(&:to_i)
   end
 
+  def self.prune(age)
+    User.where("created_on < ? AND status = ?", Time.now - age, STATUS_REGISTERED).destroy_all
+  end
+
   protected
 
   def validate_password_length
@@ -959,7 +971,11 @@ class User < Principal
     Token.where('user_id = ?', id).delete_all
     Watcher.where('user_id = ?', id).delete_all
     WikiContent.where(['author_id = ?', id]).update_all(['author_id = ?', substitute.id])
-    WikiContent::Version.where(['author_id = ?', id]).update_all(['author_id = ?', substitute.id])
+    WikiContentVersion.where(['author_id = ?', id]).update_all(['author_id = ?', substitute.id])
+    user_custom_field_ids = CustomField.where(field_format: 'user').ids
+    if user_custom_field_ids.any?
+      CustomValue.where(custom_field_id: user_custom_field_ids, value: self.id.to_s).delete_all
+    end
   end
 
   # Singleton class method is public
@@ -1001,56 +1017,5 @@ class User < Principal
       users = User.active.where(admin: true).to_a
       Mailer.deliver_security_notification(users, User.current, options)
     end
-  end
-end
-
-class AnonymousUser < User
-  validate :validate_anonymous_uniqueness, :on => :create
-
-  self.valid_statuses = [STATUS_ANONYMOUS]
-
-  def validate_anonymous_uniqueness
-    # There should be only one AnonymousUser in the database
-    errors.add :base, 'An anonymous user already exists.' if AnonymousUser.unscoped.exists?
-  end
-
-  def available_custom_fields
-    []
-  end
-
-  # Overrides a few properties
-  def logged?; false end
-  def admin; false end
-  def name(*args); I18n.t(:label_user_anonymous) end
-  def mail=(*args); nil end
-  def mail; nil end
-  def time_zone; nil end
-  def rss_key; nil end
-
-  def pref
-    UserPreference.new(:user => self)
-  end
-
-  # Returns the user's bult-in role
-  def builtin_role
-    @builtin_role ||= Role.anonymous
-  end
-
-  def membership(*args)
-    nil
-  end
-
-  def member_of?(*args)
-    false
-  end
-
-  # Anonymous user can not be destroyed
-  def destroy
-    false
-  end
-
-  protected
-
-  def instantiate_email_address
   end
 end

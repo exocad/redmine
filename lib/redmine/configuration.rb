@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -17,6 +17,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+require 'redmine'
+
 module Redmine
   module Configuration
 
@@ -24,7 +26,8 @@ module Redmine
     @defaults = {
       'avatar_server_url' => 'https://www.gravatar.com',
       'email_delivery' => nil,
-      'max_concurrent_ajax_uploads' => 2
+      'max_concurrent_ajax_uploads' => 2,
+      'common_mark_enable_hardbreaks' => true
     }
 
     @config = nil
@@ -93,8 +96,8 @@ module Redmine
         yaml = nil
         begin
           yaml = YAML::load(ERB.new(File.read(filename)).result)
-        rescue ArgumentError
-          abort "Your Redmine configuration file located at #{filename} is not a valid YAML file and could not be loaded."
+        rescue ArgumentError, Psych::SyntaxError => e
+          abort "Your Redmine configuration file located at #{filename} is not a valid YAML file and could not be loaded:\n#{e.message}"
         rescue SyntaxError => e
           abort "A syntax error occurred when parsing your Redmine configuration file located at #{filename} with ERB:\n#{e.message}"
         end

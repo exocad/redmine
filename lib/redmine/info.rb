@@ -16,9 +16,25 @@ module Redmine
           ["Rails version", Rails::VERSION::STRING],
           ["Environment", Rails.env],
           ["Database adapter", ActiveRecord::Base.connection.adapter_name],
-          ["Mailer queue", ActionMailer::DeliveryJob.queue_adapter.class.name],
+          ["Mailer queue", ActionMailer::MailDeliveryJob.queue_adapter.class.name],
           ["Mailer delivery", ActionMailer::Base.delivery_method]
         ].map {|info| "  %-30s %s" % info}.join("\n") + "\n"
+
+        theme = Setting.ui_theme.blank? ? 'Default' : Setting.ui_theme.capitalize
+        unless Setting.ui_theme.blank?
+          theme_js  = (if Redmine::Themes.theme(Setting.ui_theme).javascripts.include?('theme')
+                         ' (includes JavaScript)'
+                       else
+                         ''
+                       end
+                      )
+        end
+        theme_string = (theme + theme_js.to_s).to_s
+
+        s << "Redmine settings:\n"
+        s << [
+          ["Redmine theme", theme_string]
+        ].map {|settings| "  %-30s %s" % settings}.join("\n") + "\n"
 
         s << "SCM:\n"
         Redmine::Scm::Base.all.each do |scm|

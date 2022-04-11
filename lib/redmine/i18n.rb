@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -16,6 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+require 'redmine'
 
 module Redmine
   module I18n
@@ -155,16 +157,16 @@ module Redmine
 
     # Custom backend based on I18n::Backend::Simple with the following changes:
     # * available_locales are determined by looking at translation file names
-    class Backend < ::I18n::Backend::Simple
+    class Backend < ::I18n::Backend::LazyLoadable
       module Implementation
-        include ::I18n::Backend::Pluralization
-
         # Get available locales from the translations filenames
         def available_locales
           @available_locales ||= ::I18n.load_path.map {|path| File.basename(path, '.*')}.uniq.sort.map(&:to_sym)
         end
       end
 
+      # Adds custom pluralization rules
+      include ::I18n::Backend::Pluralization
       # Adds fallback to default locale for untranslated strings
       include ::I18n::Backend::Fallbacks
     end

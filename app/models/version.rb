@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -127,7 +127,7 @@ class Version < ActiveRecord::Base
   VERSION_SHARINGS = %w(none descendants hierarchy tree system)
 
   validates_presence_of :name
-  validates_uniqueness_of :name, :scope => [:project_id]
+  validates_uniqueness_of :name, :scope => [:project_id], :case_sensitive => true
   validates_length_of :name, :maximum => 60
   validates_length_of :description, :wiki_page_title, :maximum => 255
   validates :effective_date, :date => true
@@ -137,7 +137,7 @@ class Version < ActiveRecord::Base
   scope :named, lambda {|arg| where("LOWER(#{table_name}.name) = LOWER(?)", arg.to_s.strip)}
   scope :like, (lambda do |arg|
     if arg.present?
-      pattern = "%#{arg.to_s.strip}%"
+      pattern = "%#{sanitize_sql_like arg.to_s.strip}%"
       where([Redmine::Database.like("#{Version.table_name}.name", '?'), pattern])
     end
   end)

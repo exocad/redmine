@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -17,7 +17,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-require File.expand_path('../redcloth3', __FILE__)
 require 'digest/md5'
 
 module Redmine
@@ -128,12 +127,14 @@ module Redmine
               if content.match(/<code\s+class=(?:"([^"]+)"|'([^']+)')>\s?(.*)/m)
                 language = $1 || $2
                 text = $3
+                # original language for extension development
+                langattr = " data-language=\"#{CGI.escapeHTML language}\"" if language.present?
                 if Redmine::SyntaxHighlighting.language_supported?(language)
                   text.gsub!(/x%x%/, '&')
-                  content = "<code class=\"#{language} syntaxhl\">" +
+                  content = "<code class=\"#{CGI.escapeHTML language} syntaxhl\"#{langattr}>" +
                     Redmine::SyntaxHighlighting.highlight_by_language(text, language)
                 else
-                  content = "<code>#{ERB::Util.h(text)}"
+                  content = "<code#{langattr}>#{ERB::Util.h(text)}"
                 end
               end
               content

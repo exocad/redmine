@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -155,7 +155,7 @@ module Redmine
           def search_tokens_condition(columns, tokens, all_words)
             token_clauses = columns.map {|column| "(#{search_token_match_statement(column)})"}
             sql = (['(' + token_clauses.join(' OR ') + ')'] * tokens.size).join(all_words ? ' AND ' : ' OR ')
-            [sql, * (tokens.collect {|w| "%#{w}%"} * token_clauses.size).sort]
+            [sql, * (tokens.collect {|w| "%#{ActiveRecord::Base.sanitize_sql_like w}%"} * token_clauses.size).sort]
           end
           private :search_tokens_condition
 

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -53,6 +53,15 @@ class UsersController < ApplicationController
     scope = User.logged.status(@status).preload(:email_address)
     scope = scope.like(params[:name]) if params[:name].present?
     scope = scope.in_group(params[:group_id]) if params[:group_id].present?
+
+    if params[:twofa].present?
+      case params[:twofa].to_i
+      when 1
+        scope = scope.where.not(twofa_scheme: nil)
+      when 0
+        scope = scope.where(twofa_scheme: nil)
+      end
+    end
 
     @user_count = scope.count
     @user_pages = Paginator.new @user_count, @limit, params['page']
@@ -153,7 +162,8 @@ class UsersController < ApplicationController
   end
 
   def update
-    if params[:user][:password].present? && (@user.auth_source_id.nil? || params[:user][:auth_source_id].blank?)
+    is_updating_password = params[:user][:password].present? && (@user.auth_source_id.nil? || params[:user][:auth_source_id].blank?)
+    if is_updating_password
       @user.password, @user.password_confirmation = params[:user][:password], params[:user][:password_confirmation]
     end
     @user.safe_attributes = params[:user]
@@ -165,6 +175,7 @@ class UsersController < ApplicationController
     if @user.save
       @user.pref.save
 
+      Mailer.deliver_password_updated(@user, User.current) if is_updating_password
       if was_activated
         Mailer.deliver_account_activated(@user)
       elsif @user.active? && params[:send_information] && @user != User.current

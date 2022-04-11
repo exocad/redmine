@@ -324,7 +324,6 @@ de:
   field_host: Host
   field_hours: Stunden
   field_identifier: Kennung
-  field_identity_url: OpenID-URL
   field_inherit_members: Benutzer erben
   field_is_closed: Ticket geschlossen
   field_is_default: Standardeinstellung
@@ -514,6 +513,10 @@ de:
   label_day_plural: Tage
   label_default: Standard
   label_default_columns: Standard-Spalten
+  label_default_queries:
+    for_all_projects: Für alle Projekte
+    for_current_project: Für das aktuelle Projekt
+    for_all_users: Für alle Benutzer
   label_deleted: gelöscht
   label_descending: Absteigend
   label_details: Details
@@ -627,7 +630,6 @@ de:
   label_loading: Lade...
   label_logged_as: Angemeldet als
   label_login: Anmelden
-  label_login_with_open_id_option: oder mit OpenID anmelden
   label_logout: Abmelden
   label_only: nur
   label_max_size: Maximale Größe
@@ -840,6 +842,7 @@ de:
     other: "%{count} Projekte"
   label_year: Jahr
   label_yesterday: gestern
+  label_default_query: Standardabfrage
 
   mail_body_account_activation_request: "Ein neuer Benutzer (%{value}) hat sich registriert. Sein Konto wartet auf Ihre Genehmigung:"
   mail_body_account_information: Ihre Konto-Informationen
@@ -986,7 +989,6 @@ de:
   setting_attachment_max_size: Maximale Dateigröße
   setting_autofetch_changesets: Changesets automatisch abrufen
   setting_autologin: Automatische Anmeldung läuft ab nach
-  setting_bcc_recipients: E-Mails als Blindkopie (BCC) senden
   setting_cache_formatted_text: Formatierten Text im Cache speichern
   setting_commit_cross_project_ref: Erlauben, Tickets aller anderen Projekte zu referenzieren
   setting_commit_fix_keywords: Schlüsselwörter (Status)
@@ -1032,7 +1034,6 @@ de:
   setting_mail_handler_excluded_filenames: Anhänge nach Namen ausschließen
   setting_new_project_user_role_id: Rolle, die einem Nicht-Administrator zugeordnet wird, der ein Projekt erstellt
   setting_non_working_week_days: Arbeitsfreie Tage
-  setting_openid: Erlaube OpenID-Anmeldung und -Registrierung
   setting_password_min_length: Mindestlänge des Passworts
   setting_password_max_age: Erzwinge Passwortwechsel nach
   setting_lost_password: Zurücksetzen des Passworts per E-Mail erlauben
@@ -1064,6 +1065,7 @@ de:
   status_registered: nicht aktivierte
 
   text_account_destroy_confirmation: "Möchten Sie wirklich fortfahren?\nIhr Benutzerkonto wird für immer gelöscht und kann nicht wiederhergestellt werden."
+  text_allowed_queries_to_select: Nur für alle sichtbare Abfragen können ausgewählt werden
   text_are_you_sure: Sind Sie sicher?
   text_assign_time_entries_to_project: Gebuchte Aufwände dem Projekt zuweisen
   text_caracters_maximum: "Max. %{count} Zeichen."
@@ -1382,3 +1384,35 @@ de:
   error_invalid_authenticity_token: Ungültiges Authentizitätstoken für Formular.
   error_query_statement_invalid: Während der Ausführung einer Abfrage ist ein Fehler aufgetreten, dieser wurde
     protokolliert. Bitte melden Sie diesen Fehler an ihren Redmine-Administrator.
+  permission_view_wiki_page_watchers: View wiki page watchers list
+  permission_add_wiki_page_watchers: Add wiki page watchers
+  permission_delete_wiki_page_watchers: Delete wiki page watchers
+  label_wiki_page_watchers: Watchers
+  label_attachment_description: File description
+  error_no_data_in_file: The file does not contain any data
+  field_twofa_required: Require two factor authentication
+  twofa_hint_optional_html: Setting <strong>%{label}</strong> will let users set up
+    two-factor authentication at will, unless it is required by one of their groups.
+  twofa_text_group_required: This setting is only effective when the global two factor
+    authentication setting is set to 'optional'. Currently, two factor authentication
+    is required for all users.
+  twofa_text_group_disabled: This setting is only effective when the global two factor
+    authentication setting is set to 'optional'. Currently, two factor authentication
+    is disabled.
+  field_default_issue_query: Default issue query
+  text_all_migrations_have_been_run: All database migrations have been run
+  button_save_object: Save %{object_name}
+  button_edit_object: Edit %{object_name}
+  button_delete_object: Delete %{object_name}
+  text_setting_config_change: You can configure the behaviour in config/configuration.yml.
+    Please restart the application after editing it.
+  label_bulk_edit: Bulk edit
+  button_create_and_follow: Create and follow
+  label_subtask: Subtask
+  field_default_project_query: Default project query
+  label_required_administrators: required for administrators
+  twofa_hint_required_administrators_html: Setting <strong>%{label}</strong> behaves
+    like optional, but will require all users with administration rights to set up two-factor
+    authentication at their next login.
+  label_auto_watch_on: Auto watch
+  label_auto_watch_on_issue_contributed_to: Issues I contributed to

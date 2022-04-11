@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -125,9 +125,7 @@ module Redmine
 
         def detach_saved_attachments
           saved_attachments.each do |attachment|
-            # TODO: use #reload instead, after upgrading to Rails 5
-            # (after_rollback is called when running transactional tests in Rails 4)
-            attachment.container = nil
+            attachment.reload
           end
         end
 

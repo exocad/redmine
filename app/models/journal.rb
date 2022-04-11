@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -58,7 +58,9 @@ class Journal < ActiveRecord::Base
                   " (#{JournalDetail.table_name}.prop_key = 'status_id' OR #{Journal.table_name}.notes <> '')").distinct
       end
   )
+  acts_as_mentionable :attributes => ['notes']
   before_create :split_private_notes
+  before_create :add_watcher
   after_create_commit :send_notification
 
   scope :visible, (lambda do |*args|
@@ -97,7 +99,7 @@ class Journal < ActiveRecord::Base
   def save(*args)
     journalize_changes
     # Do not save an empty journal
-    (details.empty? && notes.blank?) ? false : super
+    (details.empty? && notes.blank?) ? false : super()
   end
 
   # Returns journal details that are visible to user
@@ -138,7 +140,7 @@ class Journal < ActiveRecord::Base
   end
 
   def attachments
-    journalized.respond_to?(:attachments) ? journalized.attachments : []
+    details.select{ |d| d.property == 'attachment' }.map{ |d| Attachment.find_by(:id => d.prop_key) }.compact
   end
 
   # Returns a string of css classes
@@ -172,10 +174,12 @@ class Journal < ActiveRecord::Base
 
   def notified_watchers
     notified = journalized.notified_watchers
-    if private_notes?
-      notified = notified.select {|user| user.allowed_to?(:view_private_notes, journalized.project)}
-    end
-    notified
+    select_journal_visible_user(notified)
+  end
+
+  def notified_mentions
+    notified = super
+    select_journal_visible_user(notified)
   end
 
   def watcher_recipients
@@ -190,7 +194,7 @@ class Journal < ActiveRecord::Base
       journals.each do |journal|
         journal.details.each do |detail|
           if detail.property == 'cf'
-            detail.instance_variable_set "@custom_field", fields_by_id[detail.prop_key.to_i]
+            detail.instance_variable_set :@custom_field, fields_by_id[detail.prop_key.to_i]
           end
         end
       end
@@ -324,6 +328,15 @@ class Journal < ActiveRecord::Base
     true
   end
 
+  def add_watcher
+    if user &&
+        user.allowed_to?(:add_issue_watchers, project) &&
+        user.pref.auto_watch_on?('issue_contributed_to') &&
+        !Watcher.any_watched?(Array.wrap(journalized), user)
+      journalized.set_watcher(user, true)
+    end
+  end
+
   def send_notification
     if notify? &&
         (
@@ -336,5 +349,12 @@ class Journal < ActiveRecord::Base
         )
       Mailer.deliver_issue_edit(self)
     end
+  end
+
+  def select_journal_visible_user(notified)
+    if private_notes?
+      notified = notified.select {|user| user.allowed_to?(:view_private_notes, journalized.project)}
+    end
+    notified
   end
 end

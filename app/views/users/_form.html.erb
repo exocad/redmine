@@ -13,9 +13,6 @@
   <% unless @user.force_default_language? %>
   <p><%= f.select :language, lang_options_for_select %></p>
   <% end %>
-  <% if Setting.openid? %>
-  <p><%= f.text_field :identity_url  %></p>
-  <% end %>
 
   <% @user.custom_field_values.each do |value| %>
     <p><%= custom_field_tag_with_label :user, value %></p>
@@ -64,6 +61,11 @@
 <fieldset class="box">
   <legend><%=l(:field_mail_notification)%></legend>
   <%= render :partial => 'users/mail_notifications' %>
+</fieldset>
+
+<fieldset class="box">
+  <legend><%=l(:label_auto_watch_on)%></legend>
+  <%= render :partial => 'users/auto_watch_on' %>
 </fieldset>
 
 <fieldset class="box tabular">

@@ -336,7 +336,6 @@ lt:
   field_parent_title: Pagrindinis puslapis
   field_editable: Redaguojamas
   field_watcher: Stebėtojas
-  field_identity_url: OpenID URL
   field_content: Turinys
   field_group_by: Sugrupuoti pagal
   field_sharing: Dalijimasis
@@ -379,7 +378,6 @@ lt:
   setting_attachment_max_size: Priedo maksimalus dydis
   setting_issues_export_limit: Darbų eksportavimo riba
   setting_mail_from: Išleidimo elektroninio pašto adresas
-  setting_bcc_recipients: Nematomos kopijos (bcc) gavėjai
   setting_plain_text_mail: Tik tekstas laiške (be HTML)
   setting_host_name: Pagrindinio kompiuterio pavadinimas ir kelias
   setting_text_formatting: Teksto formatavimas
@@ -415,7 +413,6 @@ lt:
   setting_diff_max_lines_displayed: Maksimalus rodomas pakeitimų eilučių skaičius
   setting_file_max_size_displayed: Maksimalus tekstinių failų dydis rodomas vienoje eilutėje
   setting_repository_log_display_limit: Maksimalus revizijų skaičius rodomas failo žurnale
-  setting_openid: Leisti OpenID prisijungimą ir registraciją
   setting_password_max_age: Reikalauti slaptažodžio pakeitimo po
   setting_password_min_length: Minimalus slaptažodžio ilgis
   setting_lost_password: Leisti slaptažodžio atstatymą elektroninu laišku
@@ -582,7 +579,6 @@ lt:
   label_information: Informacija
   label_information_plural: Informacija
   label_register: Užsiregistruoti
-  label_login_with_open_id_option: arba prisijunkite su OpenID
   label_password_lost: Prarastas slaptažodis
   label_password_required: Norėdami tęsti, patvirtinkite savo slaptažodį
   label_home: Pagrindinis
@@ -1379,3 +1375,41 @@ lt:
   error_invalid_authenticity_token: Netinkamas formos autentiškumo ženklas.
   error_query_statement_invalid: Užklausos vykdymo metu įvyko klaida kuri buvo įrašyta į įvykių žurnalą.
     Apie klaidą informuokite Redmine administratorių.
+  permission_view_wiki_page_watchers: View wiki page watchers list
+  permission_add_wiki_page_watchers: Add wiki page watchers
+  permission_delete_wiki_page_watchers: Delete wiki page watchers
+  label_wiki_page_watchers: Watchers
+  label_attachment_description: File description
+  error_no_data_in_file: The file does not contain any data
+  field_twofa_required: Require two factor authentication
+  twofa_hint_optional_html: Setting <strong>%{label}</strong> will let users set up
+    two-factor authentication at will, unless it is required by one of their groups.
+  twofa_text_group_required: This setting is only effective when the global two factor
+    authentication setting is set to 'optional'. Currently, two factor authentication
+    is required for all users.
+  twofa_text_group_disabled: This setting is only effective when the global two factor
+    authentication setting is set to 'optional'. Currently, two factor authentication
+    is disabled.
+  field_default_issue_query: Default issue query
+  label_default_queries:
+    for_all_projects: For all projects
+    for_current_project: For current project
+    for_all_users: For all users
+  text_allowed_queries_to_select: Public (to any users) queries only selectable
+  text_all_migrations_have_been_run: All database migrations have been run
+  button_save_object: Save %{object_name}
+  button_edit_object: Edit %{object_name}
+  button_delete_object: Delete %{object_name}
+  text_setting_config_change: You can configure the behaviour in config/configuration.yml.
+    Please restart the application after editing it.
+  label_bulk_edit: Bulk edit
+  button_create_and_follow: Create and follow
+  label_subtask: Subtask
+  label_default_query: Default query
+  field_default_project_query: Default project query
+  label_required_administrators: required for administrators
+  twofa_hint_required_administrators_html: Setting <strong>%{label}</strong> behaves
+    like optional, but will require all users with administration rights to set up two-factor
+    authentication at their next login.
+  label_auto_watch_on: Auto watch
+  label_auto_watch_on_issue_contributed_to: Issues I contributed to

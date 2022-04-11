@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -636,6 +636,9 @@ class MailHandler < ActionMailer::Base
 
     unless delimiters.empty?
       regex = Regexp.new("^(\\p{Space}|>)*(#{ Regexp.union(delimiters) })\\p{Space}*[\\r\\n].*", Regexp::MULTILINE)
+      if Setting.text_formatting == "common_mark" && Redmine::Configuration['common_mark_enable_hardbreaks'] == false
+        body = Redmine::WikiFormatting::CommonMark::AppendSpacesToLines.call(body)
+      end
       body = body.gsub(regex, '')
     end
     body.strip

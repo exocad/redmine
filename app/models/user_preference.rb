@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -37,10 +37,14 @@ class UserPreference < ActiveRecord::Base
     'textarea_font',
     'recently_used_projects',
     'history_default_tab',
-    'toolbar_language_options')
+    'default_issue_query',
+    'default_project_query',
+    'toolbar_language_options',
+    'auto_watch_on')
 
   TEXTAREA_FONT_OPTIONS = ['monospace', 'proportional']
   DEFAULT_TOOLBAR_LANGUAGE_OPTIONS = %w[c cpp csharp css diff go groovy html java javascript objc perl php python r ruby sass scala shell sql swift xml yaml]
+  AUTO_WATCH_ON_OPTIONS = ['issue_contributed_to']
 
   def initialize(attributes=nil, *args)
     super
@@ -53,6 +57,9 @@ class UserPreference < ActiveRecord::Base
       end
       unless attributes && attributes.key?(:no_self_notified)
         self.no_self_notified = Setting.default_users_no_self_notified
+      end
+      unless attributes && attributes.key?(:auto_watch_on)
+        self.auto_watch_on = AUTO_WATCH_ON_OPTIONS
       end
     end
     self.others ||= {}
@@ -115,6 +122,16 @@ class UserPreference < ActiveRecord::Base
       end.compact
     self[:toolbar_language_options] = languages.join(',')
   end
+
+  def default_issue_query; self[:default_issue_query] end
+  def default_issue_query=(value); self[:default_issue_query]=value; end
+
+  def default_project_query; self[:default_project_query] end
+  def default_project_query=(value); self[:default_project_query]=value; end
+
+  def auto_watch_on; self[:auto_watch_on] || []; end
+  def auto_watch_on=(values); self[:auto_watch_on]=values; end
+  def auto_watch_on?(action); self.auto_watch_on.include?(action.to_s); end
 
   # Returns the names of groups that are displayed on user's page
   # Example:

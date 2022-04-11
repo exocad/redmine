@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -30,8 +30,8 @@ class ProjectsController < ApplicationController
                             :destroy]
   before_action :authorize_global, :only => [:new, :create]
   before_action :require_admin, :only => [:copy, :archive, :unarchive]
-  accept_rss_auth :index
-  accept_api_auth :index, :show, :create, :update, :destroy
+  accept_atom_auth :index
+  accept_api_auth :index, :show, :create, :update, :destroy, :archive, :unarchive, :close, :reopen
   require_sudo_mode :destroy
 
   helper :custom_fields
@@ -51,6 +51,7 @@ class ProjectsController < ApplicationController
       return
     end
 
+    retrieve_default_query
     retrieve_project_query
     scope = project_scope
 
@@ -173,26 +174,26 @@ class ProjectsController < ApplicationController
       return
     end
 
-    @principals_by_role = @project.principals_by_role
-    @subprojects = @project.children.visible.to_a
-    @news = @project.news.limit(5).includes(:author, :project).reorder("#{News.table_name}.created_on DESC").to_a
-    with_subprojects = Setting.display_subprojects_issues?
-    @trackers = @project.rolled_up_trackers(with_subprojects).visible
-
-    cond = @project.project_condition(with_subprojects)
-
-    @open_issues_by_tracker = Issue.visible.open.where(cond).group(:tracker).count
-    @total_issues_by_tracker = Issue.visible.where(cond).group(:tracker).count
-
-    if User.current.allowed_to_view_all_time_entries?(@project)
-      @total_hours = TimeEntry.visible.where(cond).sum(:hours).to_f
-      @total_estimated_hours = Issue.visible.where(cond).sum(:estimated_hours).to_f
-    end
-
-    @key = User.current.rss_key
-
     respond_to do |format|
-      format.html
+      format.html do
+        @principals_by_role = @project.principals_by_role
+        @subprojects = @project.children.visible.to_a
+        @news = @project.news.limit(5).includes(:author, :project).reorder("#{News.table_name}.created_on DESC").to_a
+        with_subprojects = Setting.display_subprojects_issues?
+        @trackers = @project.rolled_up_trackers(with_subprojects).visible
+
+        cond = @project.project_condition(with_subprojects)
+
+        @open_issues_by_tracker = Issue.visible.open.where(cond).group(:tracker).count
+        @total_issues_by_tracker = Issue.visible.where(cond).group(:tracker).count
+
+        if User.current.allowed_to_view_all_time_entries?(@project)
+          @total_hours = TimeEntry.visible.where(cond).sum(:hours).to_f
+          @total_estimated_hours = Issue.visible.where(cond).sum(:estimated_hours).to_f
+        end
+
+        @key = User.current.atom_key
+      end
       format.api
     end
   end
@@ -234,16 +235,31 @@ class ProjectsController < ApplicationController
 
   def archive
     unless @project.archive
-      flash[:error] = l(:error_can_not_archive_project)
+      error = l(:error_can_not_archive_project)
     end
-    redirect_to_referer_or admin_projects_path(:status => params[:status])
+    respond_to do |format|
+      format.html do
+        flash[:error] = error if error
+        redirect_to_referer_or admin_projects_path(:status => params[:status])
+      end
+      format.api do
+        if error
+          render_api_errors error
+        else
+          render_api_ok
+        end
+      end
+    end
   end
 
   def unarchive
     unless @project.active?
       @project.unarchive
     end
-    redirect_to_referer_or admin_projects_path(:status => params[:status])
+    respond_to do |format|
+      format.html{ redirect_to_referer_or admin_projects_path(:status => params[:status]) }
+      format.api{ render_api_ok }
+    end
   end
 
   def bookmark
@@ -261,12 +277,18 @@ class ProjectsController < ApplicationController
 
   def close
     @project.close
-    redirect_to project_path(@project)
+    respond_to do |format|
+      format.html { redirect_to project_path(@project) }
+      format.api { render_api_ok }
+    end
   end
 
   def reopen
     @project.reopen
-    redirect_to project_path(@project)
+    respond_to do |format|
+      format.html { redirect_to project_path(@project) }
+      format.api { render_api_ok }
+    end
   end
 
   # Delete @project
@@ -301,5 +323,20 @@ class ProjectsController < ApplicationController
 
   def retrieve_project_query
     retrieve_query(ProjectQuery, false, :defaults => @default_columns_names)
+  end
+
+  def retrieve_default_query
+    return if params[:query_id].present?
+    return if api_request?
+    return if params[:set_filter]
+
+    if params[:without_default].present?
+      params[:set_filter] = 1
+      return
+    end
+
+    if default_query = ProjectQuery.default
+      params[:query_id] = default_query.id
+    end
   end
 end

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -46,7 +46,7 @@ Rails.application.routes.draw do
   post 'boards/:board_id/topics/:id/edit', :to => 'messages#edit'
   post 'boards/:board_id/topics/:id/destroy', :to => 'messages#destroy'
 
-  # Auto complate routes
+  # Auto complete routes
   match '/issues/auto_complete', :to => 'auto_completes#issues', :via => :get, :as => 'auto_complete_issues'
   match '/wiki_pages/auto_complete', :to => 'auto_completes#wiki_pages', :via => :get, :as => 'auto_complete_wiki_pages'
 
@@ -83,13 +83,13 @@ Rails.application.routes.draw do
   match '/imports/:id/run', :to => 'imports#run', :via => [:get, :post], :as => 'import_run'
 
   match 'my/account', :controller => 'my', :action => 'account', :via => [:get, :put]
-  match 'my/account/destroy', :controller => 'my', :action => 'destroy', :via => [:get, :post]
+  match 'my/account/destroy', :controller => 'my', :action => 'destroy', :via => [:get, :post], :as => :delete_my_account
   match 'my/page', :controller => 'my', :action => 'page', :via => :get
   post 'my/page', :to => 'my#update_page'
   match 'my', :controller => 'my', :action => 'index', :via => :get # Redirects to my/page
   get 'my/api_key', :to => 'my#show_api_key', :as => 'my_api_key'
   post 'my/api_key', :to => 'my#reset_api_key'
-  post 'my/rss_key', :to => 'my#reset_rss_key', :as => 'my_rss_key'
+  post 'my/atom_key', :to => 'my#reset_atom_key', :as => 'my_atom_key'
   match 'my/password', :controller => 'my', :action => 'password', :via => [:get, :post]
   match 'my/add_block', :controller => 'my', :action => 'add_block', :via => :post
   match 'my/remove_block', :controller => 'my', :action => 'remove_block', :via => :post
@@ -119,6 +119,7 @@ Rails.application.routes.draw do
   post 'watchers', :to => 'watchers#create'
   post 'watchers/append', :to => 'watchers#append'
   delete 'watchers', :to => 'watchers#destroy'
+  get 'watchers/autocomplete_for_mention', to: 'watchers#autocomplete_for_mention', via: [:get]
   get 'watchers/autocomplete_for_user', :to => 'watchers#autocomplete_for_user'
   # Specific routes for issue watchers API
   post 'issues/:object_id/watchers', :to => 'watchers#create', :object_type => 'issue'
@@ -131,10 +132,10 @@ Rails.application.routes.draw do
 
     member do
       get 'settings(/:tab)', :action => 'settings', :as => 'settings'
-      post 'archive'
-      post 'unarchive'
-      post 'close'
-      post 'reopen'
+      match 'archive', :via => [:post, :put]
+      match 'unarchive', :via => [:post, :put]
+      match 'close', :via => [:post, :put]
+      match 'reopen', :via => [:post, :put]
       match 'copy', :via => [:get, :post]
       match 'bookmark', :via => [:delete, :post]
     end
@@ -215,7 +216,7 @@ Rails.application.routes.draw do
     end
     collection do
       match 'bulk_edit', :via => [:get, :post]
-      post 'bulk_update'
+      match 'bulk_update', :via => [:post, :patch]
     end
     resources :time_entries, :controller => 'timelog', :only => [:new, :create]
     shallow do
@@ -349,8 +350,7 @@ Rails.application.routes.draw do
   resources :enumerations, :except => :show
   match 'enumerations/:type', :to => 'enumerations#index', :via => :get
 
-  get 'projects/:id/search', :controller => 'search', :action => 'index'
-  get 'search', :controller => 'search', :action => 'index'
+  get '(projects/:id)/search', :controller => 'search', :action => 'index', :as => 'search'
 
 
   get  'mail_handler', :to => 'mail_handler#new'
@@ -372,10 +372,17 @@ Rails.application.routes.draw do
     end
   end
 
-  match 'workflows', :controller => 'workflows', :action => 'index', :via => :get
-  match 'workflows/edit', :controller => 'workflows', :action => 'edit', :via => [:get, :post]
-  match 'workflows/permissions', :controller => 'workflows', :action => 'permissions', :via => [:get, :post]
-  match 'workflows/copy', :controller => 'workflows', :action => 'copy', :via => [:get, :post]
+  resources :workflows, only: [:index] do
+    collection do
+      get 'edit'
+      patch 'update'
+      get 'permissions'
+      patch 'update_permissions'
+      get 'copy'
+      post 'duplicate'
+    end
+  end
+
   match 'settings', :controller => 'settings', :action => 'index', :via => :get
   match 'settings/edit', :controller => 'settings', :action => 'edit', :via => [:get, :post]
   match 'settings/plugin/:id', :controller => 'settings', :action => 'plugin', :via => [:get, :post], :as => 'plugin_settings'
@@ -390,7 +397,7 @@ Rails.application.routes.draw do
 
   Dir.glob File.expand_path("#{Redmine::Plugin.directory}/*") do |plugin_dir|
     file = File.join(plugin_dir, "config/routes.rb")
-    if File.exists?(file)
+    if File.exist?(file)
       begin
         instance_eval File.read(file)
       rescue SyntaxError, StandardError => e

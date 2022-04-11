@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -152,7 +152,6 @@ module Redmine
       # Returns issues that will be rendered
       def issues
         @issues ||= @query.issues(
-          :include => [:assigned_to, :tracker, :priority, :category, :fixed_version],
           :order => ["#{Project.table_name}.lft ASC", "#{Issue.table_name}.id ASC"],
           :limit => @max_rows
         )
@@ -788,7 +787,7 @@ module Redmine
           }
         end
         if has_children
-          content = view.content_tag(:span, nil, :class => 'icon icon-expended expander') + content
+          content = view.content_tag(:span, nil, :class => 'icon icon-expanded expander') + content
           tag_options[:class] += ' open'
         else
           if params[:indent]

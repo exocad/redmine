@@ -331,7 +331,6 @@ ko:
   field_parent_title: 상위 제목
   field_editable: 편집가능
   field_watcher: 일감관람자
-  field_identity_url: OpenID URL
   field_content: 내용
   field_group_by: 결과를 묶어 보여줄 기준
 
@@ -343,7 +342,6 @@ ko:
   setting_attachment_max_size: 최대 첨부파일 크기
   setting_issues_export_limit: 일감 내보내기 제한
   setting_mail_from: 발신 메일 주소
-  setting_bcc_recipients: 참조자들을 bcc로 숨기기
   setting_plain_text_mail: 텍스트만 (HTML 없이)
   setting_host_name: 호스트 이름과 경로
   setting_text_formatting: 본문 형식
@@ -373,7 +371,6 @@ ko:
   setting_diff_max_lines_displayed: 차이점(diff) 보기에 표시할 최대 줄수
   setting_repository_log_display_limit: 저장소 보기에 표시할 개정이력의 최대 갯수
   setting_file_max_size_displayed: 바로 보여줄 텍스트파일의 최대 크기
-  setting_openid: OpenID 로그인과 등록 허용
   setting_password_min_length: 최소 암호 길이
   setting_new_project_user_role_id: 프로젝트를 만든 사용자에게 주어질 역할
 
@@ -482,7 +479,6 @@ ko:
   label_information: 정보
   label_information_plural: 정보
   label_register: 등록
-  label_login_with_open_id_option: 또는 OpenID로 로그인
   label_password_lost: 비밀번호 찾기
   label_home: 초기화면
   label_my_page: 내 페이지
@@ -1450,3 +1446,41 @@ ko:
   error_invalid_authenticity_token: Invalid form authenticity token.
   error_query_statement_invalid: An error occurred while executing the query and has
     been logged. Please report this error to your Redmine administrator.
+  permission_view_wiki_page_watchers: View wiki page watchers list
+  permission_add_wiki_page_watchers: Add wiki page watchers
+  permission_delete_wiki_page_watchers: Delete wiki page watchers
+  label_wiki_page_watchers: Watchers
+  label_attachment_description: File description
+  error_no_data_in_file: The file does not contain any data
+  field_twofa_required: Require two factor authentication
+  twofa_hint_optional_html: Setting <strong>%{label}</strong> will let users set up
+    two-factor authentication at will, unless it is required by one of their groups.
+  twofa_text_group_required: This setting is only effective when the global two factor
+    authentication setting is set to 'optional'. Currently, two factor authentication
+    is required for all users.
+  twofa_text_group_disabled: This setting is only effective when the global two factor
+    authentication setting is set to 'optional'. Currently, two factor authentication
+    is disabled.
+  field_default_issue_query: Default issue query
+  label_default_queries:
+    for_all_projects: For all projects
+    for_current_project: For current project
+    for_all_users: For all users
+  text_allowed_queries_to_select: Public (to any users) queries only selectable
+  text_all_migrations_have_been_run: All database migrations have been run
+  button_save_object: Save %{object_name}
+  button_edit_object: Edit %{object_name}
+  button_delete_object: Delete %{object_name}
+  text_setting_config_change: You can configure the behaviour in config/configuration.yml.
+    Please restart the application after editing it.
+  label_bulk_edit: Bulk edit
+  button_create_and_follow: Create and follow
+  label_subtask: Subtask
+  label_default_query: Default query
+  field_default_project_query: Default project query
+  label_required_administrators: required for administrators
+  twofa_hint_required_administrators_html: Setting <strong>%{label}</strong> behaves
+    like optional, but will require all users with administration rights to set up two-factor
+    authentication at their next login.
+  label_auto_watch_on: Auto watch
+  label_auto_watch_on_issue_contributed_to: Issues I contributed to

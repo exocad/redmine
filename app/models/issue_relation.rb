@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -72,7 +72,7 @@ class IssueRelation < ActiveRecord::Base
   validates_presence_of :issue_from, :issue_to, :relation_type
   validates_inclusion_of :relation_type, :in => TYPES.keys
   validates_numericality_of :delay, :allow_nil => true
-  validates_uniqueness_of :issue_to_id, :scope => :issue_from_id
+  validates_uniqueness_of :issue_to_id, :scope => :issue_from_id, :case_sensitive => true
   validate :validate_issue_relation
 
   before_save :handle_issue_order

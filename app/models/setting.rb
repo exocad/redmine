@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -53,6 +53,7 @@ class Setting < ActiveRecord::Base
                   windows-1257
                   windows-1258
                   windows-31j
+                  windows-874
                   ISO-2022-JP
                   ISO-8859-1
                   ISO-8859-2
@@ -73,6 +74,7 @@ class Setting < ActiveRecord::Base
                   EUC-JP
                   Shift_JIS
                   CP932
+                  CP949
                   GB18030
                   GBK
                   EUC-KR
@@ -85,6 +87,7 @@ class Setting < ActiveRecord::Base
 
   validates_uniqueness_of(
     :name,
+    :case_sensitive => true,
     :if => Proc.new do |setting|
       setting.new_record? || setting.name_changed?
     end
@@ -236,6 +239,18 @@ class Setting < ActiveRecord::Base
     params
   end
 
+  def self.twofa_required?
+    twofa == '2'
+  end
+
+  def self.twofa_optional?
+    %w[1 3].include? twofa
+  end
+
+  def self.twofa_required_for_administrators?
+    twofa == '3'
+  end
+
   # Helper that returns an array based on per_page_options setting
   def self.per_page_options_array
     per_page_options.split(%r{[\s,]}).collect(&:to_i).select {|n| n > 0}.sort
@@ -257,10 +272,6 @@ class Setting < ActiveRecord::Base
       end
     end
     a
-  end
-
-  def self.openid?
-    Object.const_defined?(:OpenID) && self[:openid].to_i > 0
   end
 
   # Checks if settings have changed since the values were read

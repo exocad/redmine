@@ -226,6 +226,7 @@ bg:
   error_invalid_file_encoding: Файлът няма валидно %{encoding} кодиране.
   error_invalid_csv_file_or_settings: Файлът не е CSV файл или не съответства на зададеното по-долу (%{value})
   error_can_not_read_import_file: Грешка по време на четене на импортирания файл
+  error_no_data_in_file: файлът не съдържа никакви данни
   error_attachment_extension_not_allowed: Файлове от тип %{extension} не са позволени
   error_ldap_bind_credentials: Невалидни LDAP име/парола
   error_no_tracker_allowed_for_new_issue_in_project: Проектът няма тракери, за които да създавате задачи
@@ -246,6 +247,8 @@ bg:
   error_filename_required: Изисква се име на файл
   error_invalid_size_parameter: Невалиден параметър за размер
   error_attachment_not_found: Прикаченият файл  %{name} не е намерен
+  error_invalid_authenticity_token: Invalid form authenticity token.
+  error_query_statement_invalid: Изпълнението на заявката завърши с грешка и тя беше записана. Моля докладвайте тази грешка на администратора на Redmine.
 
   mail_subject_lost_password: "Вашата парола (%{value})"
   mail_body_lost_password: 'За да смените паролата си, използвайте следния линк:'
@@ -364,7 +367,6 @@ bg:
   field_parent_title: Родителска страница
   field_editable: Editable
   field_watcher: Наблюдател
-  field_identity_url: OpenID URL
   field_content: Съдържание
   field_group_by: Групиране на резултатите по
   field_sharing: Sharing
@@ -409,6 +411,9 @@ bg:
   field_history_default_tab: Таб по подразбиране в историята на задачите
   field_unique_id: Уникален ID
   field_toolbar_language_options: Езици за избор в <pre><code class="..."> бутон
+  field_twofa_required: Изискване за двуфакторна автентикация
+  field_default_issue_query: Заявка по подразбиране
+  field_default_project_query: Заявка по подразбиране за проекта
 
   setting_app_title: Заглавие
   setting_welcome_text: Допълнителен текст
@@ -420,7 +425,6 @@ bg:
   setting_bulk_download_max_size: Максимален обем за групово изтегляне
   setting_issues_export_limit: Максимален брой задачи за експорт
   setting_mail_from: E-mail адрес за емисии
-  setting_bcc_recipients: Получатели на скрито копие (bcc)
   setting_plain_text_mail: само чист текст (без HTML)
   setting_host_name: Хост
   setting_text_formatting: Форматиране на текста
@@ -459,7 +463,6 @@ bg:
   setting_diff_max_lines_displayed: Максимален брой показвани diff редове
   setting_file_max_size_displayed: Максимален размер на текстовите файлове, показвани inline
   setting_repository_log_display_limit: Максимален брой на показванете ревизии в лог файла
-  setting_openid: Рарешаване на OpenID вход и регистрация
   setting_password_max_age: Изискване за смяна на паролата след
   setting_password_min_length: Минимална дължина на парола
   setting_password_required_char_classes: Задължителни символни класове за пароли
@@ -561,6 +564,9 @@ bg:
   permission_view_wiki_edits: Разглеждане на wiki история
   permission_edit_wiki_pages: Редактиране на wiki страници
   permission_delete_wiki_pages_attachments: Изтриване на прикачени файлове към wiki страници
+  permission_view_wiki_page_watchers: Разглеждане на списъци с наблюдатели на wiki страници
+  permission_add_wiki_page_watchers: Добавяне на наблюдатели на wiki страници
+  permission_delete_wiki_page_watchers: Изтриване на наблюдатели на wiki страници
   permission_protect_wiki_pages: Заключване на wiki страници
   permission_manage_repository: Управление на хранилища
   permission_browse_repository: Разглеждане на хранилища
@@ -573,6 +579,9 @@ bg:
   permission_edit_own_messages: Редактиране на собствени съобщения
   permission_delete_messages: Изтриване на съобщения
   permission_delete_own_messages: Изтриване на собствени съобщения
+  permission_view_message_watchers: Разглеждане на списъка на наблюдателите на съобщения
+  permission_add_message_watchers: Добавяне на наблюдатели на съобщения
+  permission_delete_message_watchers: Изтриване на наблюдатели на съобщения
   permission_export_wiki_pages: Експорт на wiki страници
   permission_manage_subtasks: Управление на подзадачите
   permission_manage_related_issues: Управление на връзките между задачи и ревизии
@@ -647,7 +656,6 @@ bg:
   label_information: Информация
   label_information_plural: Информация
   label_register: Регистрация
-  label_login_with_open_id_option: или вход чрез OpenID
   label_password_lost: Забравена парола
   label_password_required: Потвърдете вашата парола, за да продължите
   label_home: Начало
@@ -697,6 +705,7 @@ bg:
   label_attachment_delete: Изтриване
   label_attachment_plural: Файлове
   label_file_added: Добавен файл
+  label_attachment_description: Описание на файла
   label_report: Справка
   label_report_plural: Справки
   label_news: Новини
@@ -920,6 +929,7 @@ bg:
   label_changeset_plural: Ревизии
   label_default_columns: По подразбиране
   label_no_change_option: (Без промяна)
+  label_bulk_edit: Групово редактиране
   label_bulk_edit_selected_issues: Групово редактиране на задачи
   label_bulk_edit_selected_time_entries: Групово редактиране на записи за използвано време
   label_theme: Тема
@@ -956,6 +966,8 @@ bg:
   label_incoming_emails: Входящи e-mail-и
   label_generate_key: Генериране на ключ
   label_issue_watchers: Наблюдатели
+  label_message_watchers: Наблюдатели
+  label_wiki_page_watchers: Наблюдатели
   label_example: Пример
   label_display: Показване
   label_sort: Сортиране
@@ -985,6 +997,7 @@ bg:
   label_missing_api_access_key: Липсващ API ключ
   label_api_access_key_created_on: API ключ за достъп е създаден преди %{value}
   label_profile: Профил
+  label_subtask: Подзадача
   label_subtask_plural: Подзадачи
   label_project_copy_notifications: Изпращане на e-mail известия по време на копирането на проекта
   label_import_notifications: Изпращане e-mail известия по време на импортирането
@@ -1088,6 +1101,10 @@ bg:
   label_optgroup_others: Други проекти
   label_optgroup_recents: Последно използвани
   label_last_notes: Последни коментари
+  label_default_queries:
+    for_all_projects: За всички проекти
+    for_current_project: За този проект
+    for_all_users: За всички потребители
   label_nothing_to_preview: Няма нищо за предварителен преглед
   label_inherited_from_parent_project: Наследени от родителския проект
   label_inherited_from_group: Наследени от група %{name}
@@ -1107,6 +1124,7 @@ bg:
   label_display_type_board: Таблица
   label_my_bookmarks: Моите отметки
   label_assign_to_me: Назначи на мен
+  label_default_query: Заявка по подразбиране
 
   button_login: Вход
   button_submit: Изпращане
@@ -1149,6 +1167,7 @@ bg:
   button_change_password: Промяна на парола
   button_copy: Копиране
   button_copy_and_follow: Копиране и продължаване
+  button_copy_link: Копиране на връзката
   button_annotate: Анотация
   button_fetch_changesets: Извличане на ревизиите
   button_update: Обновяване
@@ -1167,6 +1186,10 @@ bg:
   button_filter: Филтър
   button_actions: Действия
   button_add_subtask: Добавяне на подзадача
+  button_save_object: Запис %{object_name}
+  button_edit_object: Редактиране %{object_name}
+  button_delete_object: Изтриване %{object_name}
+  button_create_and_follow: Създаване и продължаване
 
   status_active: активен
   status_registered: регистриран
@@ -1226,6 +1249,7 @@ bg:
   text_default_administrator_account_changed: Сменен фабричния администраторски профил
   text_file_repository_writable: Възможност за писане в хранилището с файлове
   text_plugin_assets_writable: Папката на приставките е разрешена за запис
+  text_all_migrations_have_been_run: Всички миграции на базата данни са изпълнени
   text_minimagick_available: Наличен MiniMagick (по избор)
   text_convert_available: Наличен ImageMagick convert (по избор)
   text_gs_available: Налична поддръжка за ImageMagick PDF (по избор)
@@ -1268,6 +1292,8 @@ bg:
   text_select_apply_tracker: Изберете тракер
   text_avatar_server_config_html: Текущият сървър на аватари е <a href="%{url}">%{url}</a>.
     Бие можете да го конфигурирате в config/configuration.yml.
+  text_allowed_queries_to_select: Само публичните (за всички потребители) заявки са достъпни за избор
+  text_setting_config_change: Вие можете да конфигурирате поведението в config/configuration.yml. Моля, рестартирайте Redmine след редактиране на файла.
 
   default_role_manager: Мениджър
   default_role_developer: Разработчик
@@ -1330,6 +1356,8 @@ bg:
   twofa_not_active: Не е активирана
   twofa_label_code: Код
   twofa_hint_disabled_html: Настройка <strong>%{label}</strong> ще деактивира двуфакторната автентикация за всички потребители.
+  twofa_hint_optional_html: Този избор <strong>%{label}</strong> ще позволи на потребителите да установят двуфакторна автентикация27
+    по желание, освен ако тя не е задължителна от някоя от техните групи.
   twofa_hint_required_html: Настройка <strong>%{label}</strong> ще изисква всички потребители
     да установят двуфакторна автентикация при тяхното следващо влизане в Redmine.
   twofa_label_setup: Активиране на двуфакторна автентикация
@@ -1359,16 +1387,17 @@ bg:
   twofa_text_backup_codes_created_at: Резервни кодове генерирани на %{datetime}.
   twofa_backup_codes_already_shown: Резервните кодове не могат да бъдат показани отново, моля <a data-method="post"
     href="%{bc_path}">генерирайте нови резервни кодове</a>, ако е необходимо.
-  
+  twofa_text_group_required: Този избор е ефективен само, когато глобалната двуфакторна автентикация е установена на 'по избор'.
+    Понастоящем, двуфакторната автентикация се изисква за всички потребители.
+  twofa_text_group_disabled: Този избор е ефективен само, когато глобалната двуфакторна автентикация е установена на 'по избор'.
+    Понастоящем, двуфакторната автентикация е забранена.
   text_user_destroy_confirmation: Наистина ли желаете да изтриете този потребител и всички  позовавания (references) на него?
     Това действие не може да бъде отменено. Често заключването на потребителя е по-добро решение от изтриването му.
     За да потвърдите, въведете името (%{login}) по-долу.
   text_project_destroy_enter_identifier: За да потвърдите действието, въведете идентификатора на проекта (%{identifier}) по-долу.
-  permission_view_message_watchers: View message watchers list
-  permission_add_message_watchers: Add message watchers
-  permission_delete_message_watchers: Delete message watchers
-  label_message_watchers: Watchers
-  button_copy_link: Copy link
-  error_invalid_authenticity_token: Invalid form authenticity token.
-  error_query_statement_invalid: An error occurred while executing the query and has
-    been logged. Please report this error to your Redmine administrator.
+  label_required_administrators: required for administrators
+  twofa_hint_required_administrators_html: Setting <strong>%{label}</strong> behaves
+    like optional, but will require all users with administration rights to set up two-factor
+    authentication at their next login.
+  label_auto_watch_on: Auto watch
+  label_auto_watch_on_issue_contributed_to: Issues I contributed to

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -41,6 +41,8 @@ module QueriesHelper
         group = :label_date
       elsif %w(estimated_hours spent_time).include?(field)
         group = :label_time_tracking
+      elsif %w(attachment attachment_description).include?(field)
+        group = :label_attachment
       end
       if group
         (grouped[group] ||= []) << [field_options[:name], field]
@@ -229,44 +231,56 @@ module QueriesHelper
 
   def column_content(column, item)
     value = column.value_object(item)
-    if value.is_a?(Array)
-      values = value.collect {|v| column_value(column, item, v)}.compact
-      safe_join(values, ', ')
-    else
-      column_value(column, item, value)
-    end
+    content =
+      if value.is_a?(Array)
+        values = value.collect {|v| column_value(column, item, v)}.compact
+        safe_join(values, ', ')
+      else
+        column_value(column, item, value)
+      end
+
+    call_hook(:helper_queries_column_content,
+              {:content => content, :column => column, :item => item})
+
+    content
   end
 
   def column_value(column, item, value)
-    case column.name
-    when :id
-      link_to value, issue_path(item)
-    when :subject
-      link_to value, issue_path(item)
-    when :parent
-      value ? (value.visible? ? link_to_issue(value, :subject => false) : "##{value.id}") : ''
-    when :description
-      item.description? ? content_tag('div', textilizable(item, :description), :class => "wiki") : ''
-    when :last_notes
-      item.last_notes.present? ? content_tag('div', textilizable(item, :last_notes), :class => "wiki") : ''
-    when :done_ratio
-      progress_bar(value)
-    when :relations
-      content_tag(
-        'span',
-        value.to_s(item) {|other| link_to_issue(other, :subject => false, :tracker => false)}.html_safe,
-        :class => value.css_classes_for(item))
-    when :hours, :estimated_hours, :total_estimated_hours
-      format_hours(value)
-    when :spent_hours
-      link_to_if(value > 0, format_hours(value), project_time_entries_path(item.project, :issue_id => "#{item.id}"))
-    when :total_spent_hours
-      link_to_if(value > 0, format_hours(value), project_time_entries_path(item.project, :issue_id => "~#{item.id}"))
-    when :attachments
-      value.to_a.map {|a| format_object(a)}.join(" ").html_safe
-    else
-      format_object(value)
-    end
+    content =
+      case column.name
+      when :id
+        link_to value, issue_path(item)
+      when :subject
+        link_to value, issue_path(item)
+      when :parent
+        value ? (value.visible? ? link_to_issue(value, :subject => false) : "##{value.id}") : ''
+      when :description
+        item.description? ? content_tag('div', textilizable(item, :description), :class => "wiki") : ''
+      when :last_notes
+        item.last_notes.present? ? content_tag('div', textilizable(item, :last_notes), :class => "wiki") : ''
+      when :done_ratio
+        progress_bar(value)
+      when :relations
+        content_tag(
+          'span',
+          value.to_s(item) {|other| link_to_issue(other, :subject => false, :tracker => false)}.html_safe,
+          :class => value.css_classes_for(item))
+      when :hours, :estimated_hours, :total_estimated_hours
+        format_hours(value)
+      when :spent_hours
+        link_to_if(value > 0, format_hours(value), project_time_entries_path(item.project, :issue_id => "#{item.id}"))
+      when :total_spent_hours
+        link_to_if(value > 0, format_hours(value), project_time_entries_path(item.project, :issue_id => "~#{item.id}"))
+      when :attachments
+        value.to_a.map {|a| format_object(a)}.join(" ").html_safe
+      else
+        format_object(value)
+      end
+
+    call_hook(:helper_queries_column_value,
+              {:content => content, :column => column, :item => item, :value => value})
+
+    content
   end
 
   def csv_content(column, item)
@@ -393,6 +407,8 @@ module QueriesHelper
         @query.project = @project
       end
       @query
+    else
+      @query = klass.default project: @project
     end
   end
 
@@ -449,15 +465,25 @@ module QueriesHelper
       else
         {}
       end
+    default_query_by_class = {}
     content_tag('h3', title) + "\n" +
       content_tag(
         'ul',
         queries.collect do |query|
           css = +'query'
           clear_link = +''
+          clear_link_param = {:set_filter => 1, :sort => '', :project_id => @project}
+
+          default_query =
+            default_query_by_class[query.class] ||= query.class.default(project: @project)
+          if query == default_query
+            css << ' default'
+            clear_link_param[:without_default] = 1
+          end
+
           if query == @query
             css << ' selected'
-            clear_link += link_to_clear_query
+            clear_link += link_to_clear_query(clear_link_param)
           end
           content_tag('li',
                       link_to(query.name,
@@ -469,10 +495,10 @@ module QueriesHelper
       ) + "\n"
   end
 
-  def link_to_clear_query
+  def link_to_clear_query(params = {:set_filter => 1, :sort => '', :project_id => @project})
     link_to(
       l(:button_clear),
-      {:set_filter => 1, :sort => '', :project_id => @project},
+      params,
       :class => 'icon-only icon-clear-query',
       :title => l(:button_clear)
     )

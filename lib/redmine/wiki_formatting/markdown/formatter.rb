@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -38,12 +38,14 @@ module Redmine
 
         def block_code(code, language)
           if language.present? && Redmine::SyntaxHighlighting.language_supported?(language)
-            "<pre><code class=\"#{CGI.escapeHTML language} syntaxhl\">" +
-              Redmine::SyntaxHighlighting.highlight_by_language(code, language) +
-              "</code></pre>"
+            html = Redmine::SyntaxHighlighting.highlight_by_language(code, language)
+            classattr = " class=\"#{CGI.escapeHTML language} syntaxhl\""
           else
-            "<pre>" + CGI.escapeHTML(code) + "</pre>"
+            html = CGI.escapeHTML(code)
           end
+          # original language for extension development
+          langattr = " data-language=\"#{CGI.escapeHTML language}\"" if language.present?
+          "<pre><code#{classattr}#{langattr}>#{html}</code></pre>"
         end
 
         def image(link, title, alt_text)

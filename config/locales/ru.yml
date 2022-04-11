@@ -342,7 +342,6 @@ ru:
   field_host: Компьютер
   field_hours: час(а,ов)
   field_identifier: Уникальный идентификатор
-  field_identity_url: OpenID URL
   field_is_closed: Задача закрыта
   field_is_default: Значение по умолчанию
   field_is_filter: Используется в качестве фильтра
@@ -559,7 +558,6 @@ ru:
   label_loading: Загрузка...
   label_logged_as: Вошли как
   label_login: Войти
-  label_login_with_open_id_option: или войти с помощью OpenID
   label_logout: Выйти
   label_max_size: Максимальный размер
   label_member_new: Новый участник
@@ -835,7 +833,6 @@ ru:
   setting_attachment_max_size: Максимальный размер вложения
   setting_autofetch_changesets: Автоматически следить за изменениями хранилища
   setting_autologin: Автоматический вход
-  setting_bcc_recipients: Использовать скрытые копии (BCC)
   setting_cache_formatted_text: Кешировать форматированный текст
   setting_commit_fix_keywords: Назначение ключевых слов
   setting_commit_ref_keywords: Ключевые слова для поиска
@@ -858,7 +855,6 @@ ru:
   setting_mail_from: Исходящий email адрес
   setting_mail_handler_api_enabled: Включить веб-сервис для входящих сообщений
   setting_mail_handler_api_key: API ключ
-  setting_openid: Разрешить OpenID для входа и регистрации
   setting_per_page_options: Количество записей на страницу
   setting_plain_text_mail: Только простой текст (без HTML)
   setting_protocol: Протокол
@@ -1486,3 +1482,41 @@ ru:
   error_invalid_authenticity_token: Недействительный токен аутентификации.
   error_query_statement_invalid: Ошибка при выполнении запроса была зарегистрирована.
     Сообщите об этой ошибке администратору Redmine.
+  permission_view_wiki_page_watchers: View wiki page watchers list
+  permission_add_wiki_page_watchers: Add wiki page watchers
+  permission_delete_wiki_page_watchers: Delete wiki page watchers
+  label_wiki_page_watchers: Watchers
+  label_attachment_description: File description
+  error_no_data_in_file: The file does not contain any data
+  field_twofa_required: Require two factor authentication
+  twofa_hint_optional_html: Setting <strong>%{label}</strong> will let users set up
+    two-factor authentication at will, unless it is required by one of their groups.
+  twofa_text_group_required: This setting is only effective when the global two factor
+    authentication setting is set to 'optional'. Currently, two factor authentication
+    is required for all users.
+  twofa_text_group_disabled: This setting is only effective when the global two factor
+    authentication setting is set to 'optional'. Currently, two factor authentication
+    is disabled.
+  field_default_issue_query: Default issue query
+  label_default_queries:
+    for_all_projects: For all projects
+    for_current_project: For current project
+    for_all_users: For all users
+  text_allowed_queries_to_select: Public (to any users) queries only selectable
+  text_all_migrations_have_been_run: All database migrations have been run
+  button_save_object: Save %{object_name}
+  button_edit_object: Edit %{object_name}
+  button_delete_object: Delete %{object_name}
+  text_setting_config_change: You can configure the behaviour in config/configuration.yml.
+    Please restart the application after editing it.
+  label_bulk_edit: Bulk edit
+  button_create_and_follow: Create and follow
+  label_subtask: Subtask
+  label_default_query: Default query
+  field_default_project_query: Default project query
+  label_required_administrators: required for administrators
+  twofa_hint_required_administrators_html: Setting <strong>%{label}</strong> behaves
+    like optional, but will require all users with administration rights to set up two-factor
+    authentication at their next login.
+  label_auto_watch_on: Auto watch
+  label_auto_watch_on_issue_contributed_to: Issues I contributed to

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,7 +21,7 @@ class GroupsController < ApplicationController
   layout 'admin'
   self.main_menu = false
 
-  before_action :require_admin
+  before_action :require_admin, :except => [:show]
   before_action :find_group, :except => [:index, :new, :create]
   accept_api_auth :index, :show, :create, :update, :destroy, :add_users, :remove_user
 
@@ -50,8 +50,12 @@ class GroupsController < ApplicationController
   end
 
   def show
+    return render_404 unless @group.visible?
+
     respond_to do |format|
-      format.html
+      format.html do
+        render :layout => 'base'
+      end
       format.api
     end
   end

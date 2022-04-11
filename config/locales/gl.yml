@@ -717,7 +717,6 @@ gl:
   setting_attachment_max_size: Tamaño máximo do ficheiro
   setting_autofetch_changesets: Autorechear as remisións do repositorio
   setting_autologin: "Identificarse automaticamente."
-  setting_bcc_recipients: Ocultar as copias de carbón (bcc)
   setting_commit_fix_keywords: Palabras chave para a corrección
   setting_commit_ref_keywords: Palabras chave para a referencia
   setting_cross_project_issue_relations: Permitir relacionar peticións de distintos proxectos
@@ -802,9 +801,6 @@ gl:
   setting_repository_log_display_limit: "Número máximo de revisións que se mostran no ficheiro do historial."
   setting_file_max_size_displayed: "Tamaño máximo dos ficheiros de texto que se mostran liña por liña."
   field_watcher: "Seguidor"
-  setting_openid: "Permitir rexistrarse e acceder mediante OpenID."
-  field_identity_url: "URL de OpenID"
-  label_login_with_open_id_option: "ou acceda mediante OpenID."
   field_content: "Contido"
   label_descending: "Descendente"
   label_sort: "Ordenar"
@@ -1419,3 +1415,41 @@ gl:
   error_invalid_authenticity_token: Sesión non válida.
   error_query_statement_invalid: Aconteceu un erro executando a consulta e ten sido
     engadido no log. Por favor, informe deste erro ao administrador do Redmine.
+  permission_view_wiki_page_watchers: Ver a listaxe de seguidores da páxina da wiki
+  permission_add_wiki_page_watchers: Engadir seguidores á páxina da wiki
+  permission_delete_wiki_page_watchers: Borrar os seguidores da páxina da wiki
+  label_wiki_page_watchers: Seguidores
+  label_attachment_description: Descrición do ficheiro
+  error_no_data_in_file: O ficheiro non contén ningún tipo de datos
+  field_twofa_required: Precisa autenticación de dous factores
+  twofa_hint_optional_html: A configuración <strong>%{label}</strong> permitirá aos usuarios estabrecer
+    autenticación de dous factores á súa vontade, a menos que sexa requerido por un dos seus grupos.
+  twofa_text_group_required: Esta configuración só é efectiva cando a configuración de autenticación global
+    de dous factores estea estabrecida a 'opcional'. Actualmente, a autenticación de dous factores
+    é obrigatoria para todos os usuarios.
+  twofa_text_group_disabled: Esta configuración só é efectiva cando a configuración de autenticación global
+    de dous factores estea estabrecida a 'opcional'. Actualmente, a autenticación de dous factores
+    está deshabilitada.
+  field_default_issue_query: Consulta de peticións por defecto
+  label_default_queries:
+    for_all_projects: Para todos os proxectos
+    for_current_project: Para o proxecto actual
+    for_all_users: Para todos os usuarios
+  text_allowed_queries_to_select: Soamente seleccionables consultas públicas (para calquera usuario)
+  text_all_migrations_have_been_run: Foron executadas todas as migracións de base de datos
+  button_save_object: Save %{object_name}
+  button_edit_object: Edit %{object_name}
+  button_delete_object: Delete %{object_name}
+  text_setting_config_change: You can configure the behaviour in config/configuration.yml.
+    Please restart the application after editing it.
+  label_bulk_edit: Bulk edit
+  button_create_and_follow: Create and follow
+  label_subtask: Subtask
+  label_default_query: Consulta por defecto
+  field_default_project_query: Default project query
+  label_required_administrators: required for administrators
+  twofa_hint_required_administrators_html: Setting <strong>%{label}</strong> behaves
+    like optional, but will require all users with administration rights to set up two-factor
+    authentication at their next login.
+  label_auto_watch_on: Auto watch
+  label_auto_watch_on_issue_contributed_to: Issues I contributed to

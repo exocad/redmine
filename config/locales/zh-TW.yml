@@ -423,7 +423,6 @@
   field_parent_title: 父頁面
   field_editable: 可編輯
   field_watcher: 監看員
-  field_identity_url: OpenID 網址
   field_content: 內容
   field_group_by: 結果分組方式
   field_sharing: 共用
@@ -473,7 +472,6 @@
   setting_attachment_max_size: 附件大小限制
   setting_issues_export_limit: 議題匯出限制
   setting_mail_from: 寄件者電子郵件
-  setting_bcc_recipients: 使用密件副本 (BCC)
   setting_plain_text_mail: 純文字郵件 (不含 HTML)
   setting_host_name: 主機名稱
   setting_text_formatting: 文字格式
@@ -511,7 +509,6 @@
   setting_diff_max_lines_displayed: 差異顯示行數之最大值
   setting_file_max_size_displayed: 檔案內容顯示大小之最大值
   setting_repository_log_display_limit: 修訂版顯示數目之最大值
-  setting_openid: 允許使用 OpenID 登入與註冊
   setting_password_max_age: 必須在多少天後變更密碼
   setting_password_min_length: 密碼最小長度
   setting_lost_password: 允許使用電子郵件重新設定密碼
@@ -687,7 +684,6 @@
   label_information: 資訊
   label_information_plural: 資訊
   label_register: 註冊
-  label_login_with_open_id_option: 或使用 OpenID 登入
   label_password_lost: 遺失密碼
   label_password_required: 確認您的密碼後繼續
   label_home: 網站首頁
@@ -1440,6 +1436,37 @@
   permission_delete_message_watchers: 刪除訊息監看員
   label_message_watchers: 監看員
   button_copy_link: 複製連結
-  error_invalid_authenticity_token: Invalid form authenticity token.
-  error_query_statement_invalid: An error occurred while executing the query and has
-    been logged. Please report this error to your Redmine administrator.
+  error_invalid_authenticity_token: 無效的表單確實性授權權杖.
+  error_query_statement_invalid: 執行查詢時發生錯誤並已留下紀錄. 請向 Redmine 系統管理員報告此錯誤.
+  permission_view_wiki_page_watchers: 檢視 wiki 頁面監看員清單
+  permission_add_wiki_page_watchers: 新增 wiki 頁面監看員
+  permission_delete_wiki_page_watchers: 刪除 wiki 頁面監看員
+  label_wiki_page_watchers: 監看員
+  label_attachment_description: 檔案概述說明
+  error_no_data_in_file: 檔案未包含任何資料
+  field_twofa_required: 需要雙因素驗證
+  twofa_hint_optional_html: 設定為 <strong>%{label}</strong> 將會讓用戶自己決定是否使用雙因素驗證, 除非用戶所屬群組需要使用雙因素驗證.
+  twofa_text_group_required: 此設定僅供系統的全域雙因素驗證設定'選用項'時才有效. 目前系統中所有的用戶都必須使用雙因素驗證.
+  twofa_text_group_disabled: 此設定僅供系統的全域雙因素驗證設定'選用項'時才有效. 目前系統的雙因素驗證設定值是'關閉'.
+  field_default_issue_query: 預設議題查詢
+  label_default_queries:
+    for_all_projects: 對於全部專案
+    for_current_project: 對於目前專案
+    for_all_users: 對於全部用戶
+  text_allowed_queries_to_select: 僅可選取公開 (給任何用戶) 的查詢
+  text_all_migrations_have_been_run: 資料庫移轉已全部執行完畢
+  button_save_object: 儲存 %{object_name}
+  button_edit_object: 編輯 %{object_name}
+  button_delete_object: 刪除 %{object_name}
+  text_setting_config_change: 您可以在 config/configuration.yml 檔案中, 設定此行為.
+    檔案編輯完成後請重新啟動應用程式.
+  label_bulk_edit: 大量編輯
+  button_create_and_follow: 建立並跟隨
+  label_subtask: 子任務
+  label_default_query: 預設查詢
+  field_default_project_query: 預設專案查詢
+  label_required_administrators: 管理員必要項
+  twofa_hint_required_administrators_html: 設定為 <strong>%{label}</strong> 的行為方式類似於 <strong>選用項</strong> 設定,
+    但此設定會要求具有管理員權限的用戶, 在他們下次登入系統的時候, 必須設置雙因素驗證.
+  label_auto_watch_on: 自動監看
+  label_auto_watch_on_issue_contributed_to: 我有提供貢獻的議題

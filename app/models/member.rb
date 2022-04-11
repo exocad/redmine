@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2021  Jean-Philippe Lang
+# Copyright (C) 2006-2022  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,7 +25,7 @@ class Member < ActiveRecord::Base
   belongs_to :project
 
   validates_presence_of :principal, :project
-  validates_uniqueness_of :user_id, :scope => :project_id
+  validates_uniqueness_of :user_id, :scope => :project_id, :case_sensitive => true
   validate :validate_role
 
   before_destroy :set_issue_category_nil, :remove_from_project_default_assigned_to
@@ -76,6 +76,8 @@ class Member < ActiveRecord::Base
     if member_roles_to_destroy.any?
       member_roles_to_destroy.each(&:destroy)
     end
+    member_roles.reload
+    super(ids)
   end
 
   def <=>(member)
@@ -206,23 +208,13 @@ class Member < ActiveRecord::Base
       project_ids = Array.wrap(attributes[:project_ids] || attributes[:project_id])
       role_ids = Array.wrap(attributes[:role_ids])
       project_ids.each do |project_id|
-        member = Member.find_or_new(project_id, principal)
+        member = Member.find_or_initialize_by(:project_id => project_id, :user_id => principal.id)
         member.role_ids |= role_ids
         member.save
         members << member
       end
     end
     members
-  end
-
-  # Finds or initializes a Member for the given project and principal
-  def self.find_or_new(project, principal)
-    project_id = project.is_a?(Project) ? project.id : project
-    principal_id = principal.is_a?(Principal) ? principal.id : principal
-
-    member = Member.find_by_project_id_and_user_id(project_id, principal_id)
-    member ||= Member.new(:project_id => project_id, :user_id => principal_id)
-    member
   end
 
   protected
