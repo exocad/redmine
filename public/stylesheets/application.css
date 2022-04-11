@@ -539,6 +539,8 @@ div.issue .attributes {margin-top: 2em;}
 div.issue .attributes .attribute {padding-left:180px; clear:left; min-height: 1.8em;}
 div.issue .attributes .attribute .label {width: 170px; margin-left:-180px; font-weight:bold; float:left;  overflow:hidden; text-overflow: ellipsis;}
 div.issue .attribute .value {overflow:auto; text-overflow: ellipsis;}
+div.issue .attribute.string_cf .value .wiki p {margin-top: 0; margin-bottom: 0;}
+div.issue .attribute.text_cf .value .wiki p:first-of-type {margin-top: 0;}
 div.issue.overdue .due-date .value { color: #c22; }
 body.controller-issues h2.inline-flex {padding-right: 0}
 
@@ -638,6 +640,8 @@ div#roadmap .wiki h1 { font-size: 120%; }
 div#roadmap .wiki h2 { font-size: 110%; }
 div#roadmap h2, div#roadmap h3 {padding-right: 0;}
 body.controller-versions.action-show div#roadmap .related-issues {width:70%;}
+
+div#roadmap .version-article {padding-bottom: 12px;}
 
 div#version-summary { float:right; width:28%; margin-left: 16px; margin-bottom: 16px; background-color: #fff; }
 div#version-summary fieldset { margin-bottom: 1em; }
@@ -810,9 +814,8 @@ html>body .tabular p {overflow:hidden;}
 .tabular input, .tabular select {max-width:95%}
 .tabular textarea {width:95%; resize:vertical;}
 input#twofa_code, img#twofa_code { width: 140px; }
-ul.twofa_backup_codes { list-style-type: none; padding: 0; display: inline-block; }
-ul.twofa_backup_codes li { float: left; }
-ul.twofa_backup_codes li:nth-child(odd) { float: left; clear: left; padding-right: 4em; }
+ul.twofa_backup_codes { list-style-type: none; padding: 0; display: inline-block; columns: 14em 2;}
+ul.twofa_backup_codes code { font-size: 16px; line-height: 2em }
 
 .tabular label{
   font-weight: bold;
@@ -1488,7 +1491,8 @@ td.gantt_selected_column .gantt_hdr,.gantt_selected_column_container {
   color: #fff;
   border-radius: 3px;
   border: 0;
-  box-shadow: none
+  box-shadow: none;
+  white-space: pre-wrap;
 }
 
 /***** Icons *****/

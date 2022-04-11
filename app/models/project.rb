@@ -548,7 +548,7 @@ class Project < ActiveRecord::Base
 
   # Returns a hash of project users/groups grouped by role
   def principals_by_role
-    memberships.includes(:principal, :roles).inject({}) do |h, m|
+    memberships.active.includes(:principal, :roles).inject({}) do |h, m|
       m.roles.each do |r|
         h[r] ||= []
         h[r] << m.principal
@@ -965,6 +965,17 @@ class Project < ActiveRecord::Base
       end
       yield project, ancestors.size
       ancestors << project
+    end
+  end
+
+  # Overrides Redmine::Acts::Customizable::InstanceMethods#validate_custom_field_values
+  # so that custom values that are not editable are not validated (eg. a custom field that
+  # is marked as required should not trigger a validation error if the user is not allowed
+  # to edit this field).
+  def validate_custom_field_values
+    user = User.current
+    if new_record? || custom_field_values_changed?
+      editable_custom_field_values(user).each(&:validate_value)
     end
   end
 

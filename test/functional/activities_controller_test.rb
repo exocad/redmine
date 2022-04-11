@@ -28,7 +28,8 @@ class ActivitiesControllerTest < Redmine::ControllerTest
            :members,
            :groups_users,
            :enabled_modules,
-           :journals, :journal_details
+           :journals, :journal_details,
+           :attachments, :changesets, :documents, :messages, :news, :time_entries, :wiki_content_versions
 
   def test_project_index
     get(
@@ -103,6 +104,18 @@ class ActivitiesControllerTest < Redmine::ControllerTest
         :user_id => 299
       }
     )
+    assert_response 404
+  end
+
+  def test_user_index_with_non_visible_user_id_should_respond_404
+    Role.anonymous.update! :users_visibility => 'members_of_visible_projects'
+    user = User.generate!
+
+    @request.session[:user_id] = nil
+    get :index, :params => {
+      :user_id => user.id
+    }
+
     assert_response 404
   end
 

@@ -134,8 +134,12 @@ class WatchersController < ApplicationController
 
   def users_for_new_watcher
     scope = nil
-    if params[:q].blank? && @project.present?
-      scope = @project.principals.assignable_watchers
+    if params[:q].blank?
+      if @project.present?
+        scope = @project.principals.assignable_watchers
+      elsif @projects.present? && @projects.size > 1
+        scope = Principal.joins(:members).where(:members => { :project_id => @projects }).assignable_watchers.distinct
+      end
     else
       scope = Principal.assignable_watchers.limit(100)
     end
@@ -158,7 +162,9 @@ class WatchersController < ApplicationController
       rescue
         nil
       end
-    return unless klass && klass.respond_to?('watched_by')
+    return unless klass && Class === klass # rubocop:disable Style/CaseEquality
+    return unless klass < ActiveRecord::Base
+    return unless klass < Redmine::Acts::Watchable::InstanceMethods
 
     scope = klass.where(:id => Array.wrap(params[:object_id]))
     if klass.reflect_on_association(:project)

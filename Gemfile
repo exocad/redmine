@@ -3,8 +3,9 @@ source 'https://rubygems.org'
 ruby '>= 2.4.0', '< 2.8.0'
 gem 'bundler', '>= 1.12.0'
 
-gem 'rails', '5.2.6'
+gem 'rails', '5.2.7'
 gem 'sprockets', '~> 3.7.2' if RUBY_VERSION < '2.5'
+gem 'globalid', '~> 0.4.2' if Gem.ruby_version < Gem::Version.new('2.6.0')
 gem 'rouge', '~> 3.26.0'
 gem 'request_store', '~> 1.5.0'
 gem "mini_mime", "~> 1.0.1"
@@ -23,7 +24,7 @@ gem 'rubyzip', '~> 2.3.0'
 gem 'tzinfo-data', platforms: [:mingw, :x64_mingw, :mswin]
 
 # TOTP-based 2-factor authentication
-gem 'rotp'
+gem 'rotp', '>= 5.0.0'
 gem 'rqrcode'
 
 # Optional gem for LDAP authentication
@@ -53,7 +54,8 @@ require 'erb'
 require 'yaml'
 database_file = File.join(File.dirname(__FILE__), "config/database.yml")
 if File.exist?(database_file)
-  database_config = YAML::load(ERB.new(IO.read(database_file)).result)
+  yaml_config = ERB.new(IO.read(database_file)).result
+  database_config = YAML.respond_to?(:unsafe_load) ? YAML.unsafe_load(yaml_config) : YAML.load(yaml_config)
   adapters = database_config.values.map {|c| c['adapter']}.compact.uniq
   if adapters.any?
     adapters.each do |adapter|

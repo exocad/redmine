@@ -348,6 +348,13 @@ class ProjectTest < ActiveSupport::TestCase
     assert_equal parent.children.sort_by(&:name), parent.children.to_a
   end
 
+  def test_validate_custom_field_values_of_project
+    User.current = User.find(3)
+    ProjectCustomField.generate!(:name => 'CustomFieldTest', :field_format => 'int', :is_required => true, :visible => false, :role_ids => [1])
+    p = Project.new(:name => 'Project test', :identifier => 'project-t')
+    assert p.save!
+  end
+
   def test_set_parent_should_update_issue_fixed_version_associations_when_a_fixed_version_is_moved_out_of_the_hierarchy
     # Parent issue with a hierarchy project's fixed version
     parent_issue = Issue.find(1)
@@ -473,6 +480,13 @@ class ProjectTest < ActiveSupport::TestCase
     assert_kind_of Array, principals_by_role[role]
     assert principals_by_role[role].include?(User.find(2))
     assert principals_by_role[role].include?(group)
+  end
+
+  def test_principals_by_role_should_only_return_active_users
+    principals_by_role = Project.find(1).principals_by_role
+    locked_user = User.find(5)
+    assert Project.find(1).memberships.map(&:principal).include?(locked_user)
+    assert_not principals_by_role.values.flatten.include?(locked_user)
   end
 
   def test_rolled_up_trackers
