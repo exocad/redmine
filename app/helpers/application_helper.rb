@@ -126,7 +126,8 @@ module ApplicationHelper
     html_options = options.slice!(:only_path, :filename)
     options[:only_path] = true unless options.key?(:only_path)
     url = send(route_method, attachment, options)
-    link_to text, url, html_options
+    tag = link_to text, url, html_options
+    tag.replace( tag.to_s.gsub 'download="true"', "download=\"#{attachment.filename}\"" )
   end
 
   # Generates a link to a SCM revision
