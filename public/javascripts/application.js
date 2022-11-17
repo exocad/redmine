@@ -121,8 +121,8 @@ function initFilters() {
     toggleFilter($(this).val());
   });
   $('#filters-table').on('click', '.toggle-multiselect', function() {
-    toggleMultiSelect($(this).siblings('select'))
-    $(this).toggleClass('icon-toggle-plus icon-toggle-minus')
+    toggleMultiSelect($(this).siblings('select'));
+    $(this).toggleClass('icon-toggle-plus icon-toggle-minus');
   });
   $('#filters-table').on('keypress', 'input[type=text]', function(e) {
     if (e.keyCode == 13) $(this).closest('form').submit();
@@ -166,6 +166,13 @@ function buildFilterRow(field, operator, values) {
   var operators = operatorByType[filterOptions['type']];
   var filterValues = filterOptions['values'];
   var i, select;
+  // check wether searchable selects are enabled and if so add identifying class
+  var selectClass = 'value';
+  if( $('#large_select_search_enabled').length && $('#large_select_search_activated').length ){
+    if( $('#large_select_search_enabled').val() === '1' && $('#large_select_search_activated').val() === '1' ){
+      selectClass += ' exomine-searchable-multiple';
+    }
+  }
 
   var tr = $('<tr class="filter">').attr('id', 'tr_'+fieldId).html(
     '<td class="field"><input checked="checked" id="cb_'+fieldId+'" name="f[]" value="'+field+'" type="checkbox"><label for="cb_'+fieldId+'"> '+filterOptions['name']+'</label></td>' +
@@ -188,7 +195,7 @@ function buildFilterRow(field, operator, values) {
   case "list_status":
   case "list_subprojects":
     tr.find('td.values').append(
-      '<span style="display:none;"><select class="value" id="values_'+fieldId+'_1" name="v['+field+'][]"></select>' +
+      '<span style="display:none;"><select class="'+selectClass+'" id="values_'+fieldId+'_1" name="v['+field+'][]"></select>' +
       ' <span class="toggle-multiselect icon-only icon-toggle-plus">&nbsp;</span></span>'
     );
     select = tr.find('td.values select');
@@ -232,7 +239,7 @@ function buildFilterRow(field, operator, values) {
   case "relation":
     tr.find('td.values').append(
       '<span style="display:none;"><input type="text" name="v['+field+'][]" id="values_'+fieldId+'" size="6" class="value" /></span>' +
-      '<span style="display:none;"><select class="value" name="v['+field+'][]" id="values_'+fieldId+'_1"></select></span>'
+      '<span style="display:none;"><select class="'+selectClass+'" name="v['+field+'][]" id="values_'+fieldId+'_1"></select></span>'
     );
     $('#values_'+fieldId).val(values[0]);
     select = tr.find('td.values select');
@@ -339,7 +346,15 @@ function toggleMultiSelect(el) {
   if (el.attr('multiple')) {
     el.removeAttr('multiple');
     el.attr('size', 1);
+    if(el.hasClass('exomine-searchable-multiple')){
+      $(el).select2('destroy'); // remove select2 to enable single-select
+      $(el).select2({minimumResultsForSearch: 10});
+    }
   } else {
+    if(el.hasClass('exomine-searchable-multiple')){
+      $(el).select2('destroy'); // remove select2 to enable single-select
+      $(el).select2({minimumResultsForSearch: 10, multiple: true});
+    }
     el.attr('multiple', true);
     if (el.children().length > 10)
       el.attr('size', 10);
