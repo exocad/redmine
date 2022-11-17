@@ -126,7 +126,7 @@ class User < Principal
 
   before_validation :instantiate_email_address
   before_create :set_mail_notification
-  before_save   :generate_password_if_needed, :update_hashed_password
+  before_save   :generate_password_if_needed, :update_hashed_password, :strip_names
   before_destroy :remove_references_before_destroy
   after_save :update_notified_project_ids, :destroy_tokens, :deliver_security_notification
   after_destroy :deliver_security_notification
@@ -965,6 +965,12 @@ class User < Principal
       Mailer.deliver_security_notification(users, User.current, options)
     end
   end
+
+  def strip_names # strip usernames of superfluous white spaces at the start and end
+    firstname.strip!
+    lastname.strip!
+  end
+
 end
 
 class AnonymousUser < User

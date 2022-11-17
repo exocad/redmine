@@ -1,15 +1,17 @@
-<div class="contextual">
-<% if User.current.allowed_to?(:manage_issue_relations, @project) %>
-  <%= toggle_link l(:button_add), 'new-relation-form', {:focus => 'relation_issue_to_id'} %>
-<% end %>
-</div>
+<% if not @relations.present? %>
+  <% if User.current.allowed_to?(:manage_issue_relations, @project) %>
+  <div class="contextual">
+    <%= toggle_link l(:button_add), 'new-relation-form', {:focus => 'relation_issue_to_id'} %>
+  </div>
+  <% end %>
 
-<p><strong><%=l(:label_related_issues)%></strong></p>
+  <p><strong><%=l(:label_related_issues)%></strong></p>
+<% end %>
 
 <% if @relations.present? %>
-<%= form_tag({}, :data => {:cm_url => issues_context_menu_path}) do %>
-  <%= render_issue_relations(@issue, @relations) %>
-<% end %>
+  <%= form_tag({}, :data => {:cm_url => issues_context_menu_path}) do %>
+    <%= render_issue_relations(@issue, @relations) %>
+  <% end %>
 <% end %>
 
 <%= form_for @relation, {

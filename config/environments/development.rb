@@ -20,4 +20,7 @@ Rails.application.configure do
 
   # Print deprecation notices to stderr and the Rails logger.
   config.active_support.deprecation = [:stderr, :log]
+
+  # Disable request forgery protection in test environment.
+  # config.action_controller.allow_forgery_protection = false
 end

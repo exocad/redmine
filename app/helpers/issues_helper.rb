@@ -162,17 +162,18 @@ module IssuesHelper
   # Renders the list of related issues on the issue details view
   def render_issue_relations(issue, relations)
     manage_relations = User.current.allowed_to?(:manage_issue_relations, issue.project)
+    add_relation_button = manage_relations ? content_tag('div', toggle_link( l(:button_add), 'new-relation-form', {:focus => 'relation_issue_to_id'} ), id: "add-related-issue-link") : content_tag('th')
     s = ''.html_safe
 		s << content_tag('thead', content_tag('tr',
-			content_tag('th') +
+			content_tag('th', l(:label_related_issues), style: "text-align: left;") +
 			content_tag('th', l(:field_status)) +
 			content_tag('th', l(:field_priority)) +
 			content_tag('th', l(:field_assigned_to)) +
 			content_tag('th', l(:field_start_date)) +
 			content_tag('th', l(:field_due_date)) +
 			content_tag('th') +
-			content_tag('th')
-		))
+      content_tag('th', add_relation_button)
+      ))
 
     relations = relations.sort{|a,b| (a.other_issue(@issue).closed? ? 1 : 0) - (b.other_issue(@issue).closed? ? 1 : 0)  } if separate_closed_issue_relations?
     relations.each do |relation|
