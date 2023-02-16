@@ -124,6 +124,49 @@ class IssuesControllerTest < Redmine::ControllerTest
     assert_select 'a[href="/issues/6"]', 0
   end
 
+  def test_index_should_list_issues_of_closed_subprojects
+    @request.session[:user_id] = 1
+    project = Project.find(1)
+
+    with_settings :display_subprojects_issues => '1' do
+      # One of subprojects is closed
+      Project.find_by(:identifier => 'subproject1').close
+      get(:index, :params => {:project_id => project.id})
+      assert_response :success
+      assert_equal 10, issues_in_list.count
+
+      # All subprojects are closed
+      project.descendants.each(&:close)
+      get(:index, :params => {:project_id => project.id})
+      assert_response :success
+      assert_equal 10, issues_in_list.count
+    end
+  end
+
+  def test_index_with_subproject_filter_should_not_exclude_closed_subprojects_issues
+    subproject1 = Project.find(3)
+    subproject2 = Project.find(4)
+    subproject1.close
+
+    with_settings :display_subprojects_issues => '1' do
+      get(
+        :index,
+        :params => {
+          :project_id => 1,
+          :set_filter => 1,
+          :f => ['subproject_id'],
+          :op => {'subproject_id' => '!'},
+          :v => {'subproject_id' => [subproject2.id.to_s]},
+          :c => ['project']
+        }
+      )
+    end
+    assert_response :success
+    column_values = columns_values_in_list('project')
+    assert_includes column_values, subproject1.name
+    assert_equal 9, column_values.size
+  end
+
   def test_index_with_project_and_subprojects_should_show_private_subprojects_with_permission
     @request.session[:user_id] = 2
     Setting.display_subprojects_issues = 1
@@ -1664,6 +1707,22 @@ class IssuesControllerTest < Redmine::ControllerTest
     assert_select '#content a.new-issue[href="/issues/new"]', :text => 'New issue'
   end
 
+  def test_index_should_show_setting_link_with_edit_project_permission
+    role = Role.find(1)
+    role.add_permission! :edit_project
+    @request.session[:user_id] = 2
+    get(:index, :params => {:project_id => 1})
+    assert_select '#content a.icon-settings[href="/projects/ecookbook/settings/issues"]', 1
+  end
+
+  def test_index_should_not_show_setting_link_without_edit_project_permission
+    role = Role.find(1)
+    role.remove_permission! :edit_project
+    @request.session[:user_id] = 2
+    get(:index, :params => {:project_id => 1})
+    assert_select '#content a.icon-settings[href="/projects/ecookbook/settings/issues"]', 0
+  end
+
   def test_index_should_not_include_new_issue_tab_when_disabled
     with_settings :new_item_menu_tab => '0' do
       @request.session[:user_id] = 2
@@ -2629,6 +2688,32 @@ class IssuesControllerTest < Redmine::ControllerTest
 
       assert_select 'ul[class=?]', 'details', :text => /1.00 h/
     end
+  end
+
+  def test_show_should_not_display_edit_attachment_icon_for_user_without_edit_issue_permission_on_tracker
+    role = Role.find(2)
+    role.set_permission_trackers 'edit_issues', [2, 3]
+    role.save!
+
+    @request.session[:user_id] = 2
+
+    get :show, params: {id: 4}
+
+    assert_response :success
+    assert_select 'div.attachments .icon-edit',  0
+  end
+
+  def test_show_should_not_display_delete_attachment_icon_for_user_without_edit_issue_permission_on_tracker
+    role = Role.find(2)
+    role.set_permission_trackers 'edit_issues', [2, 3]
+    role.save!
+
+    @request.session[:user_id] = 2
+
+    get :show, params: {id: 4}
+
+    assert_response :success
+    assert_select 'div.attachments .icon-del', 0
   end
 
   def test_get_new
@@ -4832,6 +4917,41 @@ class IssuesControllerTest < Redmine::ControllerTest
     end
   end
 
+  def test_get_edit_should_display_visible_spent_time_custom_field
+    @request.session[:user_id] = 2
+
+    get(
+      :edit,
+      :params => {
+        :id => 13,
+      }
+    )
+
+    assert_response :success
+
+    assert_select '#issue-form select#time_entry_custom_field_values_10', 1
+  end
+
+  def test_get_edit_should_not_display_spent_time_custom_field_not_visible
+    cf = TimeEntryCustomField.find(10)
+    cf.visible = false
+    cf.role_ids = [1]
+    cf.save!
+
+    @request.session[:user_id] = 2
+
+    get(
+      :edit,
+      :params => {
+        :id => 13,
+      }
+    )
+
+    assert_response :success
+
+    assert_select '#issue-form select#time_entry_custom_field_values_10', 0
+  end
+
   def test_update_form_for_existing_issue
     @request.session[:user_id] = 2
     patch :edit, :params => {
@@ -5560,6 +5680,29 @@ class IssuesControllerTest < Redmine::ControllerTest
     assert_select_error /Hours cannot be blank/
     assert_select 'textarea[name=?]', 'issue[notes]', :text => notes
     assert_select 'input[name=?][value=?]', 'time_entry[comments]', 'this is my comment'
+  end
+
+  def test_put_with_spent_time_when_assigned_to_of_private_issue_is_update_at_the_same_time
+    @request.session[:user_id] = 3
+    Role.find(2).update! :issues_visibility => 'own'
+    private_issue = Issue.find(3)
+
+    assert_difference('TimeEntry.count', 1) do
+      put(
+        :update,
+        params: {
+          id: private_issue.id,
+          issue: { assigned_to_id: nil },
+          time_entry: {
+            comments: "add spent time", activity_id: TimeEntryActivity.first.id, hours: 1
+          }
+        }
+      )
+    end
+    assert_select '#errorExplanation', {text: /Log time is invalid/, count: 0}
+    assert_select '#errorExplanation', {text: /Issue is invalid/, count: 0}
+    assert_redirected_to action: 'show', id: private_issue.id
+    assert_not private_issue.reload.visible?
   end
 
   def test_put_update_should_allow_fixed_version_to_be_set_to_a_subproject

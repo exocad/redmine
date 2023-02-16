@@ -29,7 +29,8 @@ class Attachment < ActiveRecord::Base
   validates_length_of :filename, :maximum => 255
   validates_length_of :disk_filename, :maximum => 255
   validates_length_of :description, :maximum => 255
-  validate :validate_max_file_size, :validate_file_extension
+  validate :validate_max_file_size
+  validate :validate_file_extension, :if => :filename_changed?
 
   acts_as_event :title => :filename,
                 :url => Proc.new {|o| {:controller => 'attachments', :action => 'show', :id => o.id, :filename => o.filename}}
@@ -76,11 +77,9 @@ class Attachment < ActiveRecord::Base
   end
 
   def validate_file_extension
-    if @temp_file
-      extension = File.extname(filename)
-      unless self.class.valid_extension?(extension)
-        errors.add(:base, l(:error_attachment_extension_not_allowed, :extension => extension))
-      end
+    extension = File.extname(filename)
+    unless self.class.valid_extension?(extension)
+      errors.add(:base, l(:error_attachment_extension_not_allowed, :extension => extension))
     end
   end
 
@@ -436,16 +435,15 @@ class Attachment < ActiveRecord::Base
   private
 
   def reuse_existing_file_if_possible
-    original_diskfile = nil
+    original_diskfile = diskfile
+    original_filename = disk_filename
     reused = with_lock do
       if existing = Attachment
                       .where(digest: self.digest, filesize: self.filesize)
-                      .where('id <> ? and disk_filename <> ?',
-                             self.id, self.disk_filename)
+                      .where.not(disk_filename: original_filename)
                       .order(:id)
                       .last
         existing.with_lock do
-          original_diskfile = self.diskfile
           existing_diskfile = existing.diskfile
           if File.readable?(original_diskfile) &&
             File.readable?(existing_diskfile) &&
@@ -456,7 +454,7 @@ class Attachment < ActiveRecord::Base
         end
       end
     end
-    if reused
+    if reused && Attachment.where(disk_filename: original_filename).none?
       File.delete(original_diskfile)
     end
   rescue ActiveRecord::StatementInvalid, ActiveRecord::RecordNotFound

@@ -28,7 +28,8 @@ class ActivitiesControllerTest < Redmine::ControllerTest
            :members,
            :groups_users,
            :enabled_modules,
-           :journals, :journal_details
+           :journals, :journal_details,
+           :attachments, :changesets, :documents, :messages, :news, :time_entries, :wiki_content_versions
 
   def test_project_index
     get :index, :params => {
@@ -95,6 +96,18 @@ class ActivitiesControllerTest < Redmine::ControllerTest
     assert_response 404
   end
 
+  def test_user_index_with_non_visible_user_id_should_respond_404
+    Role.anonymous.update! :users_visibility => 'members_of_visible_projects'
+    user = User.generate!
+
+    @request.session[:user_id] = nil
+    get :index, :params => {
+      :user_id => user.id
+    }
+
+    assert_response 404
+  end
+
   def test_index_atom_feed
     get :index, :params => {
         :format => 'atom',
@@ -108,6 +121,22 @@ class ActivitiesControllerTest < Redmine::ControllerTest
       assert_select 'entry' do
         assert_select 'link[href=?]', 'http://test.host/issues/11'
       end
+    end
+  end
+
+  def test_index_atom_feed_should_respect_feeds_limit_setting
+    with_settings :feeds_limit => '20' do
+      get(
+        :index,
+        :params => {
+          :format => 'atom'
+        }
+      )
+    end
+    assert_response :success
+
+    assert_select 'feed' do
+      assert_select 'entry', :count => 20
     end
   end
 

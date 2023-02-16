@@ -33,7 +33,7 @@ class ActivitiesController < ApplicationController
     @date_from = @date_to - @days
     @with_subprojects = params[:with_subprojects].nil? ? Setting.display_subprojects_issues? : (params[:with_subprojects] == '1')
     if params[:user_id].present?
-      @author = User.active.find(params[:user_id])
+      @author = User.visible.active.find(params[:user_id])
     end
 
     @activity = Redmine::Activity::Fetcher.new(User.current, :project => @project,
@@ -55,7 +55,12 @@ class ActivitiesController < ApplicationController
       end
     end
 
-    events = @activity.events(@date_from, @date_to)
+    events =
+      if params[:format] == 'atom'
+        @activity.events(nil, nil, :limit => Setting.feeds_limit.to_i)
+      else
+        @activity.events(@date_from, @date_to)
+      end
 
     if events.empty? || stale?(:etag => [@activity.scope, @date_to, @date_from, @with_subprojects, @author, events.first, events.size, User.current, current_language])
       respond_to do |format|

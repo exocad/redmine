@@ -1126,6 +1126,21 @@ class QueryTest < ActiveSupport::TestCase
     assert_equal [1, 3, 7, 8], find_issues_with_query(query).map(&:id).uniq.sort
   end
 
+  def test_filter_on_fixed_version_status_respects_sharing
+    issue = Issue.generate!(:project_id => 1, :fixed_version_id => 7)
+
+    filter_name = "fixed_version.status"
+
+    query = IssueQuery.new(:name => '_', :project => Project.find(1))
+    assert_include filter_name, query.available_filters.keys
+    query.filters = {filter_name => {:operator => '=', :values => ['open']}}
+    assert_include issue, find_issues_with_query(query)
+
+    query = IssueQuery.new(:name => '_', :project => Project.find(1))
+    query.filters = {filter_name => {:operator => '=', :values => ['closed']}}
+    assert_not_includes find_issues_with_query(query), issue
+  end
+
   def test_filter_on_version_custom_field
     field = IssueCustomField.generate!(:field_format => 'version', :is_filter => true)
     issue = Issue.generate!(:project_id => 1, :tracker_id => 1, :custom_field_values => {field.id.to_s => '2'})
@@ -1451,6 +1466,19 @@ class QueryTest < ActiveSupport::TestCase
     end
   end
 
+  def test_available_filters_as_json_should_not_include_duplicate_assigned_to_id_values
+    set_language_if_valid 'en'
+    user = User.find_by_login 'dlopper'
+    with_current_user User.find(1) do
+      q = IssueQuery.new
+      q.filters = {"assigned_to_id" => {:operator => '=', :values => user.id.to_s}}
+
+      filters = q.available_filters_as_json
+      assert_not_include [user.name, user.id.to_s], filters['assigned_to_id']['values']
+      assert_include [user.name, user.id.to_s, 'active'], filters['assigned_to_id']['values']
+    end
+  end
+
   def test_available_filters_as_json_should_include_missing_author_id_values
     user = User.generate!
     with_current_user User.find(1) do
@@ -1628,6 +1656,16 @@ class QueryTest < ActiveSupport::TestCase
 
     q = IssueQuery.new
     assert !q.sortable_columns['cf_1']
+  end
+
+  def test_sortable_should_return_false_for_multi_custom_field
+    field = CustomField.find(1)
+    field.update_attribute :multiple, true
+
+    q = IssueQuery.new
+
+    field_column = q.available_columns.detect {|c| c.name==:cf_1}
+    assert !field_column.sortable?
   end
 
   def test_default_sort
@@ -2399,6 +2437,17 @@ class QueryTest < ActiveSupport::TestCase
     assert_equal "table.field > '#{Query.connection.quoted_date f}' AND table.field <= '#{Query.connection.quoted_date t}'", c
   ensure
     ActiveRecord::Base.default_timezone = :local # restore Redmine default
+  end
+
+  def test_project_statement_with_closed_subprojects
+    project = Project.find(1)
+    project.descendants.each(&:close)
+
+    with_settings :display_subprojects_issues => '1' do
+      query = IssueQuery.new(:name => '_', :project => project)
+      statement = query.project_statement
+      assert_equal "projects.lft >= #{project.lft} AND projects.rgt <= #{project.rgt}", statement
+    end
   end
 
   def test_filter_on_subprojects

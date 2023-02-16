@@ -113,6 +113,13 @@ class TimeEntry < ActiveRecord::Base
             self.project_id = issue.project_id
           end
           @invalid_issue_id = nil
+        elsif user.allowed_to?(:log_time, issue.project) && issue.assigned_to_id_changed? && issue.previous_assignee == User.current
+          current_assignee = issue.assigned_to
+          issue.assigned_to = issue.previous_assignee
+          unless issue.visible?(user)
+            @invalid_issue_id = issue_id
+          end
+          issue.assigned_to = current_assignee
         else
           @invalid_issue_id = issue_id
         end
@@ -122,7 +129,14 @@ class TimeEntry < ActiveRecord::Base
       else
         @invalid_user_id = nil
       end
+
+      # Delete assigned custom fields not visible by the user
+      editable_custom_field_ids = editable_custom_field_values(user).map {|v| v.custom_field_id.to_s}
+      self.custom_field_values.delete_if do |c|
+        !editable_custom_field_ids.include?(c.custom_field.id.to_s)
+      end
     end
+
     attrs
   end
 
@@ -193,7 +207,7 @@ class TimeEntry < ActiveRecord::Base
 
   # Returns the custom_field_values that can be edited by the given user
   def editable_custom_field_values(user=nil)
-    visible_custom_field_values
+    visible_custom_field_values(user)
   end
 
   # Returns the custom fields that can be edited by the given user

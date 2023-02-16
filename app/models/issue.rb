@@ -214,6 +214,11 @@ class Issue < ActiveRecord::Base
     user_tracker_permission?(user, :delete_issues)
   end
 
+  # Overrides Redmine::Acts::Attachable::InstanceMethods#attachments_deletable?
+  def attachments_deletable?(user=User.current)
+    attributes_editable?(user)
+  end
+
   def initialize(attributes=nil, *args)
     super
     if new_record?
@@ -1750,8 +1755,8 @@ class Issue < ActiveRecord::Base
       # a different project and that is not systemwide shared
       Issue.joins(:project, :fixed_version).
         where("#{Issue.table_name}.fixed_version_id IS NOT NULL" +
-          " AND #{Issue.table_name}.project_id <> #{Version.table_name}.project_id" +
-          " AND #{Version.table_name}.sharing <> 'system'").
+          " AND #{Issue.table_name}.project_id <> #{::Version.table_name}.project_id" +
+          " AND #{::Version.table_name}.sharing <> 'system'").
         where(conditions).each do |issue|
         next if issue.project.nil? || issue.fixed_version.nil?
         unless issue.project.shared_versions.include?(issue.fixed_version)
@@ -1772,7 +1777,7 @@ class Issue < ActiveRecord::Base
 
   # Callback on file attachment
   def attachment_added(attachment)
-    if current_journal && !attachment.new_record?
+    if current_journal && !attachment.new_record? && !copy?
       current_journal.journalize_attachment(attachment, :added)
     end
   end

@@ -143,10 +143,18 @@ class IssuesHelperTest < Redmine::HelperTest
   end
 
   test 'show_detail should show old and new values with a project attribute' do
+    User.current = User.find(2)
     detail = JournalDetail.new(:property => 'attr', :prop_key => 'project_id',
                                :old_value => 1, :value => 2)
     assert_match 'eCookbook', show_detail(detail, true)
     assert_match 'OnlineStore', show_detail(detail, true)
+  end
+
+  test 'show_detail with a project attribute should show project ID if project is not visible' do
+    detail = JournalDetail.new(:property => 'attr', :prop_key => 'project_id',
+                               :old_value => 1, :value => 2)
+    assert_match 'eCookbook', show_detail(detail, true)
+    assert_match '2', show_detail(detail, true)
   end
 
   test 'show_detail should show old and new values with a issue status attribute' do
@@ -350,6 +358,28 @@ class IssuesHelperTest < Redmine::HelperTest
       issue.status = IssueStatus.find_by_is_closed(true)
       issue.save!
       assert_equal '06/06/2019', issue_due_date_details(issue)
+    end
+  end
+
+  def test_issue_spent_hours_details_should_link_to_project_time_entries_depending_on_cross_project_setting
+    %w(descendants).each do |setting|
+      with_settings :cross_project_subtasks => setting do
+        TimeEntry.generate!(:issue => Issue.generate!(:parent_issue_id => 1), :hours => 3)
+        TimeEntry.generate!(:issue => Issue.generate!(:parent_issue_id => 1), :hours => 4)
+
+        assert_match "href=\"/projects/ecookbook/time_entries?issue_id=~1\"", CGI.unescape(issue_spent_hours_details(Issue.find(1)))
+      end
+    end
+  end
+
+  def test_issue_spent_hours_details_should_link_to_global_time_entries_depending_on_cross_project_setting
+    %w(system tree hierarchy).each do |setting|
+      with_settings :cross_project_subtasks => setting do
+        TimeEntry.generate!(:issue => Issue.generate!(:parent_issue_id => 1), :hours => 3)
+        TimeEntry.generate!(:issue => Issue.generate!(:parent_issue_id => 1), :hours => 4)
+
+        assert_match "href=\"/time_entries?issue_id=~1\"", CGI.unescape(issue_spent_hours_details(Issue.find(1)))
+      end
     end
   end
 end

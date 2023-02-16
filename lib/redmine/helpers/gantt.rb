@@ -341,6 +341,7 @@ module Redmine
         if options[:format] == :html
           data_options = {}
           data_options[:collapse_expand] = "issue-#{issue.id}"
+          data_options[:number_of_rows] = number_of_rows
           style = "position: absolute;top: #{options[:top]}px; font-size: 0.8em;"
           content = view.content_tag(:div, view.column_content(options[:column], issue), :style => style, :class => "issue_#{options[:column].name}", :id => "#{options[:column].name}_issue_#{issue.id}", :data => data_options)
           @columns[options[:column].name] << content if @columns.has_key?(options[:column].name)
@@ -378,6 +379,9 @@ module Redmine
           unless Redmine::Configuration['rmagick_font_path'].nil?
         font_path = Redmine::Configuration['minimagick_font_path'].presence || Redmine::Configuration['rmagick_font_path'].presence
         img = MiniMagick::Image.create(".#{format}", false)
+        if Redmine::Configuration['imagemagick_convert_command'].present?
+          MiniMagick.cli_path = File.dirname(Redmine::Configuration['imagemagick_convert_command'])
+        end
         MiniMagick::Tool::Convert.new do |gc|
           gc.size('%dx%d' % [subject_width + g_width + 1, height])
           gc.xc('white')
@@ -768,6 +772,7 @@ module Redmine
               :top_increment => params[:top_increment],
               :obj_id => "#{object.class}-#{object.id}".downcase,
             },
+            :number_of_rows => number_of_rows,
           }
         end
         if has_children
@@ -823,7 +828,10 @@ module Redmine
       def html_task(params, coords, markers, label, object)
         output = +''
         data_options = {}
-        data_options[:collapse_expand] = "#{object.class}-#{object.id}".downcase if object
+        if object
+          data_options[:collapse_expand] = "#{object.class}-#{object.id}".downcase
+          data_options[:number_of_rows] = number_of_rows
+        end
         css = "task " +
           case object
           when Project

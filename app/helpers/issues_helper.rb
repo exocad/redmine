@@ -247,6 +247,11 @@ module IssuesHelper
       if issue.total_spent_hours == issue.spent_hours
         link_to(l_hours_short(issue.spent_hours), path)
       else
+        # link to global time entries if cross-project subtasks are allowed
+        # in order to show time entries from not descendents projects
+        if %w(system tree hierarchy).include?(Setting.cross_project_subtasks)
+          path = time_entries_path(:issue_id => "~#{issue.id}")
+        end
         s = issue.spent_hours > 0 ? l_hours_short(issue.spent_hours) : ""
         s += " (#{l(:label_total)}: #{link_to l_hours_short(issue.total_spent_hours), path})"
         s.html_safe
@@ -607,6 +612,7 @@ module IssuesHelper
   end
 
   # Find the name of an associated record stored in the field attribute
+  # For project, return the associated record only if is visible for the current User
   def find_name_by_reflection(field, id)
     return nil if id.blank?
     @detail_value_name_by_reflection ||= Hash.new do |hash, key|
@@ -614,7 +620,7 @@ module IssuesHelper
       name = nil
       if association
         record = association.klass.find_by_id(key.last)
-        if record
+        if (record && !record.is_a?(Project)) || (record.is_a?(Project) && record.visible?)
           name = record.name.force_encoding('UTF-8')
         end
       end
