@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2022  Jean-Philippe Lang
+# Copyright (C) 2006-2023  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -148,10 +148,10 @@ class Redmine::WikiFormatting::CommonMark::FormatterTest < ActionView::TestCase
       STR
 
       expected = <<~EXPECTED
-        <p>This is some text<sup><a href="#fn1" id="fnref1">1</a></sup>.</p>
+        <p>This is some text<sup><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
          <ol>
-        <li id="fn1">
-        <p>This is the foot note <a href="#fnref1">↩</a></p>
+        <li id="fn-1">
+        <p>This is the foot note <a href="#fnref-1" aria-label="Back to reference 1">↩</a></p>
         </li>
         </ol>
       EXPECTED

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2022  Jean-Philippe Lang
+# Copyright (C) 2006-2023  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -203,6 +203,10 @@ class Issue < ActiveRecord::Base
     user_tracker_permission?(user, :edit_issues) || (
       user_tracker_permission?(user, :edit_own_issues) && author == user
     )
+  end
+
+  def attachments_addable?(user=User.current)
+    attributes_editable?(user) || notes_addable?(user)
   end
 
   # Overrides Redmine::Acts::Attachable::InstanceMethods#attachments_editable?
@@ -761,11 +765,17 @@ class Issue < ActiveRecord::Base
       errors.add :start_date, :earlier_than_minimum_start_date, :date => format_date(soonest_start)
     end
 
-    if project && fixed_version
-      if !assignable_versions.include?(fixed_version)
+    if project && fixed_version_id
+      if fixed_version.nil? || assignable_versions.exclude?(fixed_version)
         errors.add :fixed_version_id, :inclusion
       elsif reopening? && fixed_version.closed?
         errors.add :base, I18n.t(:error_can_not_reopen_issue_on_closed_version)
+      end
+    end
+
+    if project && category_id
+      unless project.issue_category_ids.include?(category_id)
+        errors.add :category_id, :inclusion
       end
     end
 
@@ -1178,7 +1188,7 @@ class Issue < ActiveRecord::Base
     if @last_notes
       @last_notes
     else
-      journals.where.not(notes: '').reorder(:id => :desc).first.try(:notes)
+      journals.visible.where.not(notes: '').reorder(:id => :desc).first.try(:notes)
     end
   end
 
@@ -1848,19 +1858,20 @@ class Issue < ActiveRecord::Base
           if children.any?
             child_with_total_estimated_hours = children.select {|c| c.total_estimated_hours.to_f > 0.0}
             if child_with_total_estimated_hours.any?
-              average =
-                child_with_total_estimated_hours.sum(&:total_estimated_hours).to_d /
-                  child_with_total_estimated_hours.count
+              average = Rational(
+                child_with_total_estimated_hours.sum(&:total_estimated_hours).to_s,
+                child_with_total_estimated_hours.count
+              )
             else
-              average = BigDecimal('1.0')
+              average = Rational(1)
             end
             done = children.sum do |c|
-              estimated = (c.total_estimated_hours || 0.0).to_d
+              estimated = Rational(c.total_estimated_hours.to_f.to_s)
               estimated = average unless estimated > 0.0
               ratio = c.closed? ? 100 : (c.done_ratio || 0)
               estimated * ratio
             end
-            progress = done / (average * children.count)
+            progress = Rational(done, average * children.count)
             p.done_ratio = progress.floor
           end
         end

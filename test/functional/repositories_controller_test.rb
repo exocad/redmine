@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2022  Jean-Philippe Lang
+# Copyright (C) 2006-2023  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -185,6 +185,28 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
     Project.find(1).close
     with_settings :autofetch_changesets => '1' do
       get(:show, :params => {:id => 1})
+    end
+  end
+
+  def test_show_without_main_repository_should_display_first_repository
+    skip unless repository_configured?('subversion')
+
+    project = Project.find(1)
+    repos = project.repositories
+    repos << Repository::Subversion.create(:identifier => 'test', :url => 'svn://valid')
+    assert_equal true, repos.exists?(:is_default => true)
+
+    repos.update_all(:is_default => false)
+    repos.reload
+    assert_equal false, repos.exists?(:is_default => true)
+
+    repository = repos.sort.first  # rubocop:disable Style/RedundantSort
+    @request.session[:user_id] = 2
+
+    get(:show, :params => {:id => 1})
+    assert_response :success
+    assert_select '#sidebar' do
+      assert_select 'a.repository.selected[href=?]', "/projects/#{project.identifier}/repository/#{repository.identifier_param}"
     end
   end
 

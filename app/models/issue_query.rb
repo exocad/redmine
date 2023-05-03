@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2022  Jean-Philippe Lang
+# Copyright (C) 2006-2023  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -78,18 +78,22 @@ class IssueQuery < Query
   scope :for_all_projects, ->{ where(project_id: nil) }
 
   def self.default(project: nil, user: User.current)
-    query = nil
     # user default
     if user&.logged? && (query_id = user.pref.default_issue_query).present?
       query = find_by(id: query_id)
+      return query if query&.visible?(user)
     end
+
     # project default
-    query ||= project&.default_issue_query
+    query = project&.default_issue_query
+    return query if query&.visibility == VISIBILITY_PUBLIC
+
     # global default
-    if query.nil? && (query_id = Setting.default_issue_query).present?
+    if (query_id = Setting.default_issue_query).present?
       query = find_by(id: query_id)
+      return query if query&.visibility == VISIBILITY_PUBLIC
     end
-    query
+    nil
   end
 
   def initialize(attributes=nil, *args)

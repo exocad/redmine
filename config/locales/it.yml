@@ -806,7 +806,7 @@ it:
   mail_subject_wiki_content_added: "La pagina '%{id}' è stata aggiunta al wiki"
   mail_body_wiki_content_added: La pagina '%{id}' è stata aggiunta al wiki da %{author}.
   label_wiki_content_updated: Aggiornata pagina wiki
-  mail_body_wiki_content_updated: La pagina '%{id}' wiki è stata aggiornata da%{author}.
+  mail_body_wiki_content_updated: La pagina '%{id}' wiki è stata aggiornata da %{author}.
   permission_add_project: Crea progetto
   setting_new_project_user_role_id: Ruolo assegnato agli utenti non amministratori che creano un progetto
   label_view_all_revisions: Mostra tutte le revisioni
@@ -1421,6 +1421,7 @@ it:
     for_all_projects: For all projects
     for_current_project: For current project
     for_all_users: For all users
+    for_this_user: For this user
   text_allowed_queries_to_select: Public (to any users) queries only selectable
   text_all_migrations_have_been_run: All database migrations have been run
   button_save_object: Save %{object_name}

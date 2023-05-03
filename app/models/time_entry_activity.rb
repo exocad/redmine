@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2022  Jean-Philippe Lang
+# Copyright (C) 2006-2023  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,6 +21,16 @@ class TimeEntryActivity < Enumeration
   has_many :time_entries, :foreign_key => 'activity_id'
 
   OptionName = :enumeration_activities
+
+  def self.default(project=nil)
+    default_activity = super()
+
+    if default_activity.nil? || project.nil? || project.activities.blank? || project.activities.include?(default_activity)
+      return default_activity
+    end
+
+    project.activities.detect { |activity| activity.parent_id == default_activity.id }
+  end
 
   def option_name
     OptionName

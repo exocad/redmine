@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2022  Jean-Philippe Lang
+# Copyright (C) 2006-2023  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,6 +21,9 @@ class SysController < ActionController::Base
   include ActiveSupport::SecurityUtils
 
   before_action :check_enabled
+
+  # Requests from repository WS clients don't contain CSRF tokens
+  skip_before_action :verify_authenticity_token
 
   def projects
     p = Project.active.has_module(:repository).

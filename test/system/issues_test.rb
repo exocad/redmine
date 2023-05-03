@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2022  Jean-Philippe Lang
+# Copyright (C) 2006-2023  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -254,6 +254,26 @@ class IssuesSystemTest < ApplicationSystemTestCase
     end
     assert page.has_css?('#flash_notice')
     assert_equal 5, issue.reload.status.id
+  end
+
+  def test_update_issue_with_form_update_should_keep_newly_added_attachments
+    set_tmp_attachments_directory
+    log_user('jsmith', 'jsmith')
+
+    visit '/issues/2'
+    page.first(:link, 'Edit').click
+    attach_file 'attachments[dummy][file]', Rails.root.join('test/fixtures/files/testfile.txt')
+
+    assert page.has_css?('span#attachments_1')
+
+    page.find("#issue_status_id").select("Closed")
+
+    # check that attachment still exists on the page
+    assert page.has_css?('span#attachments_1')
+
+    click_on 'Submit'
+
+    assert_equal 1, Issue.find(2).attachments.count
   end
 
   test "removing issue shows confirm dialog" do

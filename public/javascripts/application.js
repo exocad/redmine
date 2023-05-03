@@ -1,5 +1,5 @@
 /* Redmine - project management software
-   Copyright (C) 2006-2022  Jean-Philippe Lang */
+   Copyright (C) 2006-2023  Jean-Philippe Lang */
 
 function sanitizeHTML(string) {
   var temp = document.createElement('span');
@@ -622,13 +622,8 @@ function replaceIssueFormWith(html){
       replacement.find('#'+object_id).val($(this).val());
     }
   });
-
-  if ($('form.new_issue').length > 0) {
-    $('#all_attributes').empty();
-    $('#all_attributes').prepend(replacement);
-  } else {
-    $('#issue-form').replaceWith(replacement);
-  }
+  $('#all_attributes').empty();
+  $('#all_attributes').prepend(replacement);
 }
 
 function updateBulkEditFrom(url) {
@@ -963,7 +958,7 @@ function addFormObserversForDoubleSubmit() {
 
 function defaultFocus(){
   if (($('#content :focus').length == 0) && (window.location.hash == '')) {
-    $('#content input[type=text], #content textarea').first().focus();
+    $('#content input[type=text]:visible, #content textarea:visible').first().focus();
   }
 }
 

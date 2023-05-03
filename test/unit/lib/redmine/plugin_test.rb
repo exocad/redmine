@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2022  Jean-Philippe Lang
+# Copyright (C) 2006-2023  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -194,6 +194,13 @@ class Redmine::PluginTest < ActiveSupport::TestCase
         requires_redmine_plugin(:missing, :version => '0.1.0')
       end
     end
+  end
+
+  def test_default_settings
+    @klass.register(:foo_plugin) {settings :default => {'key1' => 'abc', :key2 => 123}}
+    h = Setting.plugin_foo_plugin
+    assert_equal 'abc', h['key1']
+    assert_equal 123, h[:key2]
   end
 
   def test_settings_warns_about_possible_partial_collision

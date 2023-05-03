@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2022  Jean-Philippe Lang
+# Copyright (C) 2006-2023  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -47,9 +47,9 @@ if Object.const_defined?(:CommonMarker)
     end
 
     def test_should_support_footnotes
-      input = %(<a href="#fn1" id="fnref1">foo</a>)
+      input = %(<a href="#fn-1" id="fnref-1">foo</a>)
       assert_equal input, filter(input)
-      input = %(<ol><li id="fn1">footnote</li></ol>)
+      input = %(<ol><li id="fn-1">footnote</li></ol>)
       assert_equal input, filter(input)
     end
 
@@ -93,6 +93,14 @@ if Object.const_defined?(:CommonMarker)
     # samples taken from the Sanitize test suite
     # rubocop:disable Layout/LineLength
     STRINGS = [
+      [
+        '<span style="color: #333; background: url(\'https://example.com/evil.svg\')">hello</span>"',
+        '<span style="color: #333; ">hello</span>"'
+      ],
+      [
+        '<img src="photo.jpg" style="min-width: 100px; max-width: 200px; min-height: 100px; max-height: 200px;">',
+        '<img src="photo.jpg" style="min-width: 100px; max-width: 200px; min-height: 100px; max-height: 200px;">'
+      ],
       [
         '<b>Lo<!-- comment -->rem</b> <a href="pants" title="foo" style="text-decoration: underline;">ipsum</a> <a href="http://foo.com/"><strong>dolor</strong></a> sit<br/>amet <style>.foo { color: #fff; }</style> <script>alert("hello world");</script>',
         '<b>Lorem</b> <a href="pants" title="foo">ipsum</a> <a href="http://foo.com/"><strong>dolor</strong></a> sit<br>amet .foo { color: #fff; } '

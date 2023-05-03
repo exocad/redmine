@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2022  Jean-Philippe Lang
+# Copyright (C) 2006-2023  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -63,7 +63,11 @@ class TimeEntry < ActiveRecord::Base
     where(TimeEntry.visible_condition(args.shift || User.current, *args))
   end)
   scope :left_join_issue, (lambda do
-    joins("LEFT OUTER JOIN #{Issue.table_name} ON #{Issue.table_name}.id = #{TimeEntry.table_name}.issue_id")
+    joins(
+      "LEFT OUTER JOIN #{Issue.table_name}" \
+      " ON #{Issue.table_name}.id = #{TimeEntry.table_name}.issue_id" \
+      " AND (#{Issue.visible_condition(User.current)})"
+    )
   end)
   scope :on_issue, (lambda do |issue|
     joins(:issue).
@@ -103,7 +107,7 @@ class TimeEntry < ActiveRecord::Base
   def initialize(attributes=nil, *args)
     super
     if new_record? && self.activity.nil?
-      if default_activity = TimeEntryActivity.default
+      if default_activity = TimeEntryActivity.default(self.project)
         self.activity_id = default_activity.id
       end
       self.hours = nil if hours == 0

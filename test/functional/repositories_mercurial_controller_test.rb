@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2022  Jean-Philippe Lang
+# Copyright (C) 2006-2023  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -27,7 +27,7 @@ class RepositoriesMercurialControllerTest < Redmine::RepositoryControllerTest
 
   REPOSITORY_PATH = Rails.root.join('tmp/test/mercurial_repository').to_s
   PRJ_ID     = 3
-  NUM_REV    = 40
+  NUM_REV    = 43
 
   def setup
     super

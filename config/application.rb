@@ -32,6 +32,13 @@ module RedmineApp
 
     config.active_record.store_full_sti_class = true
     config.active_record.default_timezone = :local
+    config.active_record.yaml_column_permitted_classes = [
+      Date,
+      Time,
+      Symbol,
+      ActiveSupport::HashWithIndifferentAccess,
+      ActionController::Parameters
+    ]
 
     config.action_mailer.delivery_job = "ActionMailer::MailDeliveryJob"
 

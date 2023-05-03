@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2022  Jean-Philippe Lang
+# Copyright (C) 2006-2023  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,5 +25,12 @@ class Redmine::InfoTest < ActiveSupport::TestCase
 
     assert_kind_of String, env
     assert_match 'Redmine version', env
+  end
+
+  def test_theme_with_invalid_theme_setting
+    Setting.ui_theme = 'foo'
+    env = Redmine::Info.environment
+
+    assert_match 'Redmine theme', env
   end
 end

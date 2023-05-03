@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2022  Jean-Philippe Lang
+# Copyright (C) 2006-2023  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -286,7 +286,8 @@ class RepositoriesController < ApplicationController
       @changeset = @repository.find_changeset_by_name(@rev)
       @changeset_to = @rev_to ? @repository.find_changeset_by_name(@rev_to) : nil
       @diff_format_revisions = @repository.diff_format_revisions(@changeset, @changeset_to)
-      render :diff, :formats => :html, :layout => 'base'
+      # TODO: Fix DEPRECATION WARNING: Rendering actions with '.' in the name is deprecated
+      render :diff, :formats => :html, :layout => 'base.html.erb'
     end
   end
 
@@ -337,7 +338,7 @@ class RepositoriesController < ApplicationController
     if params[:repository_id].present?
       @repository = @project.repositories.find_by_identifier_param(params[:repository_id])
     else
-      @repository = @project.repository
+      @repository = @project.repository || @project.repositories.first
     end
     (render_404; return false) unless @repository
     @path = params[:path].is_a?(Array) ? params[:path].join('/') : params[:path].to_s

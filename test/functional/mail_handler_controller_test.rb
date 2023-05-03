@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2022  Jean-Philippe Lang
+# Copyright (C) 2006-2023  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -169,5 +169,12 @@ class MailHandlerControllerTest < Redmine::ControllerTest
       get(:new, :params => {:key => 'secret'})
     end
     assert_response :success
+  end
+
+  def test_should_skip_verify_authenticity_token
+    ActionController::Base.allow_forgery_protection = true
+    assert_nothing_raised {test_should_create_issue}
+  ensure
+    ActionController::Base.allow_forgery_protection = false
   end
 end

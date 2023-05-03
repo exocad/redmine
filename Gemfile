@@ -3,7 +3,7 @@ source 'https://rubygems.org'
 ruby '>= 2.5.0', '< 3.2.0'
 gem 'bundler', '>= 1.12.0'
 
-gem 'rails', '6.1.5'
+gem 'rails', '6.1.7.3'
 gem 'globalid', '~> 0.4.2' if Gem.ruby_version < Gem::Version.new('2.6.0')
 gem 'rouge', '~> 3.28.0'
 gem 'request_store', '~> 1.5.0'
@@ -13,14 +13,17 @@ gem 'roadie-rails', (Gem.ruby_version < Gem::Version.new('2.6.0') ? '~> 2.2.0' :
 gem 'marcel'
 gem "mail", "~> 2.7.1"
 gem 'csv', '~> 3.2.0'
-gem 'nokogiri', (Gem.ruby_version < Gem::Version.new('2.6.0') ? '~> 1.12.2' : '~> 1.13.0')
+gem 'nokogiri', (Gem.ruby_version < Gem::Version.new('2.6.0') ? '~> 1.12.5' : '~> 1.13.10')
+gem "rexml", require: false if Gem.ruby_version >= Gem::Version.new('3.0')
 gem 'i18n', '~> 1.10.0'
-gem "rbpdf", "~> 1.20.0"
+gem 'rbpdf', '~> 1.21.0'
 gem 'addressable'
 gem 'rubyzip', '~> 2.3.0'
 gem 'net-smtp', '~> 0.3.0'
 gem 'net-imap', '~> 0.2.2'
 gem 'net-pop', '~> 0.1.1'
+# Rails 6.1.6.1 does not work with Pysch 3.0.2, which is installed by default with Ruby 2.5. See https://github.com/rails/rails/issues/45590
+gem 'psych', '>= 3.1.0' if Gem.ruby_version < Gem::Version.new('2.6.0')
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem 'tzinfo-data', platforms: [:mingw, :x64_mingw, :mswin]
@@ -40,14 +43,13 @@ group :minimagick do
 end
 
 # Optional Markdown support, not for JRuby
-group :markdown do
-  gem 'redcarpet', '~> 3.5.1'
-end
+# ToDo: Remove common_mark group when common_mark is decoupled from markdown. See defect (#36892) for more details.
+gem 'redcarpet', '~> 3.5.1', groups: [:markdown, :common_mark]
 
 # Optional CommonMark support, not for JRuby
 group :common_mark do
   gem "html-pipeline", "~> 2.13.2"
-  gem "commonmarker", (Gem.ruby_version < Gem::Version.new('2.6.0') ? '0.21.0' : '0.23.1')
+  gem "commonmarker", (Gem.ruby_version < Gem::Version.new('2.6.0') ? '0.21.0' : '~> 0.23.8')
   gem "sanitize", "~> 6.0"
   gem 'deckar01-task_list', '2.3.2'
 end
@@ -91,12 +93,18 @@ end
 
 group :test do
   gem "rails-dom-testing"
-  gem 'mocha', '>= 1.4.0'
+  gem 'mocha', (Gem.ruby_version < Gem::Version.new('2.7.0') ? ['>= 1.4.0', '< 2.0.0'] : '>= 1.4.0')
   gem 'simplecov', '~> 0.21.2', :require => false
   gem "ffi", platforms: [:mingw, :x64_mingw, :mswin]
   # For running system tests
-  gem 'puma'
-  gem 'capybara', (Gem.ruby_version < Gem::Version.new('2.6.0') ? '~> 3.35.3' : '~> 3.36.0')
+  gem 'puma', (Gem.ruby_version < Gem::Version.new('2.7') ? '< 6.0.0' : '>= 0')
+  gem 'capybara', (if Gem.ruby_version < Gem::Version.new('2.6')
+                     '~> 3.35.3'
+                   elsif Gem.ruby_version < Gem::Version.new('2.7')
+                     '~> 3.36.0'
+                   else
+                     '~> 3.38.0'
+                   end)
   gem "selenium-webdriver", "~> 3.142.7"
   gem 'webdrivers', '4.6.1', require: false
   # RuboCop

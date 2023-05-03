@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2022  Jean-Philippe Lang
+# Copyright (C) 2006-2023  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -399,6 +399,35 @@ class MailHandlerTest < ActiveSupport::TestCase
         assert issue.is_a?(Issue)
         assert issue.author.anonymous?
         assert !issue.project.is_public?
+      end
+    end
+  end
+
+  def test_no_issue_on_closed_project_without_permission_check
+    Project.find(2).close
+    assert_no_difference 'User.count' do
+      assert_no_difference 'Issue.count' do
+        submit_email(
+          'ticket_by_unknown_user.eml',
+          :issue => {:project => 'onlinestore'},
+          :no_permission_check => '1',
+          :unknown_user => 'accept'
+        )
+      end
+    end
+  ensure
+    Project.find(2).reopen
+  end
+
+  def test_no_issue_on_closed_project_without_issue_tracking_module
+    assert_no_difference 'User.count' do
+      assert_no_difference 'Issue.count' do
+        submit_email(
+          'ticket_by_unknown_user.eml',
+          :issue => {:project => 'subproject2'},
+          :no_permission_check => '1',
+          :unknown_user => 'accept'
+        )
       end
     end
   end

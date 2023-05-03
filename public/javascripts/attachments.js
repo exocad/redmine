@@ -1,5 +1,5 @@
 /* Redmine - project management software
-   Copyright (C) 2006-2022  Jean-Philippe Lang */
+   Copyright (C) 2006-2023  Jean-Philippe Lang */
 
 function addFile(inputEl, file, eagerUpload) {
   var attachmentsFields = $(inputEl).closest('.attachments_form').find('.attachments_fields');
@@ -289,7 +289,8 @@ function copyImageFromClipboard(e) {
         + '-' + randomKey(5).toLocaleLowerCase()
         + '.' + file.name.split('.').pop();
 
-      var inputEl = $('input:file.filedrop').first()
+      // get input file in the closest form
+      var inputEl = $(this).closest("form").find('input:file.filedrop');
       handleFileDropEvent.target = e.target;
       addFile(inputEl, new File([file], filename, { type: file.type }), true);
     }

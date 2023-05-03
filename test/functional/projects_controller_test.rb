@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2022  Jean-Philippe Lang
+# Copyright (C) 2006-2023  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -270,6 +270,39 @@ class ProjectsControllerTest < Redmine::ControllerTest
       @request.session[:user_id] = user_id
       get :index, params: { set_filter: '1', without_default: '1' }
       assert_select 'h2', text: I18n.t(:label_project_plural)
+    end
+  end
+
+  def test_index_should_ignore_user_default_query_if_it_is_invisible
+    query = ProjectQuery.find(11)
+
+    query.update(visibility: Query::VISIBILITY_PRIVATE, user_id: 2)
+    query.save!
+
+    # If visible default query
+    @request.session[:user_id] = 2
+    User.find(2).pref.update(default_project_query: query.id)
+    get :index
+    assert_select 'h2', text: query.name
+
+    # If invisible default query
+    @request.session[:user_id] = 3
+    User.find(3).pref.update(default_project_query: query.id)
+    get :index
+    assert_select 'h2', text: I18n.t(:label_project_plural)
+  end
+
+  def test_index_should_ignore_global_default_query_if_it_is_not_public
+    query = ProjectQuery.find(11)
+    with_settings default_project_query: query.id do
+      query.update(visibility: Query::VISIBILITY_PRIVATE, user_id: 2)
+      query.save!
+
+      [User.find(1), User.find(2)].each do |user|
+        @request.session[:user_id] = user.id
+        get :index
+        assert_select 'h2', text: I18n.t(:label_project_plural)
+      end
     end
   end
 

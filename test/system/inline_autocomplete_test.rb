@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2022  Jean-Philippe Lang
+# Copyright (C) 2006-2023  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -163,5 +163,42 @@ class InlineAutocompleteSystemTest < ApplicationSystemTestCase
     within('.tribute-container') do
       assert page.has_text? "Bug ##{issue.id}: This issue has a <select> element"
     end
+  end
+
+  def test_inline_autocomplete_for_users_should_work_after_status_change
+    log_user('jsmith', 'jsmith')
+    visit '/issues/1/edit'
+
+    find('#issue_notes').click
+    fill_in 'issue[notes]', :with => '@lopper'
+
+    within('.tribute-container') do
+      assert page.has_text? "Dave Lopper"
+    end
+
+    page.find('#issue_status_id').select('Feedback')
+
+    find('#issue_notes').click
+    fill_in 'issue[notes]', :with => '@lopper'
+
+    within('.tribute-container') do
+      assert page.has_text? "Dave Lopper"
+    end
+
+  end
+
+  def test_inline_autocomplete_for_users_on_issues_bulk_edit_show_autocomplete
+    log_user('jsmith', 'jsmith')
+    visit '/issues/bulk_edit?ids[]=1&ids[]=2'
+
+    find('#notes').click
+    fill_in 'notes', :with => '@lopper'
+
+    within('.tribute-container') do
+      assert page.has_text? 'Dave Lopper'
+      first('li').click
+    end
+
+    assert_equal '@dlopper ', find('#notes').value
   end
 end

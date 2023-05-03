@@ -1,8 +1,287 @@
 == Redmine changelog
 
 Redmine - project management software
-Copyright (C) 2006-2022  Jean-Philippe Lang
+Copyright (C) 2006-2023  Jean-Philippe Lang
 https://www.redmine.org/
+
+== 2023-03-05 v5.0.5
+
+=== [Code cleanup/refactoring]
+
+* Patch #38141: Update copyright year to 2023
+
+=== [Documentation]
+
+* Defect #38114: Example plugin (extra/sample_plugin) breaks Activity page
+
+=== [Gems support]
+
+* Defect #38239: Test failure with Commonmarker 0.23.8
+* Patch #38135: Allow use of Puma 6.0.0 or later
+* Patch #38272: Update RBPDF to 1.21
+
+=== [Groups]
+
+* Patch #38144: Refactoring: Use Group.visible instead of manual visibility check in GroupsController
+
+=== [Importers]
+
+* Defect #38254: Time Entry Import fails to import custom fields with "User" format
+
+=== [Issues]
+
+* Defect #37755: Mentioning users with certain characters renders incorrectly
+* Defect #38217: "Property changes" tab does not appear when all issue journals have both notes and property changes
+
+=== [PDF export]
+
+* Defect #32740: Incorrect characters when copying out of a Redmine generated PDF
+* Defect #36452: Infinite loop on PDF export if image included with attributes
+
+=== [Project settings]
+
+* Defect #38064: Avoid exception when adding a project without any givable roles defined
+
+=== [Rails support]
+
+* Defect #36273: Modifying the source code of a plugin does not reload it after r21295
+* Defect #38199: Fix deprecation warning for db:structure:dump in db:migrate when using sql schema format
+* Patch #38191: Update Rails to 6.1.7.2
+
+=== [Security]
+
+* Defect #38063: Avoid double-render error with ApplicationController#find_optional_project
+* Defect #38070: Role#permission_tracker? and related does not consider whether the base permission is (still) set
+* Defect #38133: Update Nokogiri to fix several security issues
+* Defect #38297: Insufficient permission checks when adding attachments to issues
+
+=== [SEO]
+
+* Defect #38201: Fix robots.txt to disallow issue lists with a sort or query_id parameter in any position
+
+=== [Text formatting]
+
+* Defect #37881: Thumbnails are no longer fetched for all notes of an issue
+* Defect #38073: CommonMark Markdown formatter does not support min-width, max-width, min-height, and max-height CSS properties
+* Defect #38215: Nested CommonMark Markdown task lists are not indented
+
+=== [Time tracking]
+
+* Defect #35066: Missing project_id in redirect after clicking "Create and add another" button
+* Defect #38237: Unable to choose any user other than the current user when logging spent time after clicking "Create and add another"
+
+== 2022-12-01 v5.0.4
+
+=== [Activity view]
+
+* Defect #37875: Unnecessary closing li element when there is no "Next" button on Activity page
+
+=== [Code cleanup/refactoring]
+
+* Patch #37938: Unused permission "Mention user"
+
+=== [Documentation]
+
+* Defect #37983: Duplicate vertical-align property in wiki_syntax.css
+
+=== [Gems support]
+
+* Defect #37884: All system tests fail on 4.2-stable branch with "ArgumentError: unknown keyword: :desired_capabilities"
+* Patch #37867: Limit puma < 6.0.0 to avoid system test error
+* Patch #37883: Limit mocha version to < 2.0.0 when Ruby version is < 2.7 to avoid test error
+
+=== [Issues]
+
+* Defect #37958: Groups added to watchers are not shown as links
+
+=== [Issues workflow]
+
+* Defect #37685: Read-only field permission for the project field is ignored if the current project has subprojects
+
+=== [Projects]
+
+* Defect #37925: Do not allow unkown display_type for query
+
+=== [Rails support]
+
+* Defect #37814: Plugins that serialize Date or Time objects cause Psych::DisallowedClass exception
+
+=== [Security]
+
+* Defect #37772: Access Control Issue in attachments#download_all
+* Defect #37751: Persistent XSS in textile formatting due to blockquote citation
+* Defect #37767: Redmine contains a cross-site scripting vulnerability
+* Defect #37880: Open Redirect in attachments#download_all
+
+=== [Translations]
+
+* Defect #37812: "Yes" and "No" are swapped in Polish translation
+
+== 2022-10-02 v5.0.3
+
+=== [Code cleanup/refactoring]
+
+* Defect #37609: Remove obsolete remnant public/images/openid-bg.gif
+* Defect #37449: Passing a wrong parameter to `with_settings` in UserTest::test_random_password_include_required_characters
+
+=== [Filters]
+
+* Defect #36940: Chained custom field filter doesn't work for User fields
+* Defect #37349: Chained custom field filter for User fields returns 500 internal server error when filtering after a float value
+
+=== [Issues]
+
+* Defect #37369: Mention auto-complete not works in bulk-edit comments
+* Defect #37499: Default query should not be applied if the query is not allowed to be set as the default
+* Defect #37473: Focus IssueId not working when linking issues
+
+=== [Issues list]
+
+* Defect #37268: Performance problem with Redmine 4.2.7 and 5.0.2
+
+=== [Rails support]
+
+* Patch #37452: Update Rails to 6.1.7
+
+=== [Security]
+
+* Defect #37492: Update jQuery UI to 1.13.2
+
+=== [SCM]
+
+* Defect #33953: Repository tab is not displayed if no repository is set as the main repository
+* Defect #36258: Support revision without any message in Mercurial repositories
+* Defect #37585: Do not show "History" tab for content in Filesystem repository
+* Defect #37626: Diff of a javascript file in repository module is not displayed with layout
+* Defect #37718: Repository browser does not show "+" (plus sign) in filename
+
+=== [SCM extra]
+
+* Defect #37562: POST Requests to repository WS fail with "Can't verify CSRF token authenticity"
+
+=== [Text formatting]
+
+* Defect #37237: Common Markdown Formatter does not render all properties on HTML elements
+* Patch #37713: Add rel="noopener" to all external links that would open a new tab/window
+* Defect #37379: Thumbnail macro does not work when a file is attached and preview is displayed immediately
+
+=== [Translations]
+
+* Defect #37529: Fix mistranslation of label button_create_and_follow in Russian translation
+* Defect #37603: Missing translation for label_default_queries.for_this_user
+* Patch #35613: German translation update of Wiki syntax help for 5.0-stable
+* Patch #37263: Lithuanian translation update for 5.0-stable
+* Patch #37698: Persian translation update for 4.2-stable
+
+=== [UI]
+
+* Defect #36901: Jump to project is misaligned in Safari 15.4 and later
+* Defect #37282: Subtask isn't displayed correctly since 4.2.7
+* Defect #37481: Fix the unintentional selection of rows with the context menu
+* Defect #37566: The number of the ordered list in the project description is not displayed and the indentation does not match the unordered list
+
+== 2022-06-21 v5.0.2
+
+=== [Email notifications]
+
+* Defect #37138: Mentions of users with "@" in their username
+* Patch #37065: When someone is member of watcher group, 'watched_by' may be wrong and incomplete
+* Defect #37162: Missing space between notification sentence and author name when edit a wiki page
+
+=== [Email receiving]
+
+* Defect #37187: no-permission-check allows issue creation in closed/archived projects
+
+=== [Gems support]
+
+* Defect #35892: Redmine::WikiFormatting::CommonMark::FormatterTest#test_footnotes fails with CommonMarker 0.23.2
+* Defect #37249: Missing rexml gem causes errors in PUT - Adding the gem manually everything works
+
+=== [Issues]
+
+* Defect #37151: The done ratio of a parent issue may not be 100% even if all subtasks have a done ratio of 100%
+* Patch #37155: Issue#last_notes fallback does not respect notes visibility
+* Defect #37171: Ability to change the issue category or issue target version with nonexistent value for the specific project
+
+=== [Performance]
+
+* Patch #37135: Reduce extra queries in ProjectQuery.default
+
+=== [REST API]
+
+* Defect #37157: Internal server error when trying to retrieve AnonymousUser's information via Users API
+
+=== [Security]
+
+* Defect #37255: Information Leak in QueryAssociationColumn/QueryAssociationCustomFieldColumn
+* Defect #37256: Medium severity XSS security vulnerabilities (3x) in jQuery UI v1.12.1
+* Defect #37136: Remote code execution vulnerability in commonmarker
+
+=== [Text formatting]
+
+* Defect #37130: Wiki notation `attachment:file_name` cannot make a link to a file attached to other journals
+
+=== [Time tracking]
+
+* Defect #33914: Even if the default value of Activities (time tracking) is set, it may not be reflected.
+
+=== [UI - Responsive]
+
+* Defect #36453: Issue subject overflow in subtasks and relations tables
+
+== 2022-05-16 v5.0.1
+
+=== [Administration]
+
+* Defect #36932: Handle nil return of Redmine::Themes.theme(Setting.ui_theme) in Redmine::Info.environment
+
+=== [Attachments]
+
+* Defect #36887: copyImageFromClipboard function failed to generate a unique file name
+* Patch #36817: copyImageFromClipboard function targets the first file input of the page and may conflict with other plugins
+* Defect #37053: Attachments are lost when the status of the ticket is changed
+
+=== [Documentation]
+
+* Defect #36862: Duplicate v5.0.0 section in Changelog
+* Defect #36863: Missing v4.2.5 section in Changelog
+
+=== [Email notifications]
+
+* Defect #36909: Mentions not working if status is changed
+
+=== [Email receiving]
+
+* Defect #37030: Requests fail with "Can't verify CSRF token authenticity" in mail handler
+
+=== [Gems support]
+
+* Defect #36892: Redmine does not start when installed --without markdown
+
+=== [I18n]
+
+* Defect #36998: Revert lazy loading of i18n files introduced in Redmine 5.0
+
+=== [Rails support]
+
+* Patch #36917: Update Rails to 6.1.6
+
+=== [Security]
+
+* Patch #36912: Update Nokogiri versions to fix two critical CVE's
+
+=== [Text formatting]
+
+* Defect #36958: Crafted input breaks CommonMark Markdown formatter
+
+=== [Translations]
+
+* Patch #36905: German translation update for 5.0-stable
+* Patch #36930: Bulgarian translation update for 5.0-stable
+* Patch #36934: Russian translation update for 5.0-stable
+* Patch #37003: Czech translation update for 5.0-stable
+* Patch #37024: Galician translation update for 5.0-stable
+* Patch #37025: Polish translation update for 5.0-stable
 
 == 2022-03-28 v5.0.0
 

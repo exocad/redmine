@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Redmine - project management software
-# Copyright (C) 2006-2022  Jean-Philippe Lang
+# Copyright (C) 2006-2023  Jean-Philippe Lang
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -1099,7 +1099,7 @@ class UserTest < ActiveSupport::TestCase
   end
 
   def test_random_password_include_required_characters
-    with_settings :password_required_char_classes => Setting::PASSWORD_CHAR_CLASSES do
+    with_settings :password_required_char_classes => Setting::PASSWORD_CHAR_CLASSES.keys do
       u = User.new(:firstname => "new", :lastname => "user", :login => "random", :mail => "random@somnet.foo")
       u.random_password
       assert u.valid?
