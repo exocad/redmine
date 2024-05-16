@@ -121,6 +121,7 @@ module Redmine
                         ^                        # beginning of line
                       )
                       (
+                        (?:exocase://)|          # protocol spec, or
                         (?:https?://)|           # protocol spec, or
                         (?:s?ftps?://)|
                         (?:www\.)                # www.*
