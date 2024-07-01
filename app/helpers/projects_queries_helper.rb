@@ -27,13 +27,29 @@ module ProjectsQueriesHelper
           (tag.span(class: 'icon icon-user my-project', title: l(:label_my_projects)) if User.current.member_of?(item)) +
           (tag.span(class: 'icon icon-bookmarked-project', title: l(:label_my_bookmarks)) if User.current.bookmarked_project_ids.include?(item.id))
       when :short_description
-        item.description? ? content_tag('div', textilizable(item, :short_description), :class => "wiki") : ''
+        if item.description?
+          # Sets :inline_attachments to false to avoid performance issues
+          # caused by unnecessary loading of attachments
+          content_tag('div', textilizable(item, :short_description, :inline_attachments => false), :class => 'wiki')
+        else
+          ''
+        end
       when :homepage
         item.homepage? ? content_tag('div', textilizable(item, :homepage), :class => "wiki") : ''
       when :status
         get_project_status_label[column.value_object(item)]
       when :parent_id
         link_to_project(item.parent) unless item.parent.nil?
+      when :last_activity_date
+        formatted_value = super
+        if value.present? && formatted_value.present?
+          link_to(
+            formatted_value,
+            project_activity_path(item, :from => User.current.time_to_date(value))
+          )
+        else
+          formatted_value
+        end
       else
         super
       end

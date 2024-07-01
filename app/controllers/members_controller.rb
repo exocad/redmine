@@ -36,14 +36,14 @@ class MembersController < ApplicationController
     @members = scope.includes(:principal, :roles).order(:id).limit(@limit).offset(@offset).to_a
 
     respond_to do |format|
-      format.html {head 406}
+      format.html {head :not_acceptable}
       format.api
     end
   end
 
   def show
     respond_to do |format|
-      format.html {head 406}
+      format.html {head :not_acceptable}
       format.api
     end
   end
@@ -115,7 +115,7 @@ class MembersController < ApplicationController
         if @member.destroyed?
           render_api_ok
         else
-          head :unprocessable_entity
+          head :unprocessable_content
         end
       end
     end

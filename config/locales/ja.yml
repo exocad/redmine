@@ -158,6 +158,7 @@ ja:
         must_contain_digits: "は数字 (0-9) を含む必要があります"
         must_contain_special_chars: "は記号 (!, $, %, ...) を含む必要があります"
         domain_not_allowed: "は許可されていないドメインを含んでいます (%{domain})"
+        too_simple: "が簡単すぎます"
 
   actionview_instancetag_blank_option: 選んでください
 
@@ -649,7 +650,6 @@ ja:
   label_day_plural: 日
   label_repository: リポジトリ
   label_repository_plural: リポジトリ
-  label_browse: ブラウズ
   label_branch: ブランチ
   label_tag: タグ
   label_revision: リビジョン
@@ -1439,3 +1439,7 @@ ja:
   field_name_or_email_or_login: 姓名・メールアドレス・ログインID
   text_default_active_job_queue_changed: キューアダプターがデフォルト (開発・テスト用) 以外のものに変更済み
   label_option_auto_lang: 自動設定
+  label_issue_attachment_added: 添付ファイルの追加
+  field_estimated_remaining_hours: 残工数
+  field_last_activity_date: 最終活動日
+  setting_issue_done_ratio_interval: 進捗率の選択肢の間隔

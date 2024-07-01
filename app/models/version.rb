@@ -24,6 +24,12 @@ module FixedIssuesExtension
     @estimated_hours ||= sum(:estimated_hours).to_f
   end
 
+  # Returns the total estimated remaining time for this version
+  # (sum of leaves remaining_estimated_hours)
+  def estimated_remaining_hours
+    @estimated_remaining_hours ||= sum(IssueQuery::ESTIMATED_REMAINING_HOURS_SQL).to_f
+  end
+
   # Returns the total amount of open issues for this version.
   def open_count
     load_counts
@@ -39,22 +45,18 @@ module FixedIssuesExtension
   # Returns the completion percentage of this version based on the amount of open/closed issues
   # and the time spent on the open issues.
   def completed_percent
-    if count == 0
-      0
-    elsif open_count == 0
-      100
-    else
-      issues_progress(false) + issues_progress(true)
-    end
+    return 0 if open_count + closed_count == 0
+    return 100 if open_count == 0
+
+    issues_progress(false) + issues_progress(true)
   end
 
   # Returns the percentage of issues that have been marked as 'closed'.
   def closed_percent
-    if count == 0
-      0
-    else
-      issues_progress(false)
-    end
+    return 0 if open_count + closed_count == 0
+    return 100 if open_count == 0
+
+    issues_progress(false)
   end
 
   private
@@ -78,9 +80,11 @@ module FixedIssuesExtension
   # Used to weight unestimated issues in progress calculation
   def estimated_average
     if @estimated_average.nil?
-      average = average(:estimated_hours).to_f
-      if average == 0
-        average = 1
+      issues_with_total_estimated_hours = select {|c| c.total_estimated_hours.to_f > 0.0}
+      if issues_with_total_estimated_hours.any?
+        average = issues_with_total_estimated_hours.sum(&:total_estimated_hours).to_f / issues_with_total_estimated_hours.count
+      else
+        average = 1.0
       end
       @estimated_average = average
     end
@@ -97,11 +101,15 @@ module FixedIssuesExtension
     @issues_progress ||= {}
     @issues_progress[open] ||= begin
       progress = 0
-      if count > 0
-        ratio = open ? 'done_ratio' : 100
-
-        done = open(open).sum("COALESCE(estimated_hours, #{estimated_average}) * #{ratio}").to_f
-        progress = done / (estimated_average * count)
+      issues_count = open_count + closed_count
+      if issues_count > 0
+        done = self.open(open).sum do |c|
+          estimated = c.total_estimated_hours.to_f
+          estimated = estimated_average unless estimated > 0.0
+          ratio = c.closed? ? 100 : (c.done_ratio || 0)
+          estimated * ratio
+        end
+        progress = done / (estimated_average * issues_count)
       end
       progress
     end
@@ -112,8 +120,8 @@ class Version < ApplicationRecord
   include Redmine::SafeAttributes
 
   after_update :update_issues_from_sharing_change
-  after_save :update_default_project_version
   before_destroy :nullify_projects_default_version
+  after_save :update_default_project_version
 
   belongs_to :project
   has_many :fixed_issues, :class_name => 'Issue', :foreign_key => 'fixed_version_id', :dependent => :nullify, :extend => FixedIssuesExtension
@@ -182,7 +190,7 @@ class Version < ApplicationRecord
       attrs['custom_fields'].reject! {|c| !editable_custom_field_ids.include?(c['id'].to_s)}
     end
 
-    super(attrs, user)
+    super
   end
 
   # Returns true if +user+ or current user is allowed to view the version
@@ -236,6 +244,12 @@ class Version < ApplicationRecord
     fixed_issues.estimated_hours
   end
 
+  # Returns the total estimated remaining time for this version
+  # (sum of leaves estimated_remaining_hours)
+  def estimated_remaining_hours
+    @estimated_remaining_hours ||= fixed_issues.estimated_remaining_hours
+  end
+
   # Returns the total reported time for this version
   def spent_hours
     @spent_hours ||= TimeEntry.joins(:issue).where("#{Issue.table_name}.fixed_version_id = ?", id).sum(:hours).to_f
@@ -255,14 +269,11 @@ class Version < ApplicationRecord
   end
 
   def behind_schedule?
-    if completed_percent == 100
-      return false
-    elsif due_date && start_date
-      done_date = start_date + ((due_date - start_date+1)* completed_percent/100).floor
-      return done_date <= User.current.today
-    else
-      false # No issues so it's not late
-    end
+    # Blank due date, no issues, or 100% completed, so it's not late
+    return false if due_date.nil? || start_date.nil? || completed_percent == 100
+
+    done_date = start_date + ((due_date - start_date + 1) * completed_percent / 100).floor
+    done_date <= User.current.today
   end
 
   # Returns the completion percentage of this version based on the amount of open/closed issues

@@ -3,10 +3,10 @@ source 'https://rubygems.org'
 ruby '>= 3.0.0', '< 3.4.0'
 
 gem 'rails', '7.1.2'
-gem 'rouge', '~> 4.2.0'
+gem 'rouge', '~> 4.2'
 gem 'mini_mime', '~> 1.1.0'
 gem "actionpack-xml_parser"
-gem 'roadie-rails', '~> 3.1.0'
+gem 'roadie-rails', '~> 3.2.0'
 gem 'marcel'
 gem 'mail', '~> 2.8.1'
 gem 'nokogiri', '~> 1.16.0'
@@ -15,6 +15,7 @@ gem 'rbpdf', '~> 1.21.3'
 gem 'addressable'
 gem 'rubyzip', '~> 2.3.0'
 gem 'propshaft', '~> 0.8.0'
+gem 'rack', '>= 3.1.3'
 
 #  Ruby Standard Gems
 gem 'csv', '~> 3.2.8'
@@ -40,7 +41,7 @@ end
 
 # Optional gem for exporting the gantt to a PNG file
 group :minimagick do
-  gem 'mini_magick', '~> 4.12.0'
+  gem 'mini_magick', '~> 4.13.0'
 end
 
 # Optional Markdown support
@@ -106,9 +107,9 @@ group :test do
   gem "capybara", ">= 3.39"
   gem 'selenium-webdriver', '>= 4.11.0'
   # RuboCop
-  gem 'rubocop', '~> 1.63.0', require: false
+  gem 'rubocop', '~> 1.64.0', require: false
   gem 'rubocop-performance', '~> 1.21.0', require: false
-  gem 'rubocop-rails', '~> 2.24.0', require: false
+  gem 'rubocop-rails', '~> 2.25.0', require: false
 end
 
 local_gemfile = File.join(File.dirname(__FILE__), "Gemfile.local")

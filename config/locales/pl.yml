@@ -149,6 +149,7 @@ pl:
         must_contain_digits: "musi zawierać cyfry (0-9)"
         must_contain_special_chars: "musi zawierać znaki specjalne (!, $, %, ...)"
         domain_not_allowed: "zawiera niedozwoloną domenę (%{domain})"
+        too_simple: "is too simple"
 
   actionview_instancetag_blank_option: wybierz
 
@@ -839,7 +840,6 @@ pl:
   label_repository: Repozytorium
   label_repository_new: Nowe repozytorium
   label_repository_plural: Repozytoria
-  label_browse: Przegląd
   label_branch: Branch
   label_tag: Tag
   label_revision: Rewizja
@@ -1431,3 +1431,7 @@ pl:
   text_default_active_job_queue_changed: Default queue adapter which is well suited
     only for dev/test changed
   label_option_auto_lang: auto
+  label_issue_attachment_added: Attachment added
+  field_estimated_remaining_hours: Estimated remaining time
+  field_last_activity_date: Last activity
+  setting_issue_done_ratio_interval: Done ratio options interval

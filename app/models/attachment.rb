@@ -84,9 +84,9 @@ class Attachment < ApplicationRecord
   @@thumbnails_storage_path = File.join(Rails.root, "tmp", "thumbnails")
 
   before_create :files_to_final_location
-  after_rollback :delete_from_disk, :on => :create
   after_commit :delete_from_disk, :on => :destroy
   after_commit :reuse_existing_file_if_possible, :on => :create
+  after_rollback :delete_from_disk, :on => :create
 
   safe_attributes 'filename', 'content_type', 'description'
 
@@ -135,7 +135,7 @@ class Attachment < ApplicationRecord
   end
 
   # Copies the temporary file to its final location
-  # and computes its MD5 hash
+  # and computes its hash
   def files_to_final_location
     if @temp_file
       self.disk_directory = target_directory
@@ -559,7 +559,7 @@ class Attachment < ApplicationRecord
       if %r{^[a-zA-Z0-9_\.\-]*$}.match?(filename) && filename.length <= 50
         ascii = filename
       else
-        ascii = Digest::MD5.hexdigest(filename)
+        ascii = ActiveSupport::Digest.hexdigest(filename)
         # keep the extension if any
         ascii << $1 if filename =~ %r{(\.[a-zA-Z0-9]+)$}
       end

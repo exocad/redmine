@@ -117,6 +117,7 @@ class User < Principal
     validates_format_of :password, :with => v, :message => :"must_contain_#{k}", :allow_blank => true, :if => Proc.new {Setting.password_required_char_classes.include?(k)}
   end
   validate :validate_password_length
+  validate :validate_password_complexity
   validate do
     if password_confirmation && password != password_confirmation
       errors.add(:password, :confirmation)
@@ -126,11 +127,11 @@ class User < Principal
   self.valid_statuses = [STATUS_ACTIVE, STATUS_REGISTERED, STATUS_LOCKED]
 
   before_validation :instantiate_email_address
-  before_create :set_mail_notification
   before_save   :generate_password_if_needed, :update_hashed_password
+  before_create :set_mail_notification
   before_destroy :remove_references_before_destroy
-  after_save :update_notified_project_ids, :destroy_tokens, :deliver_security_notification
   after_destroy :deliver_security_notification
+  after_save :update_notified_project_ids, :destroy_tokens, :deliver_security_notification
 
   scope :admin, (lambda do |*args|
     admin = args.size > 0 ? !!args.first : true
@@ -899,6 +900,16 @@ class User < Principal
     if !password.nil? && password.size < Setting.password_min_length.to_i
       errors.add(:password, :too_short, :count => Setting.password_min_length.to_i)
     end
+  end
+
+  def validate_password_complexity
+    return if password.blank? && generate_password?
+    return if password.nil?
+
+    # TODO: Enhance to check for more common and simple passwords
+    # like 'password', '123456', 'qwerty', etc.
+    bad_passwords = [login, firstname, lastname, mail] + email_addresses.map(&:address)
+    errors.add(:password, :too_simple) if bad_passwords.any? {|p| password.casecmp?(p)}
   end
 
   def instantiate_email_address

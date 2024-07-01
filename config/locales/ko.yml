@@ -603,7 +603,6 @@ ko:
   label_day_plural: 일
   label_repository: 저장소
   label_repository_plural: 저장소
-  label_browse: 저장소 둘러보기
   label_revision: 개정판
   label_revision_plural: 개정판
   label_associated_revisions: 관련된 개정판들
@@ -1508,3 +1507,7 @@ ko:
   text_default_active_job_queue_changed: Default queue adapter which is well suited
     only for dev/test changed
   label_option_auto_lang: auto
+  label_issue_attachment_added: Attachment added
+  field_estimated_remaining_hours: Estimated remaining time
+  field_last_activity_date: Last activity
+  setting_issue_done_ratio_interval: Done ratio options interval

@@ -141,6 +141,7 @@ ca:
         must_contain_digits: "ha de tenir digits (0-9)"
         must_contain_special_chars: "ha de tenir caràcters especials (!, $, %, ...)"
         domain_not_allowed: "conté un domini no permès (%{domain})"
+        too_simple: "is too simple"
 
   actionview_instancetag_blank_option: "Seleccionar"
 
@@ -602,7 +603,6 @@ ca:
   label_day_plural: "dies"
   label_repository: "Repositori"
   label_repository_plural: "Repositoris"
-  label_browse: "Navegar"
   label_branch: "Branca"
   label_tag: "Etiqueta"
   label_revision: "Revisió"
@@ -1474,3 +1474,7 @@ ca:
   text_select_apply_issue_status: Marca l'estat de la incidència
   field_name_or_email_or_login: Nom, correu o login
   label_option_auto_lang: auto
+  label_issue_attachment_added: Attachment added
+  field_estimated_remaining_hours: Estimated remaining time
+  field_last_activity_date: Last activity
+  setting_issue_done_ratio_interval: Done ratio options interval

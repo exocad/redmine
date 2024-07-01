@@ -157,6 +157,7 @@ fr:
         must_contain_digits: "doit contenir des chiffres (0-9)"
         must_contain_special_chars: "doit contenir des caractères spéciaux (!, $, %, ...)"
         domain_not_allowed: "contains a domain not allowed (%{domain})"
+        too_simple: "is too simple"
 
   actionview_instancetag_blank_option: Choisir
 
@@ -762,7 +763,6 @@ fr:
   label_repository: Dépôt
   label_repository_new: Nouveau dépôt
   label_repository_plural: Dépôts
-  label_browse: Parcourir
   label_branch: Branche
   label_tag: Tag
   label_revision: Révision
@@ -1467,3 +1467,7 @@ fr:
   field_name_or_email_or_login: Nom, email ou login
   text_default_active_job_queue_changed: Gestionnaire de file par défaut le plus adapté
   label_option_auto_lang: auto
+  label_issue_attachment_added: Attachment added
+  field_estimated_remaining_hours: Estimated remaining time
+  field_last_activity_date: Last activity
+  setting_issue_done_ratio_interval: Done ratio options interval

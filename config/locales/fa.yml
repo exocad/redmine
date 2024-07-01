@@ -140,6 +140,7 @@ fa:
         must_contain_digits: "باید شامل عدد باشد (0-9)"
         must_contain_special_chars: "باید شامل نویسه‌های خاص باشد (!, $, %, ...)"
         domain_not_allowed: "شامل دامنه‌ی غیرمجازست (%{domain})"
+        too_simple: "is too simple"
 
   actionview_instancetag_blank_option: انتخاب کنید
 
@@ -822,7 +823,6 @@ fa:
   label_repository: مخزن
   label_repository_new: مخزن جدید
   label_repository_plural: مخزن‌ها
-  label_browse: مرور
   label_branch: انشعاب
   label_tag: برچسب
   label_revision: بازبینی
@@ -1421,3 +1421,7 @@ fa:
   text_select_apply_issue_status: وضعیت مسئله را انتخاب کنید
   field_name_or_email_or_login: نام، رایانامه یا شناسه کاربری
   text_default_active_job_queue_changed: آداپتور پیش‌فرض صف که به شکل مناسبی کار می‌کند تنها برای توسعه/آزمون تغییر کرد
+  label_issue_attachment_added: Attachment added
+  field_estimated_remaining_hours: Estimated remaining time
+  field_last_activity_date: Last activity
+  setting_issue_done_ratio_interval: Done ratio options interval

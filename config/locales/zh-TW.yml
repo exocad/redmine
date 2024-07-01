@@ -194,6 +194,7 @@
         must_contain_digits: "必須包含數字 (0-9)"
         must_contain_special_chars: "必須包含特殊字元 (!, $, %, ...)"
         domain_not_allowed: "包含不允許的網域 (%{domain})"
+        too_simple: "is too simple"
 
       # You can define own errors for models or model attributes.
       # The values :model, :attribute and :value are always available for interpolation.
@@ -836,7 +837,6 @@
   label_repository: 儲存機制
   label_repository_new: 建立新儲存機制
   label_repository_plural: 儲存機制清單
-  label_browse: 瀏覽
   label_branch: 分支
   label_tag: 標籤
   label_revision: 修訂版
@@ -1504,3 +1504,7 @@
   field_name_or_email_or_login: 姓名, 電子郵件或帳戶名稱
   text_default_active_job_queue_changed: 已變更僅適用於開發/測試環境的佇列適配器 (queue adapter)
   label_option_auto_lang: 自動選取語言
+  label_issue_attachment_added: 附加檔案已新增
+  field_estimated_remaining_hours: 預估剩餘工時
+  field_last_activity_date: 最近一次活動
+  setting_issue_done_ratio_interval: 完成百分比選項的間隔值

@@ -138,6 +138,7 @@ el:
         must_contain_digits: "must contain digits (0-9)"
         must_contain_special_chars: "must contain special characters (!, $, %, ...)"
         domain_not_allowed: "contains a domain not allowed (%{domain})"
+        too_simple: "is too simple"
 
   actionview_instancetag_blank_option: Παρακαλώ επιλέξτε
 
@@ -562,7 +563,6 @@ el:
   label_day_plural: μέρες
   label_repository: Αποθετήριο
   label_repository_plural: Αποθετήρια
-  label_browse: Πλοήγηση
   label_branch: Branch
   label_tag: Tag
   label_revision: Αναθεώρηση
@@ -1487,3 +1487,7 @@ el:
   text_default_active_job_queue_changed: Default queue adapter which is well suited
     only for dev/test changed
   label_option_auto_lang: auto
+  label_issue_attachment_added: Attachment added
+  field_estimated_remaining_hours: Estimated remaining time
+  field_last_activity_date: Last activity
+  setting_issue_done_ratio_interval: Done ratio options interval

@@ -58,8 +58,8 @@ class WikiPage < ApplicationRecord
   validates_associated :content
 
   validate :validate_parent_title
-  before_destroy :delete_redirects
   before_save :handle_rename_or_move, :update_wiki_start_page
+  before_destroy :delete_redirects
   after_save :handle_children_move, :delete_selected_attachments
 
   # eager load information about last updates, without loading text
@@ -108,7 +108,7 @@ class WikiPage < ApplicationRecord
       end
     end
 
-    super(attrs, user)
+    super
   end
 
   # Manages redirects if page is renamed or moved
@@ -210,7 +210,7 @@ class WikiPage < ApplicationRecord
   end
 
   def attachments_deletable?(usr=User.current)
-    editable_by?(usr) && super(usr)
+    editable_by?(usr) && super
   end
 
   def parent_title

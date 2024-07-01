@@ -534,6 +534,8 @@ class ProjectTest < ActiveSupport::TestCase
     WorkflowTransition.create(:role_id => 1, :tracker_id => 1, :old_status_id => 1, :new_status_id => 4)
     WorkflowTransition.create(:role_id => 1, :tracker_id => 1, :old_status_id => 2, :new_status_id => 3)
     WorkflowTransition.create(:role_id => 1, :tracker_id => 2, :old_status_id => 1, :new_status_id => 3)
+    WorkflowTransition.create(:role_id => 1, :tracker_id => 1, :old_status_id => 5, :new_status_id => 5)
+    WorkflowTransition.create(:role_id => 1, :tracker_id => 2, :old_status_id => 5, :new_status_id => 5)
 
     assert_kind_of IssueStatus, project.rolled_up_statuses.first
     assert_equal IssueStatus.find(1), project.rolled_up_statuses.first
@@ -1160,5 +1162,12 @@ class ProjectTest < ActiveSupport::TestCase
     project.update_column :name, 'Eco_kbook'
     r = Project.like('eco_k')
     assert_include project, r
+  end
+
+  def test_last_activity_date
+    # Note with id 3 is the last activity on Project 1
+    assert_equal Journal.find(3).created_on, Project.find(1).last_activity_date
+    # Project without activity should return nil
+    assert_nil Project.find(4).last_activity_date
   end
 end

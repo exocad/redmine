@@ -136,6 +136,7 @@ sl:
         must_contain_digits: "must contain digits (0-9)"
         must_contain_special_chars: "must contain special characters (!, $, %, ...)"
         domain_not_allowed: "contains a domain not allowed (%{domain})"
+        too_simple: "is too simple"
 
   actionview_instancetag_blank_option: Prosimo izberite
 
@@ -541,7 +542,6 @@ sl:
   label_day_plural: dni
   label_repository: Shramba
   label_repository_plural: Shrambe
-  label_browse: Prebrskaj
   label_revision: Revizija
   label_revision_plural: Revizije
   label_associated_revisions: Povezane revizije
@@ -1487,3 +1487,7 @@ sl:
   text_default_active_job_queue_changed: Default queue adapter which is well suited
     only for dev/test changed
   label_option_auto_lang: auto
+  label_issue_attachment_added: Attachment added
+  field_estimated_remaining_hours: Estimated remaining time
+  field_last_activity_date: Last activity
+  setting_issue_done_ratio_interval: Done ratio options interval

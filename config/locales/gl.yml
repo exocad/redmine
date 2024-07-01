@@ -166,6 +166,7 @@ gl:
         must_contain_digits: "debe conter díxitos (0-9)"
         must_contain_special_chars: "debe conter caracteres especiais (!, $, %, ...)"
         domain_not_allowed: "contén un dominio non permitido (%{domain})"
+        too_simple: "is too simple"
 
   actionview_instancetag_blank_option: Por favor seleccione
 
@@ -361,7 +362,6 @@ gl:
   label_board_new: Novo foro
   label_board_plural: Foros
   label_boolean: Booleano
-  label_browse: Ollar
   label_bulk_edit_selected_issues: Editar as peticións seleccionadas
   label_calendar: Calendario
   label_change_plural: Cambios
@@ -1492,3 +1492,7 @@ gl:
   field_name_or_email_or_login: Nome, correo electrónico ou usuario
   text_default_active_job_queue_changed: Cambiado o adaptador do sistema de colas por defecto dado que só está pensado para desenvolvemento/probas
   label_option_auto_lang: auto
+  label_issue_attachment_added: Attachment added
+  field_estimated_remaining_hours: Estimated remaining time
+  field_last_activity_date: Last activity
+  setting_issue_done_ratio_interval: Done ratio options interval

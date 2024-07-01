@@ -944,16 +944,27 @@ module ApplicationHelper
       attachments += obj.attachments if obj.respond_to?(:attachments)
     end
     if attachments.present?
-      text.gsub!(/src="([^\/"]+\.(bmp|gif|jpg|jpe|jpeg|png|webp))"(\s+alt="([^"]*)")?/i) do |m|
-        filename, ext, alt, alttext = $1, $2, $3, $4
+      title_and_alt_re = /\s+(title|alt)="([^"]*)"/i
+
+      text.gsub!(/src="([^\/"]+\.(bmp|gif|jpg|jpe|jpeg|png|webp))"([^>]*)/i) do |m|
+        filename, ext, other_attrs = $1, $2, $3
+
         # search for the picture in attachments
         if found = Attachment.latest_attach(attachments, CGI.unescape(filename))
           image_url = download_named_attachment_url(found, found.filename, :only_path => only_path)
           desc = found.description.to_s.delete('"')
-          if !desc.blank? && alttext.blank?
-            alt = " title=\"#{desc}\" alt=\"#{desc}\""
-          end
-          "src=\"#{image_url}\"#{alt} loading=\"lazy\""
+
+          # remove title and alt attributes after extracting them
+          title_and_alt = other_attrs.scan(title_and_alt_re).to_h
+          other_attrs.gsub!(title_and_alt_re, '')
+
+          title_and_alt_attrs = if !desc.blank? && title_and_alt['alt'].blank?
+                                  " title=\"#{desc}\" alt=\"#{desc}\""
+                                else
+                                  # restore original title and alt attributes
+                                  " #{title_and_alt.map { |k, v| %[#{k}="#{v}"] }.join(' ')}"
+                                end
+          "src=\"#{image_url}\"#{title_and_alt_attrs} loading=\"lazy\"#{other_attrs}"
         else
           m
         end
@@ -1689,7 +1700,7 @@ module ApplicationHelper
     elsif current_theme && current_theme.images.include?(source)
       source = current_theme.image_path(source)
     end
-    super(source, options)
+    super
   end
 
   # Overrides Rails' javascript_include_tag with plugins support
@@ -1730,13 +1741,14 @@ module ApplicationHelper
   # Returns the javascript tags that are included in the html layout head
   def javascript_heads
     tags = javascript_include_tag(
-      'jquery-3.6.1-ui-1.13.2',
+      'jquery-3.7.1-ui-1.13.3',
       'rails-ujs',
       'tribute-5.1.3.min',
       'tablesort-5.2.1.min.js',
       'tablesort-5.2.1.number.min.js',
       'application',
-      'responsive')
+      'responsive'
+    )
     unless User.current.pref.warn_on_leaving_unsaved == '0'
       warn_text = escape_javascript(l(:text_warn_on_leaving_unsaved))
       tags <<

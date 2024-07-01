@@ -153,6 +153,7 @@ de:
         must_contain_digits: "muss Zahlen (0-9) enthalten"
         must_contain_special_chars: "muss Sonderzeichen (!, $, %, ...) enthalten"
         domain_not_allowed: "contains a domain not allowed (%{domain})"
+        too_simple: "is too simple"
 
   actionview_instancetag_blank_option: Bitte auswählen
 
@@ -463,7 +464,6 @@ de:
   label_board_sticky: Wichtig (immer oben)
   label_boolean: Boolean
   label_branch: Zweig
-  label_browse: Codebrowser
   label_bulk_edit_selected_issues: Alle ausgewählten Tickets bearbeiten
   label_bulk_edit_selected_time_entries: Ausgewählte Zeitaufwände bearbeiten
   label_calendar: Kalender
@@ -1452,3 +1452,6 @@ de:
   text_default_active_job_queue_changed: Default queue adapter which is well suited
     only for dev/test changed
   label_option_auto_lang: auto
+  label_issue_attachment_added: Attachment added
+  field_last_activity_date: Last activity
+  setting_issue_done_ratio_interval: Done ratio options interval
