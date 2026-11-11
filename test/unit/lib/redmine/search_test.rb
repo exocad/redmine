@@ -30,4 +30,17 @@ class Redmine::Search::Tokenize < ActiveSupport::TestCase
     value = "全角\u3000スペース"
     assert_equal %w[全角 スペース], Redmine::Search::Tokenizer.new(value).tokens
   end
+
+  def test_tokenize_should_support_multiple_phrases
+    value = '"phrase one" "phrase two"'
+    assert_equal ["phrase one", "phrase two"], Redmine::Search::Tokenizer.new(value).tokens
+  end
+
+  def test_tokenize_should_return_no_more_than_max_tokens
+    tokenizer = Redmine::Search::Tokenizer.new('one two three four five six seven')
+    assert_equal %w[one two three four five], tokenizer.tokens
+    assert tokenizer.truncated?
+
+    assert_not Redmine::Search::Tokenizer.new('one two three four five').truncated?
+  end
 end

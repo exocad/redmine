@@ -20,13 +20,6 @@
 require_relative '../application_system_test_case'
 
 class InlineAutocompleteSystemTest < ApplicationSystemTestCase
-  fixtures :projects, :users, :email_addresses, :roles, :members, :member_roles,
-           :trackers, :projects_trackers, :enabled_modules, :issue_statuses, :issues,
-           :enumerations, :custom_fields, :custom_values, :custom_fields_trackers,
-           :watchers, :journals, :journal_details, :versions,
-           :workflows, :wikis, :wiki_pages, :wiki_contents, :wiki_content_versions,
-           :boards, :messages
-
   def test_inline_autocomplete_for_issues
     log_user('jsmith', 'jsmith')
     visit 'issues/new'
@@ -47,8 +40,9 @@ class InlineAutocompleteSystemTest < ApplicationSystemTestCase
     log_user('admin', 'admin')
     visit 'projects/ecookbook/issues/new'
 
-    fill_in 'Description', :with => '##Closed'
+    fill_in 'Description', :with => '##Cl'
 
+    assert_selector '.tribute-container li', count: 3
     within('.tribute-container') do
       assert page.has_text? 'Bug #12: Closed issue on a locked version'
       assert page.has_text? 'Bug #11: Closed issue on a closed version'
@@ -64,12 +58,13 @@ class InlineAutocompleteSystemTest < ApplicationSystemTestCase
     log_user('jsmith', 'jsmith')
     visit 'issues/new'
 
-    fill_in 'Description', :with => '#Closed'
+    fill_in 'Description', :with => '#Cl'
 
+    assert_selector '.tribute-container li', count: 3
     within('.tribute-container') do
       assert page.has_text? 'Bug #12: Closed issue on a locked version'
       assert page.has_text? 'Bug #11: Closed issue on a closed version'
-      assert_not page.has_text? 'Bug #1: Cannot print recipes'
+      assert page.has_text? 'Bug #8: Closed issue'
     end
   end
 
@@ -82,7 +77,7 @@ class InlineAutocompleteSystemTest < ApplicationSystemTestCase
       fill_in 'Description', :with => '#'
     end
 
-    page.has_css?('.tribute-container li', minimum: 1)
+    assert_selector '.tribute-container li', minimum: 1
   end
 
   def test_inline_autocomplete_on_issue_edit_notes_should_show_autocomplete
@@ -93,7 +88,7 @@ class InlineAutocompleteSystemTest < ApplicationSystemTestCase
     find('#issue_notes').click
     fill_in 'issue[notes]', :with => '#'
 
-    page.has_css?('.tribute-container li', minimum: 1)
+    assert_selector '.tribute-container li', minimum: 1
   end
 
   def test_inline_autocomplete_on_issue_custom_field_with_full_text_formatting_should_show_autocomplete
@@ -108,7 +103,7 @@ class InlineAutocompleteSystemTest < ApplicationSystemTestCase
 
     fill_in 'Full width field', :with => '#'
 
-    page.has_css?('.tribute-container li', minimum: 1)
+    assert_selector '.tribute-container li', minimum: 1
   end
 
   def test_inline_autocomplete_on_wiki_should_show_autocomplete
@@ -119,7 +114,7 @@ class InlineAutocompleteSystemTest < ApplicationSystemTestCase
     find('.wiki-edit').click
     fill_in 'content[text]', :with => '#'
 
-    page.has_css?('.tribute-container li', minimum: 1)
+    assert_selector '.tribute-container li', minimum: 1
   end
 
   def test_inline_autocomplete_on_news_description_should_show_autocomplete
@@ -132,7 +127,7 @@ class InlineAutocompleteSystemTest < ApplicationSystemTestCase
     find('.wiki-edit').click
     fill_in 'Description', :with => '#'
 
-    page.has_css?('.tribute-container li', minimum: 1)
+    assert_selector '.tribute-container li', minimum: 1
   end
 
   def test_inline_autocomplete_on_new_message_description_should_show_autocomplete
@@ -145,7 +140,7 @@ class InlineAutocompleteSystemTest < ApplicationSystemTestCase
     find('.wiki-edit').click
     fill_in 'message[content]', :with => '#'
 
-    page.has_css?('.tribute-container li', minimum: 1)
+    assert_selector '.tribute-container li', minimum: 1
   end
 
   def test_inline_autocompletion_of_wiki_page_links
@@ -159,10 +154,14 @@ class InlineAutocompleteSystemTest < ApplicationSystemTestCase
       assert page.has_text? 'Page_with_sections'
     end
 
-    fill_in 'Description', :with => '[[page'
+    fill_in 'Description', :with => '[[p'
+
+    assert_selector '.tribute-container li', count: 3
     within('.tribute-container') do
       assert page.has_text? 'Page_with_sections'
+      assert page.has_text? 'Page_with_an_inline_image'
       assert page.has_text? 'Another_page'
+
       assert_not page.has_text? 'Child_1_1'
 
       first('li').click
@@ -176,8 +175,9 @@ class InlineAutocompleteSystemTest < ApplicationSystemTestCase
     log_user('jsmith', 'jsmith')
     visit 'projects/1/issues/new'
 
-    fill_in 'Description', :with => '#This'
+    fill_in 'Description', :with => '#Th'
 
+    assert_selector '.tribute-container li', count: 1
     within('.tribute-container') do
       assert page.has_text? "Bug ##{issue.id}: This issue has a <select> element"
     end
@@ -188,19 +188,18 @@ class InlineAutocompleteSystemTest < ApplicationSystemTestCase
     visit '/issues/1/edit'
 
     find('#issue_notes').click
-    fill_in 'issue[notes]', :with => '@lopper'
+    fill_in 'issue[notes]', :with => '@'
 
-    within('.tribute-container') do
-      assert page.has_text? "Dave Lopper"
-    end
+    assert_selector '.tribute-container li', minimum: 1
 
     page.find('#issue_status_id').select('Feedback')
 
     find('#issue_notes').click
-    fill_in 'issue[notes]', :with => '@lopper'
+    fill_in 'issue[notes]', :with => '@j'
 
+    assert_selector '.tribute-container li', count: 1
     within('.tribute-container') do
-      assert page.has_text? "Dave Lopper"
+      assert page.has_text? 'John Smith'
     end
   end
 
@@ -209,14 +208,15 @@ class InlineAutocompleteSystemTest < ApplicationSystemTestCase
     visit '/issues/bulk_edit?ids[]=1&ids[]=2'
 
     find('#notes').click
-    fill_in 'notes', :with => '@lopper'
+    fill_in 'notes', :with => '@j'
 
+    assert_selector '.tribute-container li', count: 1
     within('.tribute-container') do
-      assert page.has_text? 'Dave Lopper'
+      assert page.has_text? 'John Smith'
       first('li').click
     end
 
-    assert_equal '@dlopper ', find('#notes').value
+    assert_equal '@jsmith ', find('#notes').value
   end
 
   def test_inline_autocomplete_for_users_on_issues_without_edit_issue_permission
@@ -236,5 +236,21 @@ class InlineAutocompleteSystemTest < ApplicationSystemTestCase
     end
 
     assert_equal '@jsmith ', find('#issue_notes').value
+  end
+
+  def test_inline_autocomplete_for_users_should_escape_html_elements
+    user = User.find(2)
+    user.update!(firstname: 'My <select>')
+
+    log_user(user.login, 'jsmith')
+    visit '/issues/1/edit'
+
+    find('#issue_notes').click
+    fill_in 'issue[notes]', :with => '@My'
+
+    assert_selector '.tribute-container li', count: 1
+    within('.tribute-container') do
+      assert page.has_text? 'My <select> Smith'
+    end
   end
 end

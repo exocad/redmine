@@ -25,7 +25,7 @@ class AccountController < ApplicationController
 
   # prevents login action to be filtered by check_if_login_required application scope filter
   skip_before_action :check_if_login_required, :check_password_change
-  skip_before_action :check_twofa_activation, :only => :logout
+  skip_before_action :check_twofa_activation, :only => [:logout, :lost_password]
 
   # Login request and validation
   def login
@@ -36,6 +36,7 @@ class AccountController < ApplicationController
         redirect_back_or_default home_url, :referer => true
       end
     end
+    no_store
   rescue AuthSourceException => e
     logger.error "An error occurred when authenticating #{params[:username]}: #{e.message}"
     render_error :message => e.message
@@ -81,20 +82,22 @@ class AccountController < ApplicationController
         return
       end
       if request.post?
-        if @user.must_change_passwd? && @user.check_password?(params[:new_password])
+        if @user.must_change_password? && @user.check_password?(params[:new_password])
           flash.now[:error] = l(:notice_new_password_must_be_different)
         else
           @user.password, @user.password_confirmation = params[:new_password], params[:new_password_confirmation]
           @user.must_change_passwd = false
           if @user.save
             @token.destroy
-            Mailer.deliver_password_updated(@user, User.current)
+            @user.remote_ip = request.remote_ip
+            Mailer.deliver_password_updated(@user, @user)
             flash[:notice] = l(:notice_account_password_updated)
             redirect_to signin_path
             return
           end
         end
       end
+      no_store
       render :template => "account/password_recovery"
       return
     else
@@ -106,6 +109,7 @@ class AccountController < ApplicationController
           # Don't show an error indicating a non-existent email address
           # to prevent email harvesting
           flash[:notice] = l(:notice_account_lost_email_sent)
+          redirect_to signin_path
           return
         end
         unless user.active?
@@ -169,6 +173,8 @@ class AccountController < ApplicationController
         end
       end
     end
+
+    no_store
   end
 
   # Token based account activation
@@ -218,6 +224,7 @@ class AccountController < ApplicationController
 
   def twofa_confirm
     @twofa_view = @twofa.otp_confirm_view_variables
+    no_store
   end
 
   def twofa

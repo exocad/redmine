@@ -20,15 +20,6 @@
 require_relative '../../test_helper'
 
 class Redmine::ApiTest::AttachmentsTest < Redmine::ApiTest::Base
-  fixtures :projects, :trackers, :issue_statuses, :issues,
-           :enumerations, :users, :issue_categories,
-           :projects_trackers,
-           :roles,
-           :member_roles,
-           :members,
-           :enabled_modules,
-           :attachments
-
   def setup
     super
     set_fixtures_attachments_directory
@@ -61,7 +52,7 @@ class Redmine::ApiTest::AttachmentsTest < Redmine::ApiTest::Base
 
   test "GET /attachments/:id.xml should deny access without credentials" do
     get '/attachments/7.xml'
-    assert_response 401
+    assert_response :unauthorized
   end
 
   test "GET /attachments/download/:id/:filename should return the attachment content" do
@@ -72,7 +63,7 @@ class Redmine::ApiTest::AttachmentsTest < Redmine::ApiTest::Base
 
   test "GET /attachments/download/:id/:filename should deny access without credentials" do
     get '/attachments/download/7/archive.zip'
-    assert_response 401
+    assert_response :redirect
   end
 
   test "GET /attachments/thumbnail/:id should return the thumbnail" do
@@ -118,7 +109,7 @@ class Redmine::ApiTest::AttachmentsTest < Redmine::ApiTest::Base
       :params => {:attachment => {:filename => '', :description => 'updated'}},
       :headers => credentials('jsmith')
     )
-    assert_response 422
+    assert_response :unprocessable_content
     assert_equal 'application/json', response.media_type
     json = ActiveSupport::JSON.decode(response.body)
     assert_include "File cannot be blank", json['errors']
@@ -145,13 +136,13 @@ class Redmine::ApiTest::AttachmentsTest < Redmine::ApiTest::Base
     attachment_id = xml['upload']['id']
     assert_not_nil attachment_id
 
-    attachment = Attachment.order('id DESC').first
+    attachment = Attachment.order(id: :desc).first
     assert_equal token, attachment.token
     assert_equal attachment_id, attachment.id.to_s
     assert_nil attachment.container
     assert_equal 2, attachment.author_id
     assert_equal 'File content'.size, attachment.filesize
-    assert attachment.content_type.blank?
+    assert_equal 'application/octet-stream', attachment.content_type
     assert attachment.filename.present?
     assert_match %r{\d+_[0-9a-z]+}, attachment.diskfile
     assert File.exist?(attachment.diskfile)
@@ -177,7 +168,7 @@ class Redmine::ApiTest::AttachmentsTest < Redmine::ApiTest::Base
     token = json['upload']['token']
     assert_not_nil token
 
-    attachment = Attachment.order('id DESC').first
+    attachment = Attachment.order(id: :desc).first
     assert_equal token, attachment.token
   end
 
@@ -194,9 +185,26 @@ class Redmine::ApiTest::AttachmentsTest < Redmine::ApiTest::Base
       assert_response :created
     end
 
-    attachment = Attachment.order('id DESC').first
+    attachment = Attachment.order(id: :desc).first
     assert_equal 'test.txt', attachment.filename
     assert_match /_test\.txt$/, attachment.diskfile
+  end
+
+  test "POST /uploads.json should sanitize NUL in :filename param" do
+    set_tmp_attachments_directory
+    assert_difference 'Attachment.count' do
+      post(
+        '/uploads.json?filename=hello%00world.txt',
+        :headers => {
+          "RAW_POST_DATA" => 'File content',
+          "CONTENT_TYPE" => 'application/octet-stream'
+        }.merge(credentials('jsmith'))
+      )
+      assert_response :created
+    end
+
+    attachment = Attachment.order(id: :desc).first
+    assert_equal 'hello_world.txt', attachment.filename
   end
 
   test "POST /uploads.xml should not accept other content types" do
@@ -209,7 +217,7 @@ class Redmine::ApiTest::AttachmentsTest < Redmine::ApiTest::Base
           "CONTENT_TYPE" => 'image/png'
         }.merge(credentials('jsmith'))
       )
-      assert_response 406
+      assert_response :not_acceptable
     end
   end
 
@@ -224,7 +232,7 @@ class Redmine::ApiTest::AttachmentsTest < Redmine::ApiTest::Base
             "CONTENT_TYPE" => 'application/octet-stream'
           }.merge(credentials('jsmith'))
         )
-        assert_response 422
+        assert_response :unprocessable_content
         assert_select 'error', :text => /exceeds the maximum allowed file size/
       end
     end

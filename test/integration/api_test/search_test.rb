@@ -20,14 +20,6 @@
 require_relative '../../test_helper'
 
 class Redmine::ApiTest::SearchTest < Redmine::ApiTest::Base
-  fixtures :projects, :projects_trackers,
-           :enabled_modules, :roles, :users, :members, :member_roles,
-           :issues, :trackers, :issue_statuses, :enumerations,
-           :workflows,
-           :custom_fields, :custom_values,
-           :custom_fields_projects, :custom_fields_trackers,
-           :repositories, :changesets
-
   test "GET /search.xml should return xml content" do
     get '/search.xml'
 
@@ -95,5 +87,27 @@ class Redmine::ApiTest::SearchTest < Redmine::ApiTest::Base
   test "GET /search.xml should not quick jump to the issue with given id" do
     get '/search.xml', :params => {:q => '3'}
     assert_response :success
+  end
+
+  test "GET /search.json authenticated via OAuth should not return issues without view_issues scope" do
+    Issue.generate!(:project_id => 2, :subject => 'searchoauth')
+
+    get '/search.json', :params => {:q => 'searchoauth'},
+        :headers => oauth_credentials('jsmith', 'search_project view_project')
+
+    assert_response :success
+    json = ActiveSupport::JSON.decode(response.body)
+    assert_equal [], json['results']
+  end
+
+  test "GET /search.json authenticated via OAuth should return issues with view_issues scope" do
+    issue = Issue.generate!(:project_id => 2, :subject => 'searchoauth')
+
+    get '/search.json', :params => {:q => 'searchoauth'},
+        :headers => oauth_credentials('jsmith', 'search_project view_issues')
+
+    assert_response :success
+    json = ActiveSupport::JSON.decode(response.body)
+    assert_equal [issue.id], json['results'].pluck('id')
   end
 end

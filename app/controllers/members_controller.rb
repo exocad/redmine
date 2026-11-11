@@ -18,7 +18,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 class MembersController < ApplicationController
-  model_object Member
+  self.model_object = Member
+
+  menu_item :overview
+
   before_action :find_model_object, :except => [:index, :new, :create, :autocomplete]
   before_action :find_project_from_association, :except => [:index, :new, :create, :autocomplete]
   before_action :find_project_by_project_id, :only => [:index, :new, :create, :autocomplete]
@@ -27,23 +30,35 @@ class MembersController < ApplicationController
 
   require_sudo_mode :create, :update, :destroy
 
-  def index
-    scope = @project.memberships
-    @offset, @limit = api_offset_and_limit
-    @member_count = scope.count
-    @member_pages = Paginator.new @member_count, @limit, params['page']
-    @offset ||= @member_pages.offset
-    @members = scope.includes(:principal, :roles).order(:id).limit(@limit).offset(@offset).to_a
+  include MembersHelper
 
+  def index
     respond_to do |format|
-      format.html {head 406}
-      format.api
+      format.html
+      format.api do
+        scope = @project.memberships
+        @members = scope.includes(:principal, :roles).order(:id)
+        @offset, @limit = api_offset_and_limit
+        @member_count = scope.count
+        @member_pages = Paginator.new @member_count, @limit, params['page']
+        @offset ||= @member_pages.offset
+        @members = @members.limit(@limit).offset(@offset).to_a
+      end
+      format.csv do
+        if User.current.allowed_to?(:manage_members, @project)
+          scope = @project.memberships
+          @members = scope.includes(:principal, :roles).order(:id)
+          send_data(members_to_csv(@members), type: 'text/csv; header=present', filename: "#{@project.identifier}-members.csv")
+        else
+          head :forbidden
+        end
+      end
     end
   end
 
   def show
     respond_to do |format|
-      format.html {head 406}
+      format.html {head :not_acceptable}
       format.api
     end
   end
@@ -115,7 +130,7 @@ class MembersController < ApplicationController
         if @member.destroyed?
           render_api_ok
         else
-          head :unprocessable_entity
+          head :unprocessable_content
         end
       end
     end
@@ -130,6 +145,12 @@ class MembersController < ApplicationController
   private
 
   def redirect_to_settings_in_projects
-    redirect_to settings_project_path(@project, :tab => 'members')
+    redirect_to settings_project_path(@project, members_settings_url_params)
+  end
+
+  def members_settings_url_params
+    query = {:tab => 'members'}
+    query[:per_page] = params[:per_page] if params[:per_page].present?
+    query.merge(members_list_params)
   end
 end

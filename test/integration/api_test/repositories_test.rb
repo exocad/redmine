@@ -20,12 +20,6 @@
 require_relative '../../test_helper'
 
 class Redmine::ApiTest::RepositoriesTest < Redmine::ApiTest::Base
-  fixtures :users,
-           :projects, :enabled_modules,
-           :members, :roles, :member_roles,
-           :issues,
-           :repositories, :changesets, :changes
-
   test 'POST /projects/:id/repository/:repository_id/revisions/:rev/issues.xml should add related issue' do
     changeset = Changeset.find(103)
     assert_equal [], changeset.issue_ids
@@ -70,7 +64,7 @@ class Redmine::ApiTest::RepositoriesTest < Redmine::ApiTest::Base
     assert_no_difference 'Changeset.find(103).issues.size' do
       post '/projects/1/repository/10/revisions/4/issues.xml', :headers => credentials('jsmith'), :params => {:issue_id => '9999'}
     end
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     assert_select 'errors error', :text => 'Issue is invalid'
   end
 
@@ -78,7 +72,7 @@ class Redmine::ApiTest::RepositoriesTest < Redmine::ApiTest::Base
     assert_no_difference 'Changeset.find(103).issues.size' do
       post '/projects/1/repository/10/revisions/4/issues.json', :headers => credentials('jsmith'), :params => {:issue_id => '9999'}
     end
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     json = ActiveSupport::JSON.decode(response.body)
     assert json['errors'].include?('Issue is invalid')
   end

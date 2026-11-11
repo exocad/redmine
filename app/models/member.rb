@@ -33,6 +33,28 @@ class Member < ApplicationRecord
   scope :active, (lambda do
     joins(:principal).where(:users => {:status => Principal::STATUS_ACTIVE})
   end)
+  scope :visible, (lambda do |*args|
+    joins(:project).
+      where(Project.allowed_to_condition(args.shift || User.current, :view_members, *args))
+  end)
+  # Members whose principal matches the given string
+  scope :like, (lambda do |arg|
+    if arg.present?
+      where(:user_id => Principal.like(arg).select(:id))
+    end
+  end)
+  # Members having the given role, inherited or not
+  scope :with_role, (lambda do |arg|
+    if arg.present?
+      where(:id => MemberRole.where(:role_id => arg.to_i).select(:member_id))
+    end
+  end)
+  # Members whose principal has the given status
+  scope :status, (lambda do |arg|
+    if arg.present? && arg != 'all'
+      joins(:principal).where(:users => {:status => arg.to_i})
+    end
+  end)
   # Sort by first role and principal
   scope :sorted, (lambda do
     includes(:member_roles, :roles, :principal).
@@ -45,9 +67,9 @@ class Member < ApplicationRecord
   end)
 
   alias :base_reload :reload
-  def reload(*args)
+  def reload(*)
     @managed_roles = nil
-    base_reload(*args)
+    base_reload(*)
   end
 
   def role
@@ -64,18 +86,16 @@ class Member < ApplicationRecord
   def role_ids=(arg)
     ids = (arg || []).collect(&:to_i) - [0]
     # Keep inherited roles
-    ids += member_roles.select {|mr| !mr.inherited_from.nil?}.collect(&:role_id)
+    ids |= member_roles.select {|mr| !mr.inherited_from.nil?}.collect(&:role_id)
 
     new_role_ids = ids - role_ids
+    obsolete_role_ids = role_ids - ids
     # Add new roles
     new_role_ids.each do |id|
       member_roles << MemberRole.new(:role_id => id, :member => self)
     end
     # Remove roles (Rails' #role_ids= will not trigger MemberRole#on_destroy)
-    member_roles_to_destroy = member_roles.select {|mr| !ids.include?(mr.role_id)}
-    if member_roles_to_destroy.any?
-      member_roles_to_destroy.each(&:destroy)
-    end
+    member_roles.where(role_id: obsolete_role_ids).destroy_all
     member_roles.reload
     super(ids)
   end

@@ -23,7 +23,6 @@ module Redmine
   module Scm
     module Adapters
       class CvsAdapter < AbstractAdapter
-
         # CVS executable name
         CVS_BIN = Redmine::Configuration['scm_cvs_command'] || "cvs"
 
@@ -95,7 +94,7 @@ module Redmine
           cmd_args << path_with_proj(path)
           scm_cmd(*cmd_args) do |io|
             io.each_line() do |line|
-              fields = line.chop.split('/',-1)
+              fields = line.chop.split('/', -1)
               logger.debug(">>InspectLine #{fields.inspect}")
               if fields[0]!="D"
                 time = nil
@@ -114,7 +113,6 @@ module Redmine
                   Entry.new(
                     {
                       :name => scm_iconv('UTF-8', @path_encoding, fields[-5]),
-                      #:path => fields[-4].include?(path)?fields[-4]:(path + "/"+ fields[-4]),
                       :path => scm_iconv('UTF-8', @path_encoding, "#{path_locale}/#{fields[-5]}"),
                       :kind => 'file',
                       :size => nil,
@@ -154,7 +152,7 @@ module Redmine
         # Returns all revisions found between identifier_from and identifier_to
         # in the repository. both identifier have to be dates or nil.
         # these method returns nothing but yield every result in block
-        def revisions(path=nil, identifier_from=nil, identifier_to=nil, options={}, &block)
+        def revisions(path=nil, identifier_from=nil, identifier_to=nil, options={}, &)
           path_with_project_utf8   = path_with_proj(path)
           path_with_project_locale = scm_iconv(@path_encoding, 'UTF-8', path_with_project_utf8)
           logger.debug "<cvs> revisions path:" +
@@ -319,7 +317,7 @@ module Redmine
           blame = Annotate.new
           scm_cmd(*cmd_args) do |io|
             io.each_line do |line|
-              next unless line =~ %r{^([\d\.]+)\s+\(([^\)]+)\s+[^\)]+\):\s(.*)$}
+              next unless line =~ %r{^([\d.]+)\s+\(([^)]+)\s+[^)]+\):\s(.*)$}
 
               blame.add_line(
                 $3.rstrip,
@@ -364,11 +362,11 @@ module Redmine
         end
 
         def normalize_cvs_path(path)
-          normalize_path(path.gsub("Attic/",''))
+          normalize_path(path.gsub("Attic/", ''))
         end
 
         def normalize_path(path)
-          path.sub(/^(\/)*(.*)/,'\2').sub(/(.*)(,v)+/,'\1')
+          path.sub(/^(\/)*(.*)/, '\2').sub(/(.*)(,v)+/, '\1')
         end
 
         def path_with_proj(path)
@@ -383,7 +381,7 @@ module Redmine
           end
         end
 
-        def scm_cmd(*args, &block)
+        def scm_cmd(*args, &)
           full_args = ['-d', root_url]
           full_args += args
           full_args_locale = []
@@ -394,7 +392,7 @@ module Redmine
             shellout(
               self.class.sq_bin + ' ' +
                 full_args_locale.map {|e| shell_quote e.to_s}.join(' '),
-              &block
+              &
             )
           if $? && $?.exitstatus != 0
             raise ScmCommandAborted, "cvs exited with non-zero status: #{$?.exitstatus}"

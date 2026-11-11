@@ -1,0 +1,411 @@
+/**
+ * Redmine - project management software
+ * Copyright (C) 2006-  Jean-Philippe Lang
+ * This code is released under the GNU General Public License.
+ */
+
+[data-gantt-column="subjects"] .gantt-row > span.expander {
+  margin-inline-start: 0;
+  cursor: pointer;
+}
+
+[data-gantt-column="subjects"] .avatar {
+  margin-inline-end: 4px;
+}
+
+[data-gantt-column="subjects"] .gantt-row:is([data-gantt-row-type="project"], [data-gantt-row-type="version"]) a {
+  margin-inline-start: 4px;
+}
+
+/***** Gantt chart *****/
+.gantt-chart {
+  display: flex;
+  align-items: flex-start;
+  inline-size: 100%;
+  /* Reserve space for the horizontal scrollbar so navigation stays in place. */
+  min-block-size: calc(var(--gantt-pane-height) + 24px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Force LTR for Gantt even in RTL locales because column resizing, relation lines, and the progress line don't work in RTL yet. */
+  direction: ltr;
+}
+
+/* Avoid flicker by hiding the chart until all column widths are restored. */
+.gantt-chart:has(.gantt-column:not([data-gantt--column-width-restored])) {
+  visibility: hidden;
+}
+
+.gantt-chart [hidden] {
+  display: none !important;
+}
+
+.gantt-column {
+  position: relative;
+  flex: 0 0 var(--gantt-column-width);
+  inline-size: var(--gantt-column-width);
+  min-inline-size: 0;
+}
+
+.gantt-column[data-gantt-column="subjects"] {
+  min-inline-size: 100px;
+  max-inline-size: max(100px, calc(100% - 100px));
+}
+
+/* On a narrow chart, dragging or auto-fit may make the subject column wider than the available space. */
+.gantt-chart.is-manually-resized [data-gantt-column="subjects"] {
+  flex: 0 0 var(--gantt-subject-display-width);
+  inline-size: var(--gantt-subject-display-width);
+  max-inline-size: none;
+}
+
+.gantt-chart .ui-resizable-e {
+  cursor: ew-resize;
+  z-index: 30;
+}
+
+.gantt-pane {
+  block-size: calc(var(--gantt-pane-height) + 2px);
+  border-block: 1px solid var(--oc-gray-4);
+  border-inline-end: 1px solid var(--oc-gray-4);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+[data-gantt-column="subjects"] .gantt-pane {
+  border-inline-start: 1px solid var(--oc-gray-4);
+}
+
+.gantt-pane > header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  block-size: var(--gantt-headers-height);
+  border-block-end: 1px solid var(--oc-gray-4);
+  box-sizing: border-box;
+  background: var(--oc-gray-1);
+  font-size: 0.8em;
+  overflow: hidden;
+}
+
+.gantt-selected-column .gantt-pane > header {
+  padding-inline: 3px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gantt-pane-body {
+  position: relative;
+  block-size: var(--gantt-content-height);
+  font-size: 0.8em;
+}
+
+.gantt-timeline {
+  position: relative;
+  flex: 1 0 0;
+  min-inline-size: 100px;
+  /* Keep the canvas border inside the overflow clipping edge. */
+  padding-block-end: 1px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.gantt-timeline-canvas {
+  position: relative;
+  inline-size: calc(var(--gantt-chart-width) + 1px);
+  block-size: calc(var(--gantt-pane-height) + 2px);
+  border-block: 1px solid var(--oc-gray-4);
+  border-inline-end: 1px solid var(--oc-gray-4);
+  box-sizing: border-box;
+}
+
+.gantt-timeline-canvas > header {
+  position: relative;
+  z-index: 1;
+  block-size: var(--gantt-headers-height);
+  border-block-end: 1px solid var(--oc-gray-4);
+  box-sizing: border-box;
+  background: var(--oc-gray-1);
+}
+
+.gantt-header-row {
+  display: flex;
+  block-size: var(--gantt-header-height);
+}
+
+.gantt-period {
+  position: relative;
+  flex: 0 0 var(--gantt-period-width);
+  inline-size: var(--gantt-period-width);
+  min-inline-size: 0;
+  block-size: 100%;
+  border-inline-end: 1px solid var(--oc-gray-4);
+  border-block-end: 1px solid var(--oc-gray-4);
+  text-align: center;
+  box-sizing: border-box;
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.gantt-header-row:last-child .gantt-period {
+  border-block-end: 0;
+}
+
+.gantt-period-last {
+  border-inline-end: 0;
+}
+
+.gantt-period-spans-body {
+  block-size: calc(100% + var(--gantt-content-height));
+  border-block-end: 0;
+}
+
+.gantt-period a {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+}
+
+.gantt-header-row:is([data-gantt-period="day"], [data-gantt-period="day-number"]) .gantt-period {
+  font-size: 0.7em;
+}
+
+.gantt-period-non-working {
+  background-color: var(--oc-gray-1);
+  color: var(--color-text-muted);
+}
+
+.gantt-timeline-body {
+  position: absolute;
+  z-index: 2;
+  inset-block-start: var(--gantt-headers-height);
+  inset-inline-start: 0;
+  inline-size: var(--gantt-chart-width);
+  block-size: var(--gantt-content-height);
+}
+
+.gantt-pane-body form,
+.gantt-timeline-body form {
+  position: relative;
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.gantt-row {
+  position: absolute;
+  inset-block-start: var(--gantt-row-top);
+  block-size: 20px;
+  box-sizing: border-box;
+}
+
+[data-gantt-column="subjects"] .gantt-row {
+  inset-inline-start: 0;
+  inline-size: 100%;
+  padding-inline-start: var(--gantt-row-indent);
+  line-height: 16px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.gantt-selected-column .gantt-row {
+  inset-inline-start: 0;
+  inline-size: 100%;
+  padding-inline-start: 3px;
+  line-height: 16px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* Applied temporarily when auto-fitting a column to measure its header and row content widths. */
+.gantt-column-measuring .gantt-pane > header,
+.gantt-column-measuring .gantt-row {
+  inline-size: max-content;
+}
+
+.gantt-row-hover {
+  background-color: rgba(var(--oc-yellow-1-rgb), 0.5);
+}
+
+.gantt-timeline-body .gantt-row {
+  inset-inline-start: 0;
+  inline-size: var(--gantt-chart-width);
+}
+
+.gantt-today {
+  position: absolute;
+  inset-block-start: 1px;
+  inset-inline-start: var(--gantt-today-start);
+  inline-size: 10px;
+  block-size: var(--gantt-content-height);
+  border-inline-start: 1px dashed var(--oc-red-7);
+  pointer-events: none;
+}
+
+.gantt-relations {
+  position: absolute;
+  inset-block-start: 1px;
+  inset-inline-start: 0;
+  inline-size: var(--gantt-chart-width);
+  block-size: var(--gantt-content-height);
+  pointer-events: none;
+}
+
+[data-gantt-column="watcher_users"] div.issue_watcher_users ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+[data-gantt-column="watcher_users"] div.issue_watcher_users ul li {
+  display: inline;
+}
+
+[data-gantt-column="watcher_users"] div.issue_watcher_users ul li:not(:last-child)::after {
+  content: ', ';
+  white-space: pre;
+}
+
+.gantt-task {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: var(--gantt-task-start);
+  inline-size: var(--gantt-task-width);
+  block-size: 8px;
+  box-sizing: border-box;
+  font-size: 0.8em;
+  color: var(--color-text-muted);
+  padding: 0;
+  margin: 0;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.gantt-timeline-body .tooltip {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: var(--gantt-task-start);
+  inline-size: var(--gantt-task-width);
+  block-size: 12px;
+}
+
+.gantt-chart .toggle-selection {
+  display: none;
+}
+
+.gantt-task-label {
+  inline-size: var(--gantt-task-width);
+}
+
+.gantt-row:is([data-gantt-row-type="project"], [data-gantt-row-type="version"]) .gantt-task-label {
+  font-weight: bold;
+}
+
+.gantt-task-late {
+  block-size: 10px;
+  background-color: var(--oc-red-4);
+  border: 1px solid var(--oc-red-4);
+}
+
+.gantt-task-done {
+  block-size: 10px;
+  background-color: var(--oc-green-6);
+  border: 1px solid var(--oc-green-6);
+}
+
+.gantt-task-todo {
+  block-size: 10px;
+  background-color: var(--oc-gray-5);
+  border: 1px solid var(--oc-gray-5);
+}
+
+.gantt-task-todo.gantt-task-parent {
+  background-color: var(--oc-gray-6);
+  border-color: var(--oc-gray-6);
+}
+
+.gantt-task-parent:is(.gantt-task-todo, .gantt-task-late, .gantt-task-done) {
+  block-size: 5px;
+}
+
+.gantt-task-marker {
+  background-color: var(--oc-indigo-8);
+  inline-size: 8px;
+  block-size: 8px;
+  margin-inline-start: -4px;
+  margin-block-start: 1px;
+  /* Match the filled area and flat tips of the original 8px marker. */
+  clip-path: polygon(3.5px 0, 4.5px 0, 8px 3.5px, 8px 4.5px, 4.5px 8px, 3.5px 8px, 0 4.5px, 0 3.5px);
+}
+
+.gantt-task-parent.gantt-task-marker {
+  background-color: var(--oc-gray-6);
+  block-size: 16px;
+  margin-block-start: 0;
+  /* Keep the original body's size and align its top with the bar. */
+  clip-path: polygon(0 0, 100% 0, 100% 6px, 50% 9px, 0 6px);
+}
+
+.gantt-row[data-gantt-row-type="version"] .gantt-task:is(.gantt-task-todo, .gantt-task-late, .gantt-task-done) {
+  block-size: 4px;
+  margin-block-start: 3px;
+}
+
+.gantt-row[data-gantt-row-type="version"] .gantt-task-todo {
+  background-color: var(--oc-gray-5);
+  border-color: transparent;
+  background-clip: padding-box;
+}
+
+.gantt-row[data-gantt-row-type="version"] .gantt-task-marker {
+  background-color: var(--oc-gray-9);
+}
+
+.gantt-row[data-gantt-row-type="project"] .gantt-task:is(.gantt-task-todo, .gantt-task-late, .gantt-task-done) {
+  block-size: 4px;
+  margin-block-start: 3px;
+}
+
+.gantt-row[data-gantt-row-type="project"] .gantt-task-todo {
+  background-color: var(--oc-gray-5);
+  border-color: transparent;
+  background-clip: padding-box;
+}
+
+.version-behind-schedule a,
+.issue-behind-schedule a {
+  color: var(--oc-yellow-8);
+}
+
+.version-overdue a,
+.issue-overdue a,
+.project-overdue a {
+  color: var(--oc-red-8);
+}
+
+@media print {
+  /* Include the full timeline in the browser print layout. */
+  body.controller-gantts.action-show #wrapper {
+    overflow: visible;
+  }
+
+  .gantt-chart {
+    inline-size: max-content;
+    min-block-size: 0;
+    overflow: visible;
+  }
+
+  .gantt-timeline {
+    flex: 0 0 calc(var(--gantt-chart-width) + 1px);
+    inline-size: calc(var(--gantt-chart-width) + 1px);
+    overflow: visible;
+  }
+
+  .gantt-chart .gantt-column[data-gantt-column="subjects"] {
+    flex: 0 0 var(--gantt-column-width);
+    inline-size: var(--gantt-column-width);
+    max-inline-size: none;
+  }
+}

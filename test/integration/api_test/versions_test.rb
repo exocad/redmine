@@ -20,17 +20,6 @@
 require_relative '../../test_helper'
 
 class Redmine::ApiTest::VersionsTest < Redmine::ApiTest::Base
-  fixtures :projects, :trackers, :issue_statuses, :issues,
-           :enumerations, :users, :issue_categories,
-           :projects_trackers,
-           :roles,
-           :member_roles,
-           :members,
-           :enabled_modules,
-           :versions,
-           :wikis, :wiki_pages,
-           :time_entries
-
   test "GET /projects/:project_id/versions.xml should return project versions" do
     get '/projects/1/versions.xml'
 
@@ -49,7 +38,7 @@ class Redmine::ApiTest::VersionsTest < Redmine::ApiTest::Base
         :params => {:version => {:name => 'API test'}},
         :headers => credentials('jsmith'))
     end
-    version = Version.order('id DESC').first
+    version = Version.order(id: :desc).first
     assert_equal 'API test', version.name
 
     assert_response :created
@@ -64,7 +53,7 @@ class Redmine::ApiTest::VersionsTest < Redmine::ApiTest::Base
         :params => {:version => {:name => 'API test', :due_date => '2012-01-24'}},
         :headers => credentials('jsmith'))
     end
-    version = Version.order('id DESC').first
+    version = Version.order(id: :desc).first
     assert_equal 'API test', version.name
     assert_equal Date.parse('2012-01-24'), version.due_date
 
@@ -80,7 +69,7 @@ class Redmine::ApiTest::VersionsTest < Redmine::ApiTest::Base
         :params => {:version => {:name => 'API test', :wiki_page_title => WikiPage.first.title}},
         :headers => credentials('jsmith'))
     end
-    version = Version.order('id DESC').first
+    version = Version.order(id: :desc).first
     assert_equal 'API test', version.name
     assert_equal WikiPage.first, version.wiki_page
 
@@ -104,7 +93,7 @@ class Redmine::ApiTest::VersionsTest < Redmine::ApiTest::Base
         },
         :headers => credentials('jsmith'))
     end
-    version = Version.order('id DESC').first
+    version = Version.order(id: :desc).first
     assert_equal 'API test', version.name
     assert_equal 'Some value', version.custom_field_value(field)
 
@@ -120,7 +109,7 @@ class Redmine::ApiTest::VersionsTest < Redmine::ApiTest::Base
         :params => {:version => {:name => ''}},
         :headers => credentials('jsmith'))
     end
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     assert_select 'errors error', :text => "Name cannot be blank"
   end
 

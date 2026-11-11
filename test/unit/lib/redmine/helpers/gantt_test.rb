@@ -20,16 +20,12 @@
 require_relative '../../../../test_helper'
 
 class Redmine::Helpers::GanttHelperTest < Redmine::HelperTest
-  fixtures :projects, :trackers, :projects_trackers, :issue_statuses,
-           :enumerations, :users, :issue_categories
-
   include ProjectsHelper
   include IssuesHelper
   include QueriesHelper
   include AvatarsHelper
 
   include ERB::Util
-  include Rails.application.routes.url_helpers
 
   def setup
     setup_with_controller
@@ -116,6 +112,19 @@ class Redmine::Helpers::GanttHelperTest < Redmine::HelperTest
     assert_equal 3, @gantt.number_of_rows_on_project(@project)
   end
 
+  test "#gantt_version_row_key should distinguish a shared version rendered under different projects" do
+    create_gantt
+    version = Version.generate!
+    other_project = Project.generate!
+
+    first_key = @gantt.send(:gantt_version_row_key, version, @project)
+    second_key = @gantt.send(:gantt_version_row_key, version, other_project)
+
+    assert_equal "version-#{version.id}-project-#{@project.id}", first_key
+    assert_equal "version-#{version.id}-project-#{other_project.id}", second_key
+    assert_not_equal first_key, second_key
+  end
+
   def setup_subjects
     create_gantt
     @project.enabled_module_names = [:issue_tracking]
@@ -134,19 +143,98 @@ class Redmine::Helpers::GanttHelperTest < Redmine::HelperTest
   end
   private :setup_subjects
 
-  # TODO: more of an integration test
-  test "#subjects project should be rendered" do
-    setup_subjects
-    @output_buffer = @gantt.subjects
-    assert_select "div.project-name a", /#{@project.name}/
-    assert_select 'div.project-name[style*="left:4px"]'
+  test "#subjects should render project rows with expanders" do
+    create_gantt
+
+    # A parent with only subprojects and no issues or versions of its own.
+    parent_project = @project
+
+    # A project with an issue that is not assigned to a version.
+    issue_project = Project.generate_with_parent!(parent_project)
+    Issue.generate!(:project => issue_project, :fixed_version => nil)
+
+    # A project with an issue assigned to its own version.
+    version_project = Project.generate_with_parent!(parent_project)
+    version = Version.generate!(:project => version_project)
+    Issue.generate!(:project => version_project, :fixed_version => version)
+
+    subjects = @gantt.subjects
+    [issue_project, version_project, parent_project].each do |project|
+      assert_select_in subjects, "div.gantt-row[data-gantt-row-key='project-#{project.id}']" do
+        assert_select 'a[href=?]', "/projects/#{project.identifier}", :text => project.name
+        assert_select '.expander', 1
+      end
+    end
+    assert_select_in subjects, 'div.gantt-row[data-gantt-row-type=project][style*="--gantt-row-indent:4px"]'
   end
 
   test "#subjects version should be rendered" do
     setup_subjects
     @output_buffer = @gantt.subjects
-    assert_select "div.version-name a", /#{@version.name}/
-    assert_select 'div.version-name[style*="left:24px"]'
+    assert_select "div.gantt-row[data-gantt-row-type=version] a", /#{@version.name}/
+    assert_select 'div.gantt-row[data-gantt-row-type=version][style*="--gantt-row-indent:24px"]'
+  end
+
+  test "project rows should reference their nearest displayed ancestor across every pane" do
+    # Project hierarchy (all projects are public unless marked private):
+    # root
+    # |-- hidden (private)
+    # |   `-- hidden_child (private)
+    # |       `-- descendant
+    # |           `-- child
+    # `-- sibling
+    # hidden_root (private)
+    # `-- other_root
+    #     `-- other_child
+    root = Project.generate!
+    hidden = Project.generate!(:parent_id => root.id, :is_public => false)
+    hidden_child = Project.generate!(:parent_id => hidden.id, :is_public => false)
+    descendant = Project.generate!(:parent_id => hidden_child.id)
+    child = Project.generate!(:parent_id => descendant.id)
+    sibling = Project.generate!(:parent_id => root.id)
+    hidden_root = Project.generate!(:is_public => false)
+    other_root = Project.generate!(:parent_id => hidden_root.id)
+    other_child = Project.generate!(:parent_id => other_root.id)
+
+    # Expected parents in the displayed tree; nil means a root row.
+    expected_parents = {
+      root => nil,
+      descendant => root,
+      child => descendant,
+      sibling => root,
+      other_root => nil,
+      other_child => other_root
+    }
+
+    # Give each expected project an issue so it is included in the Gantt chart.
+    expected_parents.each_key {|project| Issue.generate!(:project => project)}
+
+    # Use a non-admin user with no membership in the private projects.
+    # Render a cross-project Gantt chart with a status column.
+    User.current = User.find(2)
+    create_gantt(nil)
+    @gantt.query.column_names = [:status]
+
+    [
+      @gantt.subjects,
+      @gantt.lines,
+      @gantt.selected_column_content(:column => @gantt.query.columns.last)
+    ].each do |html|
+      # Private projects must not have rows in any pane.
+      [hidden, hidden_child, hidden_root].each do |project|
+        assert_select_in html, "[data-gantt-row-key=project-#{project.id}]", 0
+      end
+
+      expected_parents.each do |project, expected_parent|
+        assert_select_in html, "[data-gantt-row-key=project-#{project.id}]", 1 do |rows|
+          if expected_parent
+            assert_equal "project-#{expected_parent.id}", rows.first['data-gantt-parent-row-key']
+          else
+            assert_nil rows.first['data-gantt-parent-row-key']
+          end
+        end
+      end
+    end
   end
 
   test "#subjects version without assigned issues should not be rendered" do
@@ -156,15 +244,15 @@ class Redmine::Helpers::GanttHelperTest < Redmine::HelperTest
                                        :name => 'empty_version')
     @project.versions << @version
     @output_buffer = @gantt.subjects
-    assert_select "div.version-name a", :text => /#{@version.name}/, :count => 0
+    assert_select "div.gantt-row[data-gantt-row-type=version] a", :text => /#{@version.name}/, :count => 0
   end
 
   test "#subjects issue should be rendered" do
     setup_subjects
     @output_buffer = @gantt.subjects
-    assert_select "div.issue-subject", /#{@issue.subject}/
-    # subject 56px: 44px + 12px(collapse/expand icon's width)
-    assert_select 'div.issue-subject[style*="left:56px"]'
+    assert_select "div.gantt-row[data-gantt-row-type=issue]", /#{@issue.subject}/
+    # subject 62px: 44px + 18px(collapse/expand icon's width)
+    assert_select 'div.gantt-row[data-gantt-row-type=issue][style*="--gantt-row-indent:62px"]'
   end
 
   test "#subjects issue assigned to a shared version of another project should be rendered" do
@@ -183,7 +271,7 @@ class Redmine::Helpers::GanttHelperTest < Redmine::HelperTest
                                    :due_date => (today + 7))
     @project.issues << @issue
     @output_buffer = @gantt.subjects
-    assert_select "div.issue-subject", /#{@issue.subject}/
+    assert_select "div.gantt-row[data-gantt-row-type=issue]", /#{@issue.subject}/
   end
 
   test "#subjects issue with subtasks should indent subtasks" do
@@ -209,13 +297,13 @@ class Redmine::Helpers::GanttHelperTest < Redmine::HelperTest
                         )
     @output_buffer = @gantt.subjects
     # parent task 44px
-    assert_select 'div.issue-subject[style*="left:44px"]', /#{@issue.subject}/
+    assert_select 'div.gantt-row[data-gantt-row-type=issue][style*="--gantt-row-indent:44px"]', /#{@issue.subject}/
     # children 64px
-    assert_select 'div.issue-subject[style*="left:64px"]', /child1/
-    # children 76px: 64px + 12px(collapse/expand icon's width)
-    assert_select 'div.issue-subject[style*="left:76px"]', /child2/
-    # grandchild 96px: 84px + 12px(collapse/expand icon's width)
-    assert_select 'div.issue-subject[style*="left:96px"]', /grandchild/, @output_buffer
+    assert_select 'div.gantt-row[data-gantt-row-type=issue][style*="--gantt-row-indent:64px"]', /child1/
+    # children 76px: 64px + 18px(collapse/expand icon's width)
+    assert_select 'div.gantt-row[data-gantt-row-type=issue][style*="--gantt-row-indent:82px"]', /child2/
+    # grandchild 96px: 84px + 18px(collapse/expand icon's width)
+    assert_select 'div.gantt-row[data-gantt-row-type=issue][style*="--gantt-row-indent:102px"]', /grandchild/, @output_buffer
   end
 
   test "#lines" do
@@ -235,18 +323,19 @@ class Redmine::Helpers::GanttHelperTest < Redmine::HelperTest
     @project.issues << @issue
     @output_buffer = @gantt.lines
 
-    assert_select "div.project.task_todo"
-    assert_select "div.project.starting"
-    assert_select "div.project.ending"
-    assert_select "div.label.project", /#{@project.name}/
+    assert_select "div.gantt-row[data-gantt-row-type=project]", 1
+    assert_select "div.gantt-row[data-gantt-row-type=project] div.gantt-task-todo"
+    assert_select "div.gantt-row[data-gantt-row-type=project] div.gantt-task-start"
+    assert_select "div.gantt-row[data-gantt-row-type=project] div.gantt-task-end"
+    assert_select "div.gantt-row[data-gantt-row-type=project] div.gantt-task-label", /#{@project.name}/
 
-    assert_select "div.version.task_todo"
-    assert_select "div.version.starting"
-    assert_select "div.version.ending"
-    assert_select "div.label.version", /#{@version.name}/
+    assert_select "div.gantt-row[data-gantt-row-type=version] div.gantt-task-todo"
+    assert_select "div.gantt-row[data-gantt-row-type=version] div.gantt-task-start"
+    assert_select "div.gantt-row[data-gantt-row-type=version] div.gantt-task-end"
+    assert_select "div.gantt-row[data-gantt-row-type=version] div.gantt-task-label", /#{@version.name}/
 
-    assert_select "div.task_todo"
-    assert_select "div.task.label", /#{@issue.done_ratio}/
+    assert_select "div.gantt-row[data-gantt-row-type=issue] div.gantt-task-todo"
+    assert_select "div.gantt-row[data-gantt-row-type=issue] div.gantt-task-label", /#{@issue.done_ratio}/
     assert_select "div.tooltip", /#{@issue.subject}/
   end
 
@@ -258,7 +347,23 @@ class Redmine::Helpers::GanttHelperTest < Redmine::HelperTest
     @project.issues << issue
     # :column => assigned_to
     @output_buffer = @gantt.selected_column_content({:column => @gantt.query.columns.last})
-    assert_select "div.issue_assigned_to#assigned_to_issue_#{issue.id}"
+    assert_select "div.gantt-row[data-gantt-row-key='project-#{@project.id}']", :text => ''
+    assert_select "div.gantt-row", 2
+    assert_select "div.gantt-row[data-gantt-row-key='issue-#{issue.id}']" do
+      assert_select 'a.user', :text => issue.assignable_users.first.name
+    end
+  end
+
+  test "#lines keeps an empty row for an issue without dates" do
+    create_gantt
+    issue = Issue.generate!(:project => @project, :start_date => nil, :due_date => nil)
+    @project.issues << issue
+
+    @output_buffer = @gantt.lines
+
+    assert_select "div.gantt-row[data-gantt-row-key='issue-#{issue.id}']" do
+      assert_select ".gantt-task", 0
+    end
   end
 
   test "#subject_for_project" do
@@ -313,17 +418,17 @@ class Redmine::Helpers::GanttHelperTest < Redmine::HelperTest
     assert_select 'div span.issue-overdue'
   end
 
-  test "#subject should add an absolute positioned div" do
+  test "#subject should add a positioned div" do
     create_gantt
     @output_buffer = @gantt.subject('subject', :format => :html)
-    assert_select "div[style*=absolute]", :text => 'subject'
+    assert_select 'div[style*="--gantt-row-top:"]', :text => 'subject'
   end
 
   test "#subject should use the indent option to move the div to the right" do
     create_gantt
     @output_buffer = @gantt.subject('subject', :format => :html, :indent => 40)
     # subject 52px: 40px(indent) + 12px(collapse/expand icon's width)
-    assert_select 'div[style*="left:52px"]'
+    assert_select 'div[style*="--gantt-row-indent:58px"]'
   end
 
   test "#line_for_project" do
@@ -331,7 +436,7 @@ class Redmine::Helpers::GanttHelperTest < Redmine::HelperTest
     @project.stubs(:start_date).returns(today - 7)
     @project.stubs(:due_date).returns(today + 7)
     @output_buffer = @gantt.line_for_project(@project, :format => :html)
-    assert_select "div.project.label", :text => @project.name
+    assert_select "div.gantt-task-label", :text => @project.name
   end
 
   test "#line_for_version" do
@@ -341,23 +446,23 @@ class Redmine::Helpers::GanttHelperTest < Redmine::HelperTest
     version.stubs(:due_date).returns(today + 7)
     version.stubs(:visible_fixed_issues => stub(:completed_percent => 30))
     @output_buffer = @gantt.line_for_version(version, :format => :html)
-    assert_select "div.version.label", :text => /Foo/
-    assert_select "div.version.label", :text => /30%/
+    assert_select "div.gantt-task-label", :text => /Foo/
+    assert_select "div.gantt-task-label", :text => /30%/
   end
 
   test "#line_for_issue" do
     create_gantt
     issue = Issue.generate!(:project => @project, :start_date => today - 7, :due_date => today + 7, :done_ratio => 30)
     @output_buffer = @gantt.line_for_issue(issue, :format => :html)
-    assert_select "div.task.label", :text => /#{issue.status.name}/
-    assert_select "div.task.label", :text => /30%/
+    assert_select "div.gantt-task-label", :text => /#{issue.status.name}/
+    assert_select "div.gantt-task-label", :text => /30%/
     assert_select "div.tooltip", /#{issue.subject}/
   end
 
   test "#line todo line should start from the starting point on the left" do
     create_gantt
     @output_buffer = @gantt.line(today - 7, today + 7, 30, false, 'line', :format => :html, :zoom => 4)
-    assert_select 'div.task_todo[style*="left:28px"]', 1
+    assert_select 'div.gantt-task-todo[style*="--gantt-task-start:28px"]', 1
   end
 
   test "#line todo line should appear if it ends on the leftmost date in the gantt" do
@@ -365,8 +470,8 @@ class Redmine::Helpers::GanttHelperTest < Redmine::HelperTest
     [gantt_start - 1, gantt_start].each do |start_date|
       @output_buffer = @gantt.line(start_date, gantt_start, 30, false, 'line', :format => :html, :zoom => 4)
       # the leftmost date (Date.today - 14 days)
-      assert_select 'div.task_todo[style*="left:0px"]', 1, @output_buffer
-      assert_select 'div.task_todo[style*="width:2px"]', 1, @output_buffer
+      assert_select 'div.gantt-task-todo[style*="--gantt-task-start:0px"]', 1, @output_buffer
+      assert_select 'div.gantt-task-todo[style*="--gantt-task-width:4px"]', 1, @output_buffer
     end
   end
 
@@ -375,112 +480,118 @@ class Redmine::Helpers::GanttHelperTest < Redmine::HelperTest
     [gantt_end, gantt_end + 1].each do |end_date|
       @output_buffer = @gantt.line(gantt_end, end_date, 30, false, 'line', :format => :html, :zoom => 4)
       # the rightmost date (Date.today + 14 days)
-      assert_select 'div.task_todo[style*="left:112px"]', 1, @output_buffer
-      assert_select 'div.task_todo[style*="width:2px"]', 1, @output_buffer
+      assert_select 'div.gantt-task-todo[style*="--gantt-task-start:112px"]', 1, @output_buffer
+      assert_select 'div.gantt-task-todo[style*="--gantt-task-width:4px"]', 1, @output_buffer
     end
   end
 
   test "#line todo line should be the total width" do
     create_gantt
     @output_buffer = @gantt.line(today - 7, today + 7, 30, false, 'line', :format => :html, :zoom => 4)
-    assert_select 'div.task_todo[style*="width:58px"]', 1
+    assert_select 'div.gantt-task-todo[style*="--gantt-task-width:60px"]', 1
   end
 
   test "#line late line should start from the starting point on the left" do
     create_gantt
     @output_buffer = @gantt.line(today - 7, today + 7, 30, false, 'line', :format => :html, :zoom => 4)
-    assert_select 'div.task_late[style*="left:28px"]', 1
+    assert_select 'div.gantt-task-late[style*="--gantt-task-start:28px"]', 1
   end
 
   test "#line late line should be the total delayed width" do
     create_gantt
     @output_buffer = @gantt.line(today - 7, today + 7, 30, false, 'line', :format => :html, :zoom => 4)
-    assert_select 'div.task_late[style*="width:30px"]', 1
+    assert_select 'div.gantt-task-late[style*="--gantt-task-width:32px"]', 1
   end
 
   test "#line late line should be the same width as task_todo if start date and end date are the same day" do
     create_gantt
     @output_buffer = @gantt.line(today - 7, today - 7, 0, false, 'line', :format => :html, :zoom => 4)
-    assert_select 'div.task_late[style*="width:2px"]', 1
-    assert_select 'div.task_todo[style*="width:2px"]', 1
+    assert_select 'div.gantt-task-late[style*="--gantt-task-width:4px"]', 1
+    assert_select 'div.gantt-task-todo[style*="--gantt-task-width:4px"]', 1
   end
 
   test "#line late line should be the same width as task_todo if start date and today are the same day" do
     create_gantt
     @output_buffer = @gantt.line(today, today, 0, false, 'line', :format => :html, :zoom => 4)
-    assert_select 'div.task_late[style*="width:2px"]', 1
-    assert_select 'div.task_todo[style*="width:2px"]', 1
+    assert_select 'div.gantt-task-late[style*="--gantt-task-width:4px"]', 1
+    assert_select 'div.gantt-task-todo[style*="--gantt-task-width:4px"]', 1
   end
 
   test "#line done line should start from the starting point on the left" do
     create_gantt
     @output_buffer = @gantt.line(today - 7, today + 7, 30, false, 'line', :format => :html, :zoom => 4)
-    assert_select 'div.task_done[style*="left:28px"]', 1
+    assert_select 'div.gantt-task-done[style*="--gantt-task-start:28px"]', 1
   end
 
   test "#line done line should be the width for the done ratio" do
     create_gantt
     @output_buffer = @gantt.line(today - 7, today + 7, 30, false, 'line', :format => :html, :zoom => 4)
-    # 15 days * 4 px * 30% - 2 px for borders = 16 px
-    assert_select 'div.task_done[style*="width:16px"]', 1
+    # 15 days * 4 px * 30% = 18 px
+    assert_select 'div.gantt-task-done[style*="--gantt-task-width:18px"]', 1
   end
 
   test "#line done line should be the total width for 100% done ratio" do
     create_gantt
     @output_buffer = @gantt.line(today - 7, today + 7, 100, false, 'line', :format => :html, :zoom => 4)
-    # 15 days * 4 px - 2 px for borders = 58 px
-    assert_select 'div.task_done[style*="width:58px"]', 1
+    # 15 days * 4 px = 60 px
+    assert_select 'div.gantt-task-done[style*="--gantt-task-width:60px"]', 1
   end
 
   test "#line done line should be the total width for 100% done ratio with same start and end dates" do
     create_gantt
     @output_buffer = @gantt.line(today + 7, today + 7, 100, false, 'line', :format => :html, :zoom => 4)
-    assert_select 'div.task_done[style*="width:2px"]', 1
+    assert_select 'div.gantt-task-done[style*="--gantt-task-width:4px"]', 1
   end
 
   test "#line done line should not be the total done width if the gantt starts after start date" do
     create_gantt
     @output_buffer = @gantt.line(today - 16, today - 2, 30, false, 'line', :format => :html, :zoom => 4)
-    assert_select 'div.task_done[style*="left:0px"]', 1
-    assert_select 'div.task_done[style*="width:8px"]', 1
+    assert_select 'div.gantt-task-done[style*="--gantt-task-start:0px"]', 1
+    assert_select 'div.gantt-task-done[style*="--gantt-task-width:10px"]', 1
+  end
+
+  test "#line small done ratio should not produce a negative width" do
+    create_gantt
+    @output_buffer = @gantt.line(today - 7, today - 3, 1, false, 'line', :format => :html, :zoom => 2)
+    assert_select 'div.gantt-task-done[style*="--gantt-task-width:0px"]', 1
   end
 
   test "#line starting marker should appear at the start date" do
     create_gantt
     @output_buffer = @gantt.line(today - 7, today + 7, 30, true, 'line', :format => :html, :zoom => 4)
-    assert_select "div.starting", 1
-    assert_select 'div.starting[style*="left:28px"]', 1
+    assert_select "div.gantt-task-start", 1
+    assert_select 'div.gantt-task-start[style*="--gantt-task-start:28px"]', 1
     # starting marker on the leftmost boundary of the gantt
     @output_buffer = @gantt.line(gantt_start, today + 7, 30, true, 'line', :format => :html, :zoom => 4)
-    assert_select 'div.starting[style*="left:0px"]', 1
+    assert_select 'div.gantt-task-start[style*="--gantt-task-start:0px"]', 1
   end
 
   test "#line starting marker should not appear if the start date is before gantt start date" do
     create_gantt
     @output_buffer = @gantt.line(gantt_start - 2, today + 7, 30, true, 'line', :format => :html, :zoom => 4)
-    assert_select "div.starting", 0
+    assert_select "div.gantt-task-start", 0
   end
 
   test "#line ending marker should appear at the end date" do
     create_gantt
     @output_buffer = @gantt.line(today - 7, today + 7, 30, true, 'line', :format => :html, :zoom => 4)
-    assert_select "div.ending", 1
-    assert_select 'div.ending[style*="left:88px"]', 1
+    assert_select "div.gantt-task-end", 1
+    assert_select 'div.gantt-task-end[style*="--gantt-task-start:88px"]', 1
     # ending marker on the rightmost boundary of the gantt
     @output_buffer = @gantt.line(today - 7, gantt_end, 30, true, 'line', :format => :html, :zoom => 4)
-    assert_select 'div.ending[style*="left:116px"]', 1
+    assert_select 'div.gantt-task-end[style*="--gantt-task-start:116px"]', 1
   end
 
   test "#line ending marker should not appear if the end date is before gantt start date" do
     create_gantt
     @output_buffer = @gantt.line(gantt_start - 30, gantt_start - 21, 30, true, 'line', :format => :html)
-    assert_select "div.ending", 0
+    assert_select "div.gantt-task-end", 0
   end
 
   test "#line label should appear at the far left, even if it's before gantt start date" do
     create_gantt
     @output_buffer = @gantt.line(gantt_start - 30, gantt_start - 21, 30, true, 'line', :format => :html)
-    assert_select "div.label", :text => 'line'
+    assert_select "div.gantt-task-label", :text => 'line'
   end
 
   test "#column_content_for_issue" do
@@ -493,7 +604,7 @@ class Redmine::Helpers::GanttHelperTest < Redmine::HelperTest
     options = {:column => @gantt.query.columns.last, :top => 64, :format => :html}
     @output_buffer = @gantt.column_content_for_issue(issue, options)
 
-    assert_select "div.issue_assigned_to#assigned_to_issue_#{issue.id}"
+    assert_select "div.gantt-row[data-gantt-row-key='issue-#{issue.id}']"
     assert_includes @output_buffer, column_content(options[:column], issue)
   end
 

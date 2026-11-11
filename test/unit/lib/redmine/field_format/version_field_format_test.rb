@@ -21,12 +21,6 @@ require_relative '../../../../test_helper'
 require 'redmine/field_format'
 
 class Redmine::VersionFieldFormatTest < ActionView::TestCase
-  fixtures :projects, :versions, :trackers,
-           :roles, :users, :members, :member_roles,
-           :issue_statuses, :issue_categories, :issue_relations, :workflows,
-           :enumerations, :custom_fields, :custom_fields_trackers,
-           :enabled_modules
-
   def setup
     super
     User.current = nil
@@ -50,7 +44,7 @@ class Redmine::VersionFieldFormatTest < ActionView::TestCase
     field.version_status = ["open"]
     field.save!
 
-    issue = Issue.order('id DESC').first
+    issue = Issue.order(id: :desc).first
     assert_include(
       [version.name, version.id.to_s],
       field.possible_custom_value_options(issue.custom_value_for(field))
@@ -109,7 +103,7 @@ class Redmine::VersionFieldFormatTest < ActionView::TestCase
   def test_cast_value_should_not_raise_error_when_array_contains_value_casted_to_nil
     field = IssueCustomField.new(:field_format => 'version')
     assert_nothing_raised do
-      field.cast_value([1,2, 42])
+      field.cast_value([1, 2, 42])
     end
   end
 

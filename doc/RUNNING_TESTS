@@ -7,8 +7,8 @@ the test dependencies. Then, run `bundle install`.
 Running Tests
 =============
 
-Run `rake --tasks test` to see available tests.
-Run `rake test` to run the entire test suite (except the tests for the
+Run `bin/rails --tasks test` to see available tests.
+Run `bin/rails test` to run the entire test suite (except the tests for the
 Apache perl module Redmine.pm and Capybara tests, see below).
 
 You can run `ruby test/unit/issue_test.rb` for running a single test case and
@@ -16,7 +16,7 @@ You can run `ruby test/unit/issue_test.rb` for running a single test case and
 
 You can run tests in parallel by setting the PARALLEL_WORKERS environment
 variable:
-`PARALLEL_WORKERS=8 rake test`
+`PARALLEL_WORKERS=8 bin/rails test`
 
 Before running tests, you need to configure both development
 and test databases.
@@ -27,8 +27,8 @@ Creating test repositories
 Redmine supports a wide array of different version control systems.
 To test the support, a test repository needs to be created for each of those.
 
-Run `rake --tasks test:scm:setup` for a list of available test-repositories or
-run `rake test:scm:setup:all` to set up all of them. The repositories are
+Run `bin/rails --tasks test:scm:setup` for a list of available test-repositories or
+run `bin/rails test:scm:setup:all` to set up all of them. The repositories are
 unpacked into {redmine_root}/tmp/test.
 
 If the test repositories are not present, the tests that need them will be
@@ -58,7 +58,7 @@ Running Redmine.pm tests
 
 Running the tests for the Redmine.pm perl module needs a bit more setup.
 You need an Apache server with mod_perl, mod_dav_svn and Redmine.pm configured.
-See: http://www.redmine.org/projects/redmine/wiki/Repositories_access_control_with_apache_mod_dav_svn_and_mod_perl
+See: https://www.redmine.org/projects/redmine/wiki/Repositories_access_control_with_apache_mod_dav_svn_and_mod_perl
 
 You need an empty repository accessible at http://127.0.0.1/svn/ecookbook
 Then, you can run the tests with:
@@ -74,7 +74,7 @@ You need to have Chrome installed and available in your PATH.
 Chromedriver is managed by the `webdrivers` gem (https://rubygems.org/gems/webdrivers)
 
 Capybara tests can be run with:
-`rails test:system`
+`bin/rails test:system`
 
 The following environment variables can be used to configure your system tests setup:
 `CAPYBARA_SERVER_HOST`: configure server to run on a custom IP which can be, for example, your remote Selenium IP or 0.0.0.0 to listen an all connections
@@ -106,4 +106,13 @@ Install Stylelint:
 `yarn install`
 
 You can run Stylelint with:
-`node_modules/.bin/stylelint "public/stylesheets/**/*.css"`
+`npx stylelint "app/assets/stylesheets/**/*.css"`
+
+Viewing SVG icons list in development mode
+=======================================
+
+When running Redmine in development mode, you can view a list of all available SVG icons and their names at:
+
+    http://localhost:3000/rails/info/svg_icons
+
+This page is useful for checking icon appearance and names during view development.

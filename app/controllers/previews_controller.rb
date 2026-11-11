@@ -26,7 +26,7 @@ class PreviewsController < ApplicationController
     if @issue
       @previewed = @issue
     end
-    @text = params[:text] ? params[:text] : nil
+    @text = params[:text] || nil
     render :partial => 'common/preview'
   end
 
@@ -34,12 +34,12 @@ class PreviewsController < ApplicationController
     if params[:id].present? && news = News.visible.find_by_id(params[:id])
       @previewed = news
     end
-    @text = params[:text] ? params[:text] : nil
+    @text = params[:text] || nil
     render :partial => 'common/preview'
   end
 
   def text
-    @text = params[:text] ? params[:text] : nil
+    @text = params[:text] || nil
     render :partial => 'common/preview'
   end
 
@@ -47,7 +47,7 @@ class PreviewsController < ApplicationController
 
   def find_project
     project_id = (params[:issue] && params[:issue][:project_id]) || params[:project_id]
-    @project = Project.find(project_id)
+    @project = Project.find(project_id) if project_id.present?
   rescue ActiveRecord::RecordNotFound
     render_404
   end

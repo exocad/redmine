@@ -24,7 +24,8 @@ module ProjectsHelper
         {:name => 'info', :action => :edit_project,
          :partial => 'projects/edit', :label => :label_project},
         {:name => 'members', :action => :manage_members,
-         :partial => 'projects/settings/members', :label => :label_member_plural},
+         :partial => 'members/members', :label => :label_member_plural,
+         :url => {:tab => 'members'}.merge(members_list_params)},
         {:name => 'issues', :action => :edit_project, :module => :issue_tracking,
          :partial => 'projects/settings/issues', :label => :label_issue_tracking},
         {:name => 'versions', :action => :manage_versions,
@@ -63,10 +64,10 @@ module ProjectsHelper
   def render_project_action_links
     links = (+"").html_safe
     if User.current.allowed_to?(:add_project, nil, :global => true)
-      links << link_to(l(:label_project_new), new_project_path, :class => 'icon icon-add')
+      links << link_to(sprite_icon('add', l(:label_project_new)), new_project_path, :class => 'icon icon-add')
     end
     if User.current.admin?
-      links << link_to(l(:label_administration), admin_projects_path, :class => 'icon icon-settings')
+      links << link_to(sprite_icon('settings', l(:label_administration)), admin_projects_path, :class => 'icon icon-settings')
     end
     links
   end
@@ -78,9 +79,12 @@ module ProjectsHelper
       classes = project.css_classes.split
       classes += %w(icon icon-user my-project) if User.current.member_of?(project)
       classes += %w(icon icon-bookmarked-project) if bookmarked_project_ids.include?(project.id)
+
       s = link_to_project(project, {}, :class => classes.uniq.join(' '))
+      s << tag.span(sprite_icon('user', l(:label_my_projects), icon_only: true), class: 'icon-only icon-user my-project') if User.current.member_of?(project)
+      s << tag.span(sprite_icon('bookmarked', l(:label_my_bookmarks), icon_only: true), class: 'icon-only icon-bookmarked-project') if bookmarked_project_ids.include?(project.id)
       if project.description.present?
-        s << content_tag('div', textilizable(project.short_description, :project => project), :class => 'wiki description')
+        s << content_tag('div', textilizable(project, :short_description, :project => project), :class => 'wiki description')
       end
       s
     end
@@ -146,19 +150,19 @@ module ProjectsHelper
       project.rolled_up_trackers(false).visible.each do |tracker|
         api.tracker(:id => tracker.id, :name => tracker.name)
       end
-    end if include_in_api_response?('trackers')
+    end if include_in_api_response?('trackers') && User.current.allowed_to?(:view_issues, project)
 
     api.array :issue_categories do
       project.issue_categories.each do |category|
         api.issue_category(:id => category.id, :name => category.name)
       end
-    end if include_in_api_response?('issue_categories')
+    end if include_in_api_response?('issue_categories') && User.current.allowed_to?(:view_issues, project)
 
     api.array :time_entry_activities do
       project.activities.each do |activity|
         api.time_entry_activity(:id => activity.id, :name => activity.name)
       end
-    end if include_in_api_response?('time_entry_activities')
+    end if include_in_api_response?('time_entry_activities') && User.current.allowed_to?(:view_time_entries, project)
 
     api.array :enabled_modules do
       project.enabled_modules.each do |enabled_module|
@@ -170,7 +174,7 @@ module ProjectsHelper
       project.all_issue_custom_fields.each do |custom_field|
         api.custom_field(:id => custom_field.id, :name => custom_field.name)
       end
-    end if include_in_api_response?('issue_custom_fields')
+    end if include_in_api_response?('issue_custom_fields') && User.current.allowed_to?(:view_issues, project)
   end
 
   def bookmark_link(project, user = User.current)
@@ -182,19 +186,21 @@ module ProjectsHelper
 
     if bookmarked
       css << "icon-bookmark"
+      icon = "bookmark-delete"
       method = "delete"
-      text = l(:button_project_bookmark_delete)
+      text = sprite_icon(icon, l(:button_project_bookmark_delete))
     else
       css << "icon-bookmark-off"
+      icon = "bookmark-add"
       method = "post"
-      text = l(:button_project_bookmark)
+      text = sprite_icon(icon, l(:button_project_bookmark))
     end
 
     url = bookmark_project_path(project)
     link_to text, url, remote: true, method: method, class: css
   end
 
-  def grouped_project_list(projects, query, &block)
+  def grouped_project_list(projects, query, &)
     ancestors = []
     grouped_query_results(projects, query) do |project, group_name, group_count, group_totals|
       ancestors.pop while ancestors.any? && !project.is_descendant_of?(ancestors.last)

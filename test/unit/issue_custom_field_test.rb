@@ -22,8 +22,6 @@ require_relative '../test_helper'
 class IssueCustomFieldTest < ActiveSupport::TestCase
   include Redmine::I18n
 
-  fixtures :roles
-
   def setup
     User.current = nil
   end
@@ -44,5 +42,14 @@ class IssueCustomFieldTest < ActiveSupport::TestCase
     field.visible = true
     field.save!
     assert_equal 0, field.roles.count
+  end
+
+  def test_destroy_should_delete_workflow_rules
+    field = IssueCustomField.create!(:name => 'Field', :field_format => 'string')
+    WorkflowPermission.create!(:role_id => 1, :tracker_id => 1, :old_status_id => 1, :field_name => field.id.to_s, :rule => 'required')
+    assert_equal 1, WorkflowPermission.where(:field_name => field.id.to_s).count
+
+    field.destroy
+    assert_equal 0, WorkflowPermission.where(:field_name => field.id.to_s).count
   end
 end

@@ -25,15 +25,29 @@ module Redmine
       # We do not use the stock HTML::Pipeline::MarkdownFilter because this
       # does not allow for straightforward configuration of render and parsing
       # options
-      class MarkdownFilter < HTML::Pipeline::TextFilter
-        def initialize(text, context = nil, result = nil)
-          super(text, context, result)
-          @text = @text.delete "\r"
+      class MarkdownFilter
+        # Tags that the commonmarker tagfilter extension escaped before its
+        # removal
+        DISALLOWED_RAW_HTML_TAG = %r{<(?=/?(?:title|textarea|style|xmp|iframe|noembed|noframes|script|plaintext)(?:[\s/>]|\z))}i
+
+        attr_reader :context
+
+        def initialize(text, context = nil)
+          @text = text.delete "\r"
+          @context = context
         end
 
         def call
-          doc = CommonMarker.render_doc(@text, parse_options, extensions)
-          html = doc.to_html render_options, extensions
+          html = Commonmarker.to_html(@text, options: {
+                                        extension: extensions,
+            render: render_options,
+            parse: parse_options
+                                      }, plugins: plugins)
+
+          # Escape these tags in raw HTML as the commonmarker tagfilter
+          # extension did, since the extension was removed in commonmarker
+          # 2.10.1.
+          html.gsub!(DISALLOWED_RAW_HTML_TAG, '&lt;')
           html.rstrip!
           html
         end
@@ -41,15 +55,19 @@ module Redmine
         private
 
         def extensions
-          context.fetch :commonmarker_extensions, []
+          context.fetch :commonmarker_extensions, {}
         end
 
         def parse_options
-          context.fetch :commonmarker_parse_options, :DEFAULT
+          context.fetch :commonmarker_parse_options, {}
         end
 
         def render_options
-          context.fetch :commonmarker_render_options, :DEFAULT
+          context.fetch :commonmarker_render_options, {}
+        end
+
+        def plugins
+          context.fetch :commonmarker_plugins, {}
         end
       end
     end

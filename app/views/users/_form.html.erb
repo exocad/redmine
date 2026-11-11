@@ -7,8 +7,13 @@
 <fieldset class="box tabular">
   <legend><%=l(:label_information_plural)%></legend>
   <p><%= f.text_field :login, :required => true, :size => 25  %></p>
-  <p><%= f.text_field :firstname, :required => true %></p>
-  <p><%= f.text_field :lastname, :required => true %></p>
+  <% if User.lastname_before_firstname? %>
+    <p><%= f.text_field :lastname, :required => true %></p>
+    <p><%= f.text_field :firstname, :required => true %></p>
+  <% else %>
+    <p><%= f.text_field :firstname, :required => true %></p>
+    <p><%= f.text_field :lastname, :required => true %></p>
+  <% end %>
   <p><%= f.text_field :mail, :required => true %></p>
   <% unless @user.force_default_language? %>
   <p><%= f.select :language, lang_options_for_select %></p>
@@ -29,13 +34,13 @@
   <% end %>
   <div id="password_fields" style="<%= 'display:none;' if @user.auth_source %>">
   <p>
-    <%= f.password_field :password, :required => @user.new_record?, :size => 25  %>
+    <%= f.password_field :password, :required => @user.new_record?, :size => 25, :autocomplete => 'new-password' %>
     <em class="info"><%= l(:text_caracters_minimum, :count => Setting.password_min_length) %></em>
     <% if Setting.password_required_char_classes.any? %>
       <em class="info"><%= l(:text_characters_must_contain, :character_classes => Setting.password_required_char_classes.collect{|c| l("label_password_char_class_#{c}")}.join(", ")) %></em>
     <% end %>
   </p>
-  <p><%= f.password_field :password_confirmation, :required => @user.new_record?, :size => 25  %></p>
+  <p><%= f.password_field :password_confirmation, :required => @user.new_record?, :size => 25, :autocomplete => 'new-password' %></p>
   <p><%= f.check_box :generate_password %></p>
   <p><%= f.check_box :must_change_passwd %></p>
   </div>
@@ -55,6 +60,14 @@
   </p>
   <% end -%>
 </fieldset>
+<p class="mobile-hide">
+  <% if @user.new_record? %>
+    <%= submit_tag l(:button_create) %>
+    <%= submit_tag l(:button_create_and_continue), :name => 'continue' %>
+  <% else %>
+    <%= submit_tag l(:button_save) %>
+  <% end %>
+</p>
 </div>
 
 <div class="splitcontentright">

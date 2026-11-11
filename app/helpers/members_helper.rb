@@ -48,6 +48,51 @@ module MembersHelper
     s + content_tag('span', links, :class => 'pagination')
   end
 
+  def member_status_options
+    [
+      [l(:label_all), ''],
+      [l(:status_active), User::STATUS_ACTIVE.to_s],
+      [l(:status_locked), User::STATUS_LOCKED.to_s]
+    ]
+  end
+
+  # Returns the scope of the members of project matching the filters
+  # set in the request params
+  def members_scope(project)
+    scope =
+      project.memberships.
+        like(params[:member_name]).
+        with_role(params[:member_role_id])
+    if User.current.allowed_to?(:manage_members, project)
+      scope.status(params[:member_status])
+    else
+      scope.active
+    end
+  end
+
+  # limit/offset on Member.sorted would paginate role join rows, not members
+  def paginate_members(scope)
+    ordered_ids = scope.sorted.pluck("#{Member.table_name}.id").uniq
+    member_count = ordered_ids.size
+    member_pages = Redmine::Pagination::Paginator.new(member_count, per_page_option, params['members_page'], 'members_page')
+    page_ids = ordered_ids[member_pages.offset, member_pages.per_page] || []
+    members_by_id = scope.where(:id => page_ids).preload(:project, :principal, :roles).index_by(&:id)
+    members = page_ids.filter_map {|id| members_by_id[id]}
+    [members, member_pages, member_count]
+  end
+
+  # Returns the params that define the members list currently displayed
+  # (pagination and filters), so that they can be preserved across the member
+  # creation, edition and deletion requests
+  def members_list_params
+    {
+      :members_page => params[:members_page],
+      :member_name => params[:member_name],
+      :member_role_id => params[:member_role_id],
+      :member_status => params[:member_status]
+    }.select {|_, value| value.present?}
+  end
+
   # Returns inheritance information for an inherited member role
   def render_role_inheritance(member, role)
     content = member.role_inheritance(role).filter_map do |h|
@@ -60,6 +105,25 @@ module MembersHelper
 
     if content.present?
       content_tag('em', content.join(", "), :class => "info")
+    end
+  end
+
+  def members_to_csv(members)
+    Redmine::Export::CSV.generate(encoding: params[:encoding]) do |csv|
+      # csv headers
+      csv << [l(:field_principal), l(:field_type), l(:label_role), l(:label_project)]
+
+      # csv lines
+      members.each do |member|
+        member.roles.each do |role|
+          csv << [
+            member.principal.name,
+            member.principal.is_a?(Group) ? l(:label_group) : l(:label_user),
+            role.name,
+            member.project.name
+          ]
+        end
+      end
     end
   end
 end

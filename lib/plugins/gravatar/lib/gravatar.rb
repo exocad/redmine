@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require 'digest/md5'
 require 'cgi'
 
 module GravatarHelper
@@ -55,7 +54,7 @@ module GravatarHelper
       # double the size for hires displays
       options[:srcset] = "#{gravatar_url(email, options.merge(size: options[:size].to_i * 2))} 2x"
 
-      image_tag src, options.except(:rating, :size, :default, :ssl)
+      image_tag src, options.except(:rating, :default, :ssl)
     end
 
     # Returns the base Gravatar URL for the given email hash
@@ -65,12 +64,12 @@ module GravatarHelper
 
     # Return the gravatar URL for the given email address.
     def gravatar_url(email, options={})
-      email_hash = Digest::MD5.hexdigest(email)
+      email_hash = Digest::SHA256.hexdigest(email)
       options = DEFAULT_OPTIONS.merge(options)
       options[:default] = CGI::escape(options[:default]) unless options[:default].nil?
       gravatar_api_url(email_hash).tap do |url|
         opts = []
-        [:rating, :size, :default].each do |opt|
+        [:rating, :size, :default, :initials].each do |opt|
           unless options[opt].nil?
             value = h(options[opt])
             opts << [opt, value].join('=')

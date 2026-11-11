@@ -20,16 +20,6 @@
 require_relative '../test_helper'
 
 class ReportsControllerTest < Redmine::ControllerTest
-  fixtures :projects, :trackers, :issue_statuses, :issues,
-           :enumerations, :users, :issue_categories,
-           :projects_trackers,
-           :roles,
-           :member_roles,
-           :members,
-           :enabled_modules,
-           :versions,
-           :workflows
-
   def test_get_issue_report
     get(
       :issue_report,
@@ -107,6 +97,8 @@ class ReportsControllerTest < Redmine::ControllerTest
     WorkflowTransition.create(:role_id => 1, :tracker_id => 1, :old_status_id => 1, :new_status_id => 4)
     WorkflowTransition.create(:role_id => 1, :tracker_id => 1, :old_status_id => 2, :new_status_id => 5)
     WorkflowTransition.create(:role_id => 1, :tracker_id => 2, :old_status_id => 1, :new_status_id => 6)
+    WorkflowTransition.create(:role_id => 1, :tracker_id => 2, :old_status_id => 3, :new_status_id => 3)
+
     with_settings :display_subprojects_issues => '0' do
       get(:issue_report_details, :params => {:id => 1, :detail => 'tracker'})
     end
@@ -206,6 +198,17 @@ class ReportsControllerTest < Redmine::ControllerTest
       assert_select ':nth-child(9)', :text => '1' # closed
       assert_select ':nth-child(10)', :text => '3' # total
     end
+    assert_select 'table.list tfoot :nth-child(1)' do
+      assert_select 'td', :text => 'Total'
+      assert_select ':nth-child(2)', :text => '3' # status:1
+      assert_select ':nth-child(3)', :text => '0' # status:2
+      assert_select ':nth-child(4)', :text => '0' # status:3
+      assert_select ':nth-child(5)', :text => '0' # status:4
+      assert_select ':nth-child(6)', :text => '1' # status:5
+      assert_select ':nth-child(8)', :text => '3' # open
+      assert_select ':nth-child(9)', :text => '1' # closed
+      assert_select ':nth-child(10)', :text => '4' # total
+    end
   end
 
   def test_get_issue_report_details_by_assignee_should_show_non_assigned_issue_count
@@ -240,7 +243,7 @@ class ReportsControllerTest < Redmine::ControllerTest
         :detail => 'invalid'
       }
     )
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_issue_report_details_should_csv_export
@@ -255,6 +258,35 @@ class ReportsControllerTest < Redmine::ControllerTest
       )
       assert_response :success
       assert_equal 'text/csv; header=present', response.media_type
+    end
+  end
+
+  def test_issue_report_details_without_export_issues_permission_should_hide_csv_link_and_deny_csv_request
+    @request.session[:user_id] = 2
+    Role.find_by_name('Manager').remove_permission! :export_issues
+
+    get :issue_report_details, :params => {:id => 1, :detail => 'tracker'}
+    assert_response :success
+    assert_select 'p.other-formats', 0
+    assert_select '#csv-export-options', 0
+
+    get :issue_report_details, :params => {:id => 1, :detail => 'tracker', :format => 'csv'}
+    assert_response :forbidden
+  end
+
+  def test_issue_report_details_csv_should_require_export_issues_permission_on_subprojects
+    # User 2 is a non member of the public subproject 3 which has visible issues
+    @request.session[:user_id] = 2
+    Role.non_member.remove_permission! :export_issues
+
+    with_settings :display_subprojects_issues => '1' do
+      get :issue_report_details, :params => {:id => 1, :detail => 'tracker', :format => 'csv'}
+      assert_response :forbidden
+    end
+
+    with_settings :display_subprojects_issues => '0' do
+      get :issue_report_details, :params => {:id => 1, :detail => 'tracker', :format => 'csv'}
+      assert_response :success
     end
   end
 

@@ -45,7 +45,8 @@ class TimeEntry < ApplicationRecord
   )
   acts_as_activity_provider :timestamp => "#{table_name}.created_on",
                             :author_key => :user_id,
-                            :scope => proc {joins(:project).preload(:project)}
+                            :scope => proc {joins(:project).preload(:project, issue: [:tracker, :status])}
+  acts_as_webhookable
 
   validates_presence_of :author_id, :user_id, :activity_id, :project_id, :hours, :spent_on
   validates_presence_of :issue_id, :if => lambda {Setting.timelog_required_fields.include?('issue_id')}
@@ -56,6 +57,7 @@ class TimeEntry < ApplicationRecord
   before_validation :set_project_if_nil
   # TODO: remove this, author should be always explicitly set
   before_validation :set_author_if_nil
+  before_validation :set_activity_for_project, :if => lambda {persisted? && project_id_changed? && !activity_id_changed?}
   validate :validate_time_entry
 
   scope :visible, (lambda do |*args|
@@ -78,6 +80,10 @@ class TimeEntry < ApplicationRecord
                   'issue_id', 'activity_id', 'spent_on',
                   'custom_field_values', 'custom_fields'
 
+  def webhook_payload_api_template
+    "app/views/timelog/show.api.rsb"
+  end
+
   # Returns a SQL conditions string used to find all time entries visible by the specified user
   def self.visible_condition(user, options={})
     Project.allowed_to_condition(user, :view_time_entries, options) do |role, user|
@@ -89,6 +95,13 @@ class TimeEntry < ApplicationRecord
         '1=0'
       end
     end
+  end
+
+  # Returns time entries found by IDs with preloaded associations
+  def self.find_with_preloads(ids)
+    where(:id => ids).
+      preload(:project => :time_entry_activities).
+      preload(:user).to_a
   end
 
   # Returns true if user or current user is allowed to view the time entry
@@ -114,6 +127,7 @@ class TimeEntry < ApplicationRecord
 
   def safe_attributes=(attrs, user=User.current)
     if attrs
+      previous_custom_field_values = custom_field_values.map(&:dup)
       attrs = super(attrs)
       if issue_id_changed? && issue
         if issue.visible?(user) && user.allowed_to?(:log_time, issue.project)
@@ -138,10 +152,14 @@ class TimeEntry < ApplicationRecord
         @invalid_user_id = nil
       end
 
-      # Delete assigned custom fields not visible by the user
-      editable_custom_field_ids = editable_custom_field_values(user).map {|v| v.custom_field_id.to_s}
-      self.custom_field_values.delete_if do |c|
-        !editable_custom_field_ids.include?(c.custom_field.id.to_s)
+      # Restore custom field values not visible by the user
+      editable_custom_field_ids = editable_custom_field_values(user).map(&:custom_field_id)
+      custom_field_values.map!.with_index do |custom_field_value, i|
+        if editable_custom_field_ids.include?(custom_field_value.custom_field_id)
+          custom_field_value
+        else
+          previous_custom_field_values[i]
+        end
       end
     end
 
@@ -154,6 +172,12 @@ class TimeEntry < ApplicationRecord
 
   def set_author_if_nil
     self.author = User.current if author.nil?
+  end
+
+  # Replaces the activity with the matching one of the new project
+  # when the time entry is moved to another project
+  def set_activity_for_project
+    self.activity_id = TimeEntryActivity.activity_id_for_project(activity_id, project)
   end
 
   def validate_time_entry
@@ -182,6 +206,9 @@ class TimeEntry < ApplicationRecord
     if spent_on && spent_on_changed? && user
       errors.add :base, I18n.t(:error_spent_on_future_date) if !Setting.timelog_accept_future_dates? && (spent_on > user.today)
     end
+    if !Setting.timelog_accept_closed_issues? && issue&.closed? && issue.was_closed?
+      errors.add :base, I18n.t(:error_spent_on_closed_issue)
+    end
   end
 
   def hours=(h)
@@ -191,7 +218,14 @@ class TimeEntry < ApplicationRecord
   def hours
     h = read_attribute(:hours)
     if h.is_a?(Float)
-      h.round(2)
+      # Convert the float value to a rational with a denominator of 60 to
+      # avoid floating point errors.
+      #
+      # Examples:
+      #  0.38333333333333336 => (23/60)   # 23m
+      #  0.9913888888888889  => (59/60)   # 59m 29s is rounded to 59m
+      #  0.9919444444444444  => (1/1)     # 59m 30s is rounded to 60m
+      (h * 60).round / 60r
     else
       h
     end
@@ -230,11 +264,25 @@ class TimeEntry < ApplicationRecord
     end
   end
 
+  # Overrides Redmine::Acts::Customizable::InstanceMethods#validate_custom_field_values
+  # so that custom values that are not editable are not validated (eg. a custom field that
+  # is marked as required should not trigger a validation error if the user is not allowed
+  # to edit this field).
+  def validate_custom_field_values
+    user = User.current
+    if new_record? || custom_field_values_changed?
+      editable_custom_field_values(user).each(&:validate_value)
+    end
+  end
+
   def assignable_users
     users = []
     if project
-      users = project.members.active.preload(:user)
-      users = users.map(&:user).select{|u| u.allowed_to?(:log_time, project)}
+      user_ids =
+        project.members.active.preload(:roles).filter_map do |m|
+          m.roles.any? {|role| role.allowed_to?(:log_time)} ? m.user_id : nil
+        end.uniq
+      users = User.where(:id => user_ids).sorted.to_a
     end
     users << User.current if User.current.logged? && !users.include?(User.current)
     users

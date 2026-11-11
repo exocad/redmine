@@ -20,12 +20,6 @@
 require_relative '../test_helper'
 
 class IssueNestedSetTest < ActiveSupport::TestCase
-  fixtures :projects, :users, :roles,
-           :trackers, :projects_trackers,
-           :issue_statuses, :issue_categories, :issue_relations,
-           :enumerations,
-           :issues
-
   def setup
     User.current = nil
   end
@@ -337,7 +331,7 @@ class IssueNestedSetTest < ActiveSupport::TestCase
     c.reload
 
     assert_equal 5, c.issues.count
-    ic1, ic2, ic3, ic4, ic5 = c.issues.order('subject').to_a
+    ic1, ic2, ic3, ic4, ic5 = c.issues.order(:subject).to_a
     assert ic1.root?
     assert_equal ic1, ic2.parent
     assert_equal ic1, ic3.parent

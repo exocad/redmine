@@ -20,10 +20,6 @@
 require_relative '../test_helper'
 
 class RepositoriesControllerTest < Redmine::RepositoryControllerTest
-  fixtures :projects, :users, :email_addresses, :roles, :members, :member_roles, :enabled_modules,
-           :repositories, :issues, :issue_statuses, :changesets, :changes,
-           :issue_categories, :enumerations, :custom_fields, :custom_values, :trackers
-
   def setup
     super
     User.current = nil
@@ -38,6 +34,8 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
       }
     )
     assert_response :success
+    assert_includes @response.headers['Cache-Control'], 'no-store'
+
     assert_select 'select[name=?]', 'repository_scm' do
       assert_select 'option[value=?][selected=selected]', 'Subversion'
     end
@@ -45,8 +43,10 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
   end
 
   def test_new_should_propose_enabled_scm_only
+    skip "Git is unavailable" unless Repository::Git.scm_available
+
     @request.session[:user_id] = 1
-    with_settings :enabled_scm => ['Mercurial', 'Git'] do
+    with_settings :enabled_scm => ['Filesystem', 'Git'] do
       get(
         :new,
         :params => {
@@ -57,12 +57,14 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
     assert_response :success
     assert_select 'select[name=repository_scm]' do
       assert_select 'option', 3
-      assert_select 'option[value=Mercurial][selected=selected]'
+      assert_select 'option[value=Filesystem][selected=selected]'
       assert_select 'option[value=Git]:not([selected])'
     end
   end
 
   def test_get_new_with_type
+    skip "Git is unavailable" unless Repository::Git.scm_available
+
     @request.session[:user_id] = 1
     get(
       :new,
@@ -78,6 +80,8 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
   end
 
   def test_create
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
+
     @request.session[:user_id] = 1
     assert_difference 'Repository.count' do
       post(
@@ -93,13 +97,15 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
         }
       )
     end
-    assert_response 302
-    repository = Repository.order('id DESC').first
+    assert_response :found
+    repository = Repository.order(id: :desc).first
     assert_kind_of Repository::Subversion, repository
     assert_equal 'file:///test', repository.url
   end
 
   def test_create_with_failure
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
+
     @request.session[:user_id] = 1
     assert_no_difference 'Repository.count' do
       post(
@@ -114,9 +120,38 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
       )
     end
     assert_response :success
+    assert_includes @response.headers['Cache-Control'], 'no-store'
+
     assert_select_error /URL is invalid/
     assert_select 'select[name=?]', 'repository_scm' do
       assert_select 'option[value=?][selected=selected]', 'Subversion'
+    end
+  end
+
+  def test_create_should_reject_subversion_url_with_newline_injection
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
+
+    @request.session[:user_id] = 1
+    [
+      "file:///test\nfoo",
+      "svn+ssh://example.com/repo\r\nbar"
+    ].each do |injected_url|
+      assert_no_difference 'Repository.count', "expected #{injected_url.inspect} to be rejected" do
+        post(
+          :create,
+          :params => {
+            :project_id => 'subproject1',
+            :repository_scm => 'Subversion',
+            :repository => {
+              :url => injected_url,
+              :is_default => '1',
+              :identifier => ''
+            }
+          }
+        )
+      end
+      assert_response :success
+      assert_select_error /URL is invalid/
     end
   end
 
@@ -124,6 +159,8 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
     @request.session[:user_id] = 1
     get(:edit, :params => {:id => 11})
     assert_response :success
+    assert_includes @response.headers['Cache-Control'], 'no-store'
+
     assert_select 'input[name=?][value=?][disabled=disabled]', 'repository[url]', 'svn://localhost/test'
   end
 
@@ -138,7 +175,7 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
         }
       }
     )
-    assert_response 302
+    assert_response :found
     assert_equal 'test_update', Repository.find(11).password
   end
 
@@ -154,6 +191,8 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
       }
     )
     assert_response :success
+    assert_includes @response.headers['Cache-Control'], 'no-store'
+
     assert_select_error /Password is too long/
   end
 
@@ -162,11 +201,13 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
     assert_difference 'Repository.count', -1 do
       delete(:destroy, :params => {:id => 11})
     end
-    assert_response 302
+    assert_response :found
     assert_nil Repository.find_by_id(11)
   end
 
   def test_show_with_autofetch_changesets_enabled_should_fetch_changesets
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
+
     Repository::Subversion.any_instance.expects(:fetch_changesets).once
     with_settings :autofetch_changesets => '1' do
       get(:show, :params => {:id => 1})
@@ -174,6 +215,8 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
   end
 
   def test_show_with_autofetch_changesets_disabled_should_not_fetch_changesets
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
+
     Repository::Subversion.any_instance.expects(:fetch_changesets).never
     with_settings :autofetch_changesets => '0' do
       get(:show, :params => {:id => 1})
@@ -181,6 +224,8 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
   end
 
   def test_show_with_closed_project_should_not_fetch_changesets
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
+
     Repository::Subversion.any_instance.expects(:fetch_changesets).never
     Project.find(1).close
     with_settings :autofetch_changesets => '1' do
@@ -190,6 +235,7 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
 
   def test_show_without_main_repository_should_display_first_repository
     skip unless repository_configured?('subversion')
+    skip unless Repository::Subversion.scm_available
 
     project = Project.find(1)
     repos = project.repositories
@@ -212,6 +258,7 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
 
   def test_show_should_show_diff_button_depending_on_browse_repository_permission
     skip unless repository_configured?('subversion')
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
 
     @request.session[:user_id] = 2
     role = Role.find(1)
@@ -229,6 +276,7 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
 
   def test_fetch_changesets
     skip unless repository_configured?('subversion')
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
 
     @request.session[:user_id] = 2
     role = Role.find(1)
@@ -259,6 +307,8 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
   end
 
   def test_revisions_for_other_repository
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
+
     repository = Repository::Subversion.create!(:project_id => 1, :identifier => 'foo', :url => 'file:///foo')
     get(
       :revisions,
@@ -279,7 +329,7 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
         :repository_id => 'foo'
       }
     )
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_revision
@@ -440,6 +490,19 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
     assert_include 'related-issue-2', response.body
   end
 
+  def test_stats
+    get(
+      :stats,
+      :params => {
+        :id => 1,
+        :repository_id => ''
+      }
+    )
+    assert_response :success
+    assert_equal 2, response.parsed_body.css('[data-controller="repositories--stats"]').size
+    assert_equal 2, response.parsed_body.css('[data-repositories--stats-url-value]').size
+  end
+
   def test_graph_commits_per_month
     # Make sure there's some data to display
     latest = Project.find(1).repository.changesets.maximum(:commit_date)
@@ -523,7 +586,7 @@ class RepositoriesControllerTest < Redmine::RepositoryControllerTest
           }
         }
       )
-      assert_response 302
+      assert_response :found
       assert_equal User.find(2), c.reload.user
     end
   end

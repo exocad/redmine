@@ -20,8 +20,6 @@
 require_relative '../test_helper'
 
 class IssueStatusesControllerTest < Redmine::ControllerTest
-  fixtures :issue_statuses, :issues, :users, :trackers, :workflows
-
   def setup
     User.current = nil
     @request.session[:user_id] = 1 # admin
@@ -42,7 +40,7 @@ class IssueStatusesControllerTest < Redmine::ControllerTest
   def test_index_by_user_should_respond_with_406
     @request.session[:user_id] = 2
     get :index
-    assert_response 406
+    assert_response :not_acceptable
   end
 
   def test_index_should_show_warning_when_no_workflow_is_defined
@@ -80,7 +78,7 @@ class IssueStatusesControllerTest < Redmine::ControllerTest
       )
     end
     assert_redirected_to :action => 'index'
-    status = IssueStatus.order('id DESC').first
+    status = IssueStatus.order(id: :desc).first
     assert_equal 'New status', status.name
     assert_equal 'New status description', status.description
   end

@@ -3,10 +3,7 @@
 <%= form_tag({}, :method => :get, :id => 'search-form') do %>
 <div class="box">
 <%= label_tag "search-input", l(:description_search), :class => "hidden-for-sighted" %>
-<p><%= text_field_tag 'q', @question, :size => 60, :id => 'search-input',
-                      :data => {
-                          :auto_complete => true
-                      } %>
+<p><%= text_field_tag 'q', @question, :size => 60, :id => 'search-input', :data => { :auto_complete => true } %>
 <%= project_select_tag %>
 <%= hidden_field_tag 'all_words', '', :id => nil %>
 <label><%= check_box_tag 'all_words', 1, @all_words %> <%= l(:label_all_words) %></label>
@@ -24,7 +21,10 @@
 </fieldset>
 
 <fieldset class="collapsible collapsed">
-  <legend onclick="toggleFieldset(this);" class="icon icon-collapsed"><%= l(:label_options) %></legend>
+  <legend onclick="toggleFieldset(this);" class="icon icon-collapsed">
+    <%= sprite_icon("angle-right", rtl: true) %>
+    <%= l(:label_options) %>
+  </legend>
   <div id="options-content" style="display:none;">
     <p><label><%= check_box_tag 'open_issues', 1, @open_issues %> <%= l(:label_search_open_issues_only) %></label></p>
     <p>
@@ -48,12 +48,13 @@
     <h3><%= l(:label_result_plural) %> (<%= @result_count %>)</h3>
     <% if @result_count_by_type['issues'].to_i > 0 && @search_attachments == '0' %>
       <p class="buttons">
-        <%= link_to l(:button_apply_issues_filter), issues_filter_path(@question, projects_scope: params[:scope], all_words: @all_words, titles_only: @titles_only, open_issues: @open_issues), :class => 'icon icon-list' %>
+        <%= link_to sprite_icon('list', l(:button_apply_issues_filter)), issues_filter_path(@question, projects_scope: params[:scope], all_words: @all_words, titles_only: @titles_only, open_issues: @open_issues), :class => 'icon icon-list' %>
       </p>
     <% end %>
     <dl id="search-results">
       <% @results.each do |e| %>
         <dt class="<%= e.event_type %> icon icon-<%= e.event_type %>">
+          <%= sprite_icon(e.event_type) %>
           <%= content_tag('span', e.project, :class => 'project') unless @project == e.project %>
           <%= link_to(highlight_tokens(e.event_title.truncate(255), @tokens), e.event_url) %>
         </dt>

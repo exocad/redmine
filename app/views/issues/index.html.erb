@@ -1,24 +1,25 @@
 <div class="contextual">
   <% if User.current.allowed_to?(:add_issues, @project, :global => true) && (@project.nil? || Issue.allowed_target_trackers(@project).any?) %>
-    <%= link_to l(:label_issue_new), _new_project_issue_path(@project), :class => 'icon icon-add new-issue' %>
+    <%= link_to sprite_icon('add', l(:label_issue_new)), _new_project_issue_path(@project), :class => 'icon icon-add new-issue' %>
   <% end %>
   <%= actions_dropdown do %>
     <% if @project %>
-      <%= link_to l(:field_summary), project_issues_report_path(@project), :class => 'icon icon-stats' %>
+      <%= link_to sprite_icon('summary', l(:field_summary)), project_issues_report_path(@project), :class => 'icon icon-stats' %>
     <% end %>
 
-    <% if User.current.allowed_to?(:import_issues, @project, :global => true) %>
-      <%= link_to l(:button_import), new_issues_import_path(:project_id => @project), :class => 'icon icon-import' %>
+    <% if User.current.allowed_to?(:import_issues, @project, :global => true) && User.current.allowed_to?(:add_issues, @project, :global => true) %>
+      <%= link_to sprite_icon('import', l(:button_import)), new_issues_import_path(:project_id => @project), :class => 'icon icon-import' %>
     <% end %>
 
-    <%= link_to_if_authorized l(:label_settings),
-              {:controller => 'projects', :action => 'settings', :id => @project, :tab => 'issues'},
-              :class => 'icon icon-settings' if User.current.allowed_to?(:edit_project, @project) %>
+    <%= link_to_if_authorized sprite_icon('settings', l(:label_settings)),
+                              {:controller => 'projects', :action => 'settings', :id => @project, :tab => 'issues'},
+                              :class => 'icon icon-settings' if User.current.allowed_to?(:edit_project, @project) %>
   <% end %>
 </div>
 
 <h2><%= @query.new_record? ? l(:label_issue_plural) : @query.name %></h2>
 <% html_title(@query.new_record? ? l(:label_issue_plural) : @query.name) %>
+<%= @query.persisted? && @query.description.present? ? content_tag('p', @query.description, class: 'subtitle') : '' %>
 
 <%= form_tag(_project_issues_path(@project), :method => :get, :id => 'query_form') do %>
   <%= render :partial => 'queries/query_form' %>
@@ -33,12 +34,16 @@
 <span class="pagination"><%= pagination_links_full @issue_pages, @issue_count %></span>
 <% end %>
 
+<% export_allowed = export_allowed?(:export_issues, @query.base_scope) %>
 <% other_formats_links do |f| %>
-  <%= f.link_to_with_query_parameters 'Atom', :key => User.current.atom_key %>
+  <% if export_allowed %>
   <%= f.link_to_with_query_parameters 'CSV', {}, :onclick => "showModal('csv-export-options', '350px'); return false;" %>
   <%= f.link_to_with_query_parameters 'PDF' %>
+  <% end %>
+  <%= f.link_to_with_query_parameters 'Atom', :key => User.current.atom_key %>
 <% end %>
 
+<% if export_allowed %>
 <div id="csv-export-options" style="display:none;">
   <h3 class="title"><%= l(:label_export_options, :export_format => 'CSV') %></h3>
   <%= form_tag(_project_issues_path(@project, :format => 'csv'), :method => :get, :id => 'csv-export-form') do %>
@@ -62,7 +67,7 @@
   <%= export_csv_separator_select_tag %>
   <% if @issue_count > Setting.issues_export_limit.to_i %>
   <p class="icon icon-warning">
-    <%= l(:setting_issues_export_limit) %>: <%= Setting.issues_export_limit.to_i %>
+    <%= sprite_icon('warning', l(:setting_issues_export_limit)) %>: <%= Setting.issues_export_limit.to_i %>
   </p>
   <% end %>
   <p class="buttons">
@@ -71,6 +76,7 @@
   </p>
   <% end %>
 </div>
+<% end %>
 
 <% end %>
 <%= call_hook(:view_issues_index_bottom, { :issues => @issues, :project => @project, :query => @query }) %>

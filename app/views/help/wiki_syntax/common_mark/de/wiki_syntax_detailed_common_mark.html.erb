@@ -1,8 +1,8 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<!DOCTYPE html>
+<html>
 <head>
 <title>Redmine Wiki-Formatierung (CommonMark Markdown (GitHub Flavored))detailliert</title>
-<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<meta charset="UTF-8">
 <%= stylesheet_link_tag "wiki_syntax_detailed.css" %>
 </head>
 
@@ -26,7 +26,9 @@
         </ul>
         <li><a href='#12'>Makros</a></li>
         <li><a href='#13'>Hervorgehobener Programmcode</a></li>
+        <li><a href='#17'>Mermaid diagrams</a></li>
         <li><a href='#15'>Roh HTML</a></li>
+        <li><a href='#16'>Alerts</a></li>
     </ul>
 
     <h2><a name="2" class="wiki-page"></a>Links</h2>
@@ -182,24 +184,24 @@
         <p>URLs (beginnend mit: www, http, https, ftp, ftps, sftp und sftps) und E-Mail-Adressen werden automatisch in anklickbare Links umgewandelt:</p>
 
 <pre>
-http://www.redmine.org, someone@foo.bar
+https://www.redmine.org, someone@example.com
 </pre>
 
-        <p>Anzeige: <a class="external" href="http://www.redmine.org">http://www.redmine.org</a>, <a href="mailto:someone@foo.bar" class="email">someone@foo.bar</a></p>
+        <p>Anzeige: <a class="external" href="https://www.redmine.org">https://www.redmine.org</a>, <a href="mailto:someone@example.com" class="email">someone@example.com</a></p>
 
         <p>Wenn Sie anstelle der URL einen bestimmten Text anzeigen möchten, können Sie die Standard-Markdown-Syntax verwenden:</p>
 
 <pre>
-[Redmine Webseite](http://www.redmine.org)
+[Redmine Webseite](https://www.redmine.org)
 </pre>
 
-        <p>Anzeige: <a href="http://www.redmine.org" class="external">Redmine Webseite</a></p>
+        <p>Anzeige: <a href="https://www.redmine.org" class="external">Redmine Webseite</a></p>
 
 
     <h2><a name="5" class="wiki-page"></a>Textformatierung</h2>
 
 
-    <p>Für Dinge wie Überschriften, Fettdruck, Tabellen, Listen unterstützt Redmine die Markdown-Syntax. Informationen zur Verwendung dieser Funktionen <a class="external" href="http://daringfireball.net/projects/markdown/syntax">http://daringfireball.net/projects/markdown/syntax</a> for information on using any of these features.  Ein paar Beispiele sind unten enthalten, aber die Engine unterstützt noch viel mehr Funktionen.</p>
+    <p>Für Dinge wie Überschriften, Fettdruck, Tabellen, Listen unterstützt Redmine die Markdown-Syntax. Informationen zur Verwendung dieser Funktionen <a class="external" href="https://daringfireball.net/projects/markdown/syntax">https://daringfireball.net/projects/markdown/syntax</a> for information on using any of these features.  Ein paar Beispiele sind unten enthalten, aber die Engine unterstützt noch viel mehr Funktionen.</p>
 
         <h3><a name="6" class="wiki-page"></a>Schriftstil</h3>
 
@@ -310,18 +312,27 @@ Es kann durch Klicken auf einen Link erweitert werden.
 {{issue(123, project=true)}}                -- Andromeda – Fehler #123: Makrofähigkeiten verbessern
 {{issue(123, tracker=false)}}               -- #123: Makrofähigkeiten verbessern
 {{issue(123, subject=false, project=true)}} -- Andromeda - Fehler #123</pre></dd>
+
+      <dt><code>recent_pages</code></dt>
+      <dd><p>Displays a list of recently updated wiki pages. With no argument, it displays pages that have been updated within the last 7 days. Examples:</p>
+        <pre>{{recent_pages}}            -- displays pages updated within the last 7 days
+{{recent_pages(days=3)}}    -- displays pages updated within the last 3 days
+{{recent_pages(limit=5)}}   -- limits the maximum number of pages to display to 5
+{{recent_pages(time=true)}} -- displays pages updated within the last 7 days with updated time
+{{recent_pages(project=identifier)}} -- displays pages updated within the last 7 days from a specific project
+{{recent_pages(include_subprojects=true)}} -- includes pages from subprojects</pre></dd>
     </dl>
     </p>
 
     <h2><a name="13" class="wiki-page"></a>Code-Hervorhebung</h2>
 
-        <p>Die standardmäßige Code-Hervorhebung basiert auf <a href="http://rouge.jneen.net/" class="external">Rouge</a>, einem reinen Ruby-Code-Highlighter. Rouge unterstützt viele häufig verwendete Sprachen wie <strong>c</strong>, <strong>cpp</strong> (c++), <strong>csharp</strong> (c#, cs), <strong>css</strong>, <strong>diff</strong> (patch, udiff), <strong>go</strong> (golang), <strong>groovy</strong>, <strong>html</strong>, <strong>java</strong>, <strong>javascript</strong> (js), <strong>kotlin</strong>, <strong>objective_c</strong> (objc), <strong>perl</strong> (pl), <strong>php</strong>, <strong>python</strong> (py), <strong>r</strong>, <strong>ruby</strong> (rb), <strong>sass</strong>, <strong>scala</strong>, <strong>shell</strong> (bash, zsh, ksh, sh), <strong>sql</strong>, <strong>swift</strong>, <strong>xml</strong> und <strong>yaml</strong> (yml) - die Namen in Klammern sind Aliase. Bitte beachten Sie die <a href="<%= help_code_highlighting_path %>" target="_blank">Liste der Sprachen, die vom Redmine-Code-Highlighter unterstützt werden</a>.</p>
+        <p>Die standardmäßige Code-Hervorhebung basiert auf <a href="https://rouge.jneen.net/" class="external">Rouge</a>, einem reinen Ruby-Code-Highlighter. Rouge unterstützt viele häufig verwendete Sprachen wie <strong>c</strong>, <strong>cpp</strong> (c++), <strong>csharp</strong> (c#, cs), <strong>css</strong>, <strong>diff</strong> (patch, udiff), <strong>go</strong> (golang), <strong>groovy</strong>, <strong>html</strong>, <strong>java</strong>, <strong>javascript</strong> (js), <strong>kotlin</strong>, <strong>objective_c</strong> (objc), <strong>perl</strong> (pl), <strong>php</strong>, <strong>python</strong> (py), <strong>r</strong>, <strong>ruby</strong> (rb), <strong>sass</strong>, <strong>scala</strong>, <strong>shell</strong> (bash, zsh, ksh, sh), <strong>sql</strong>, <strong>swift</strong>, <strong>xml</strong> und <strong>yaml</strong> (yml) - die Namen in Klammern sind Aliase. Bitte beachten Sie die <a href="<%= help_code_highlighting_path %>" target="_blank">Liste der Sprachen, die vom Redmine-Code-Highlighter unterstützt werden</a>.</p>
 
     <p>Sie können Code an jeder Stelle hervorheben, die Wiki-Formatierung mit dieser Syntax unterstützt (beachten Sie, dass beim Sprachnamen oder Alias ​​die Groß-/Kleinschreibung nicht beachtet wird):</p>
 
 <pre>
-``` ruby
-    Geben Sie hier Ihren Code ein.
+```ruby
+  Geben Sie hier Ihren Code ein.
 ```
 </pre>
 
@@ -338,6 +349,37 @@ Es kann durch Klicken auf einen Link erweitert werden.
   <span class="k">end</span>
 <span class="k">end</span>
 </code></pre>
+
+    <h2><a name="17" class="wiki-page"></a>Mermaid diagrams</h2>
+
+    <p>Code blocks written in the <strong>mermaid</strong> language are rendered as diagrams, such as flowcharts, sequence diagrams and Gantt charts, by <a href="https://mermaid.js.org/" class="external">Mermaid.js</a>. Please refer to the <a href="https://mermaid.js.org/intro/" class="external">Mermaid documentation</a> for the available diagrams and their syntax.<% if Redmine::Mermaid.installed_version %> Please note that the documentation describes the latest version of Mermaid.js, and some of the syntax described there may not be supported by the installed version, <%= Redmine::Mermaid.installed_version %>.<% end %></p>
+
+    <p>Mermaid.js is not bundled with Redmine, and diagrams are rendered only if the administrator has installed it. Otherwise, the code is displayed as a plain code block.</p>
+
+    <p>You can draw a diagram at any place that supports wiki formatting using this syntax:</p>
+
+<pre>
+```mermaid
+  Place your diagram definition here.
+```
+</pre>
+
+    <p>Example:</p>
+
+<pre>
+```mermaid
+flowchart LR
+  A[New issue] --&gt; B{Reproducible?}
+  B --&gt;|Yes| C[Fix]
+  B --&gt;|No| D[Close]
+```
+</pre>
+
+    <p>yields</p>
+
+<%= image_tag("help/mermaid_flowchart_decision.png", width: 635, alt: "Flowchart: a new issue is fixed if it is reproducible, and closed otherwise") %>
+
+    <p>A rendered diagram can be downloaded as a PNG image.</p>
 
     <h2><a name="15" class="wiki-page"></a>Roh HTML</h2>
 
@@ -358,6 +400,53 @@ Es kann durch Klicken auf einen Link erweitert werden.
 <tr><td>bar</td></tr>
 <tr><td align="center" colspan="2">bar</td></tr>
 </table>
+
+<h2><a name="16" class="wiki-page"></a>Warnungen</h2>
+
+<p>
+<dl>
+  <dt><code>NOTE</code></dt>
+  <dd>
+    <pre><code>> [!NOTE]<br>> Änderungen an Wiki-Seiten werden als Historie gespeichert, sodass Sie bei Bedarf frühere Versionen wiederherstellen können.</code></pre>
+    <div class="markdown-alert markdown-alert-note">
+    <p class="markdown-alert-title">Hinweis</p>
+    <p>Änderungen an Wiki-Seiten werden als Historie gespeichert, sodass Sie bei Bedarf frühere Versionen wiederherstellen können.</p>
+    </div>
+  </dd>
+  <dt><code>TIP</code></dt>
+  <dd>
+    <pre><code>> [!TIP]<br>> Um den Änderungsverlauf eines Tickets schnell einzusehen, nutzen Sie die Registerkarte „Historie“ für einen bequemen Zugriff.</code></pre>
+    <div class="markdown-alert markdown-alert-tip">
+      <p class="markdown-alert-title">Tipp</p>
+      <p>Um den Änderungsverlauf eines Tickets schnell einzusehen, nutzen Sie die Registerkarte „Historie“ für einen bequemen Zugriff.</p>
+    </div>
+  </dd>
+  <dt><code>IMPORTANT</code></dt>
+  <dd>
+    <pre><code>> [!IMPORTANT]<br>> Das Ändern von Rollenberechtigungen kann sich auf den Zugriff der Benutzer in allen Projekten auswirken. Achten Sie daher auf mögliche Folgen.</code></pre>
+    <div class="markdown-alert markdown-alert-important">
+        <p class="markdown-alert-title">Wichtig</p>
+        <p>Das Ändern von Rollenberechtigungen kann sich auf den Zugriff der Benutzer in allen Projekten auswirken. Achten Sie daher auf mögliche Folgen.</p>
+    </div>
+  </dd>
+  <dt><code>CAUTION</code></dt>
+  <dd>
+    <pre><code>> [!CAUTION]<br>> Achten Sie bei der Installation von Plugins darauf, die Kompatibilität zu überprüfen. Versionsunterschiede können zu unerwartetem Verhalten führen.</code></pre>
+    <div class="markdown-alert markdown-alert-caution">
+        <p class="markdown-alert-title">Achtung</p>
+        <p>Achten Sie bei der Installation von Plugins darauf, die Kompatibilität zu überprüfen. Versionsunterschiede können zu unerwartetem Verhalten führen.</p>
+    </div>
+  </dd>
+  <dt><code>WARNING</code></dt>
+  <dd>
+    <pre><code>> [!WARNING]<br>> Das Löschen eines Tickets ist ein unwiderruflicher Vorgang. Vergewissern Sie sich, dass dies wirklich notwendig ist, bevor Sie fortfahren.</code></pre>
+    <div class="markdown-alert markdown-alert-warning">
+        <p class="markdown-alert-title">Warnung</p>
+        <p>Das Löschen eines Tickets ist ein unwiderruflicher Vorgang. Vergewissern Sie sich, dass dies wirklich notwendig ist, bevor Sie fortfahren.</p>
+    </div>
+  </dd>
+</dl>
+</p>
 
 </body>
 </html>

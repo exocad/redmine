@@ -20,20 +20,6 @@
 require_relative '../test_helper'
 
 class IssueImportTest < ActiveSupport::TestCase
-  fixtures :projects, :enabled_modules,
-           :users, :email_addresses,
-           :roles, :members, :member_roles,
-           :issues, :issue_statuses,
-           :trackers, :projects_trackers,
-           :versions,
-           :issue_categories,
-           :enumerations,
-           :workflows,
-           :custom_fields,
-           :custom_values,
-           :custom_fields_projects,
-           :custom_fields_trackers
-
   include Redmine::I18n
 
   def setup
@@ -461,6 +447,23 @@ class IssueImportTest < ActiveSupport::TestCase
       guessed_encoding = import.settings['encoding']
       assert_equal 'CP932', lu(user, :general_csv_encoding)
       assert_equal 'CP932', guessed_encoding
+    end
+  end
+
+  def test_encoding_guessing_respects_multibyte_boundaries
+    # Reading a specified number of bytes from the beginning of this file
+    # may stop in the middle of a multi-byte character, which can lead to
+    # an invalid UTF-8 string.
+    test_file = 'mbcs-multiline-text.txt'
+    chunk = File.read(Rails.root.join('test', 'fixtures', 'files', test_file), 4096)
+    chunk.force_encoding('UTF-8') # => "...😃😄😅\xF0\x9F"
+    assert_not chunk.valid_encoding?
+
+    import = generate_import(test_file)
+    with_settings :repositories_encodings => 'UTF-8,ISO-8859-1' do
+      import.set_default_settings
+      guessed_encoding = import.settings['encoding']
+      assert_equal 'UTF-8', guessed_encoding
     end
   end
 

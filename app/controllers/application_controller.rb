@@ -28,9 +28,11 @@ class ApplicationController < ActionController::Base
   include Redmine::Hook::Helper
   include RoutesHelper
   include AvatarsHelper
+  include IconsHelper
 
   helper :routes
   helper :avatars
+  helper :icons
 
   class_attribute :accept_api_auth_actions
   class_attribute :accept_atom_auth_actions
@@ -59,7 +61,7 @@ class ApplicationController < ActionController::Base
     end
   end
 
-  before_action :session_expiration, :user_setup, :check_if_login_required, :set_localization, :check_password_change, :check_twofa_activation
+  before_action :api_session, :session_expiration, :user_setup, :check_if_login_required, :set_localization, :check_password_change, :check_twofa_activation
   after_action :record_project_usage
 
   rescue_from ::Unauthorized, :with => :deny_access
@@ -70,6 +72,19 @@ class ApplicationController < ActionController::Base
   helper Redmine::MenuManager::MenuHelper
 
   include Redmine::SudoMode::Controller
+
+  def api_session
+    return unless api_request?
+
+    # For an API request, we don't want to use the existing session of a user
+    # (if present). Thus, we setup a "null session", i.e. an empty transient
+    # session which is not persisted anywhere and is not tied to the "real" user
+    # session.
+    #
+    # We also setup an empty cookie store for the request duration which does
+    # not persist any new cookies.
+    ActionController::RequestForgeryProtection::ProtectionMethods::NullSession.new(self).handle_unverified_request
+  end
 
   def session_expiration
     if session[:user_id] && Rails.application.config.redmine_verify_sessions != false
@@ -95,6 +110,13 @@ class ApplicationController < ActionController::Base
     if user.must_activate_twofa?
       session[:must_activate_twofa] = '1'
     end
+  end
+
+  # Issues a new session token after the session tokens of the current user
+  # were deleted, so that the current session stays valid.
+  # API requests do not use the session and thus do not need a token.
+  def renew_session_token
+    session[:tk] = User.current.generate_session_token unless api_request?
   end
 
   def user_setup
@@ -129,6 +151,14 @@ class ApplicationController < ActionController::Base
       if (key = api_key_from_request)
         # Use API key
         user = User.find_by_api_key(key)
+      elsif access_token = Doorkeeper.authenticate(request)
+        # Oauth
+        if access_token.accessible?
+          user = User.active.find_by_id(access_token.resource_owner_id)
+          user&.oauth_scope = access_token.scopes.all.map(&:to_sym)
+        else
+          doorkeeper_render_error
+        end
       elsif /\ABasic /i.match?(request.authorization.to_s)
         # HTTP Basic, either username/password or API key/random
         authenticate_with_http_basic do |username, password|
@@ -261,7 +291,7 @@ class ApplicationController < ActionController::Base
   end
 
   def require_login
-    if !User.current.logged?
+    unless User.current.logged?
       # Extract only the basic url parameters on non-GET requests
       if request.get?
         url = request.original_url
@@ -281,7 +311,11 @@ class ApplicationController < ActionController::Base
         end
         format.api do
           if Setting.rest_api_enabled? && accept_api_auth?
-            head(:unauthorized, 'WWW-Authenticate' => 'Basic realm="Redmine API"')
+            if api_key_from_request
+              head(:unauthorized)
+            else
+              head(:unauthorized, 'WWW-Authenticate' => 'Basic realm="Redmine API"')
+            end
           else
             head(:forbidden)
           end
@@ -297,7 +331,7 @@ class ApplicationController < ActionController::Base
   def require_admin
     return unless require_login
 
-    if !User.current.admin?
+    unless User.current.admin?
       render_403
       return false
     end
@@ -379,10 +413,6 @@ class ApplicationController < ActionController::Base
     render_404
   end
 
-  def self.model_object(model)
-    self.model_object = model
-  end
-
   # Find the issue whose id is the :id parameter
   # Raises a Unauthorized exception if the issue is not visible
   def find_issue
@@ -399,19 +429,19 @@ class ApplicationController < ActionController::Base
   # Find issues with a single :id param or :ids array param
   # Raises a Unauthorized exception if one of the issues is not visible
   def find_issues
-    @issues = Issue.
-      where(:id => (params[:id] || params[:ids])).
-      preload(:project, :status, :tracker, :priority,
-              :author, :assigned_to, :relations_to,
-              {:custom_values => :custom_field}).
-      to_a
+    @issues = Issue.find_with_preloads(params[:id] || params[:ids])
     raise ActiveRecord::RecordNotFound if @issues.empty?
     raise Unauthorized unless @issues.all?(&:visible?)
 
-    @projects = @issues.filter_map(&:project).uniq
-    @project = @projects.first if @projects.size == 1
+    find_project_from_items(@issues)
   rescue ActiveRecord::RecordNotFound
     render_404
+  end
+
+  # Helper method to find unique projects and single project from items list
+  def find_project_from_items(items)
+    @projects = items.filter_map(&:project).uniq
+    @project = @projects.first if @projects.size == 1
   end
 
   def find_attachments
@@ -480,22 +510,24 @@ class ApplicationController < ActionController::Base
   end
   helper_method :back_url
 
-  def redirect_back_or_default(default, options={})
+  def redirect_back_or_default(default, options = {})
+    referer = options.delete(:referer)
+
     if back_url = validate_back_url(params[:back_url].to_s)
       redirect_to(back_url)
       return
-    elsif options[:referer]
+    elsif referer
       redirect_to_referer_or default
       return
     end
-    redirect_to default
+    redirect_to default, options
     false
   end
 
   # Returns a validated URL string if back_url is a valid url for redirection,
   # otherwise false
   def validate_back_url(back_url)
-    return false if back_url.blank?
+    return false if back_url.blank? || !back_url.is_a?(String)
 
     if CGI.unescape(back_url).include?('..')
       return false
@@ -507,19 +539,23 @@ class ApplicationController < ActionController::Base
         if uri.send(component).present? && uri.send(component) != request.send(component)
           return false
         end
-
-        uri.send(:"#{component}=", nil)
       end
-      # Always ignore basic user:password in the URL
-      uri.userinfo = nil
+      # Remove unnecessary components to convert the URL into a relative URL
+      uri.omit!(:scheme, :authority)
     rescue Addressable::URI::InvalidURIError
       return false
     end
 
     path = uri.to_s
+    # Browsers treat a backslash like a slash and remove ASCII tab and newline
+    # characters, so that a path like "/\example.com" points to another host
+    if /[\\\x00-\x1f]/.match?(path)
+      return false
+    end
+
     # Ensure that the remaining URL starts with a slash, followed by a
     # non-slash character or the end
-    if !%r{\A/([^/]|\z)}.match?(path)
+    unless %r{\A/([^/]|\z)}.match?(path)
       return false
     end
 
@@ -541,6 +577,32 @@ class ApplicationController < ActionController::Base
   end
   private :valid_back_url?
   helper_method :valid_back_url?
+
+  # Returns true if the current user has the given export permission on
+  # the projects of all the records in scope (issues or time entries)
+  #
+  # The export permissions control access to the expensive export
+  # endpoints, not the visibility of the fields included in the export
+  def export_allowed?(permission, scope)
+    user = User.current
+    return true if user.admin?
+
+    if @project
+      # Deny if the user does not have the permission on @project itself
+      return false unless user.allowed_to?(permission, @project)
+      # @project has no subprojects, so no further check is needed
+      return true if @project.leaf?
+    else
+      # Cross-project view: deny if none of the user's roles has the permission
+      return false unless user.allowed_to?(permission, nil, :global => true)
+    end
+
+    # Deny if the scope contains records of a project where
+    # the user does not have the permission
+    !scope.where.not(:project_id => Project.allowed_to(user, permission).select(:id)).exists?
+  end
+  private :export_allowed?
+  helper_method :export_allowed?
 
   # Redirects to the request referer if present, redirects to args or call block otherwise.
   def redirect_to_referer_or(*args, &block)
@@ -659,6 +721,7 @@ class ApplicationController < ActionController::Base
     end
     per_page
   end
+  helper_method :per_page_option
 
   # Returns offset and limit used to retrieve objects
   # for an API response based on offset, limit and page parameters
@@ -741,8 +804,8 @@ class ApplicationController < ActionController::Base
   end
 
   def query_error(exception)
-    Rails.logger.debug "#{exception.class.name}: #{exception.message}"
-    Rails.logger.debug "    #{exception.backtrace.join("\n    ")}"
+    Rails.logger.debug { "#{exception.class.name}: #{exception.message}" }
+    Rails.logger.debug { "    #{exception.backtrace.join("\n    ")}" }
 
     render_404
   end
@@ -766,7 +829,7 @@ class ApplicationController < ActionController::Base
 
   def render_api_errors(*messages)
     @error_messages = messages.flatten
-    render :template => 'common/error_messages', :format => [:api], :status => :unprocessable_entity, :layout => nil
+    render :template => 'common/error_messages', :format => [:api], :status => :unprocessable_content, :layout => nil
   end
 
   # Overrides #_include_layout? so that #render with no arguments

@@ -43,6 +43,11 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
     driver_option.add_preference 'download.default_directory',   DOWNLOADS_PATH.gsub(File::SEPARATOR, File::ALT_SEPARATOR || File::SEPARATOR)
     driver_option.add_preference 'download.prompt_for_download', false
     driver_option.add_preference 'plugins.plugins_disabled',     ["Chrome PDF Viewer"]
+    # Disable "Change your password" popup shown after login due to leak detection
+    driver_option.add_preference 'profile.password_manager_leak_detection', false
+    # Disable password saving prompts
+    driver_option.add_preference 'profile.password_manager_enabled', false
+    driver_option.add_preference 'credentials_enable_service', false
   end
 
   setup do
@@ -68,13 +73,20 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
   # using default browser locale which depend on system locale for "real" browsers drivers
   def log_user(login, password)
     visit '/my/page'
-    assert_equal '/login', current_path
+    assert_current_path '/login', :ignore_query => true
     within('#login-form form') do
       fill_in 'username', :with => login
       fill_in 'password', :with => password
       find('input[name=login]').click
     end
-    assert_equal '/my/page', current_path
+    assert_current_path '/my/page', :ignore_query => true
+  end
+
+  def sign_out_user
+    find('#account .dropdown-trigger').click
+    click_link 'Sign out'
+    # Make sure the redirection after the sign out has completed
+    assert_current_path '/', :ignore_query => true
   end
 
   def wait_for_ajax
@@ -95,7 +107,7 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
   # Returns the path of the download file
   def downloaded_file(filename='*')
     files = []
-    Timeout.timeout(5) do
+    Timeout.timeout(10) do
       loop do
         files = downloaded_files(filename)
         break if files.present?

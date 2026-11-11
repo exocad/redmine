@@ -42,8 +42,6 @@
       words_connector: ", "
       two_words_connector: " 和 "
       last_word_connector: ", 和 "
-      sentence_connector: "且"
-      skip_last_comma: false
 
   number:
     # 使用於 number_with_delimiter()
@@ -194,6 +192,7 @@
         must_contain_digits: "必須包含數字 (0-9)"
         must_contain_special_chars: "必須包含特殊字元 (!, $, %, ...)"
         domain_not_allowed: "包含不允許的網域 (%{domain})"
+        too_simple: "is too simple"
 
       # You can define own errors for models or model attributes.
       # The values :model, :attribute and :value are always available for interpolation.
@@ -265,7 +264,7 @@
   notice_default_data_loaded: 預設組態已載入成功。
   notice_unable_delete_version: 無法刪除版本。
   notice_unable_delete_time_entry: 無法刪除工時記錄項目。
-  notice_issue_done_ratios_updated: 議題完成百分比已更新。
+  notice_issue_done_ratios_updated: 議題完成比例已更新。
   notice_gantt_chart_truncated: "由於項目數量超過可顯示數量的最大值 (%{max})，故此甘特圖尾部已被截斷"
   notice_issue_successful_create: "議題 %{id} 已建立。"
   notice_issue_update_conflict: "當您正在編輯這個議題的時候，它已經被其他人搶先一步更新過。"
@@ -284,7 +283,7 @@
   error_no_tracker_in_project: '此專案尚未指定追蹤標籤。請檢查專案的設定資訊。'
   error_no_default_issue_status: '尚未定義議題狀態的預設值。請您前往「網站管理」->「議題狀態清單」頁面，檢查相關組態設定。'
   error_can_not_delete_custom_field: 無法刪除自訂欄位
-  error_can_not_delete_tracker: "此追蹤標籤已包含議題，無法被刪除。"
+  error_can_not_delete_tracker_html: "此追蹤標籤已包含議題，無法被刪除。<p>下列專案包含了使用此追蹤標籤的項目：<br>%{projects}</p>"
   error_can_not_remove_role: "此角色已被使用，無法將其刪除。"
   error_can_not_reopen_issue_on_closed_version: '分派給「已結束」版本的議題，無法再將其狀態變更為「進行中」'
   error_can_not_archive_project: 此專案無法被封存
@@ -370,7 +369,7 @@
   field_priority: 優先權
   field_fixed_version: 版本
   field_user: 用戶
-  field_principal: User or Group
+  field_principal: 用戶或群組
   field_role: 角色
   field_homepage: 網站首頁
   field_is_public: 公開
@@ -397,7 +396,7 @@
   field_attr_mail: 電子郵件信箱屬性
   field_onthefly: 即時建立使用者
   field_start_date: 開始日期
-  field_done_ratio: 完成百分比
+  field_done_ratio: 完成比例
   field_auth_source: 驗證模式
   field_hide_mail: 隱藏我的電子郵件
   field_comments: 回應
@@ -514,8 +513,8 @@
   setting_lost_password: 允許使用電子郵件重新設定密碼
   setting_new_project_user_role_id: 管理者以外之用戶建立新專案時，將被分派的角色
   setting_default_projects_modules: 新專案預設啟用的模組
-  setting_issue_done_ratio: 計算議題完成百分比之方式
-  setting_issue_done_ratio_issue_field: 依據議題完成百分比欄位
+  setting_issue_done_ratio: 計算議題完成比例之方式
+  setting_issue_done_ratio_issue_field: 依據議題完成比例欄位
   setting_issue_done_ratio_issue_status: 依據議題狀態
   setting_start_of_week: 週的第一天
   setting_rest_api_enabled: 啟用 REST 網路服務技術（Web Service）
@@ -701,7 +700,6 @@
   label_activity: 活動
   label_user_activity: "%{value} 的活動"
   label_new: 建立新的...
-  label_logged_as: 目前登入
   label_environment: 環境
   label_authentication: 驗證
   label_auth_source: 驗證模式
@@ -749,7 +747,6 @@
   label_confirmation: 確認
   label_export_to: 匯出至
   label_read: 讀取...
-  label_public_projects: 公開專案
   label_open_issues: 進行中
   label_open_issues_plural: 進行中
   label_closed_issues: 已結束
@@ -785,8 +782,6 @@
   label_months_from: 個月, 開始月份
   label_gantt: 甘特圖
   label_internal: 內部
-  label_last_changes: "最近 %{count} 個變更"
-  label_change_view_all: 檢視全部的變更
   label_comment: 回應
   label_comment_plural: 回應
   label_x_comments:
@@ -821,7 +816,6 @@
   label_this_month: 這個月
   label_last_month: 上個月
   label_this_year: 今年
-  label_date_range: 日期區間
   label_less_than_ago: 小於幾天之前
   label_more_than_ago: 大於幾天之前
   label_ago: 天以前
@@ -836,7 +830,6 @@
   label_repository: 儲存機制
   label_repository_new: 建立新儲存機制
   label_repository_plural: 儲存機制清單
-  label_browse: 瀏覽
   label_branch: 分支
   label_tag: 標籤
   label_revision: 修訂版
@@ -869,7 +862,6 @@
   label_wiki_page_new: 新增 Wiki 頁面
   label_index_by_title: 依標題索引
   label_index_by_date: 依日期索引
-  label_current_version: 現行版本
   label_preview: 預覽
   label_feed_plural: Feeds
   label_changes_details: 所有變更的明細
@@ -896,7 +888,6 @@
   label_applied_status: 已套用狀態
   label_loading: 載入中...
   label_relation_new: 建立新關聯
-  label_relation_delete: 刪除關聯
   label_relates_to: 關聯至
   label_duplicates: 已重複
   label_duplicated_by: 與後面所列議題重複
@@ -925,8 +916,6 @@
   label_year: 年
   label_month: 月
   label_week: 週
-  label_date_from: 開始
-  label_date_to: 結束
   label_language_based: 依用戶之語言決定
   label_sort_by: "按 %{value} 排序"
   label_send_test_email: 寄送測試郵件
@@ -966,7 +955,6 @@
   label_ldap_authentication: LDAP 驗證
   label_downloads_abbr: 下載
   label_optional_description: 額外的說明
-  label_add_another_file: 增加其他檔案
   label_preferences: 偏好選項
   label_chronological_order: 以時間由遠至近排序
   label_reverse_chronological_order: 以時間由近至遠排序
@@ -992,7 +980,7 @@
   label_version_sharing_hierarchy: 與專案階層架構共用
   label_version_sharing_tree: 與專案樹共用
   label_version_sharing_system: 與全部的專案共用
-  label_update_issue_done_ratios: 更新議題完成百分比
+  label_update_issue_done_ratios: 更新議題完成比例
   label_copy_source: 來源
   label_copy_target: 目的地
   label_copy_same_as_target: 與目的地相同
@@ -1202,10 +1190,8 @@
   text_issues_destroy_confirmation: '確定刪除已選擇的議題？'
   text_issues_destroy_descendants_confirmation: "這麼做將會一併刪除 %{count} 子任務。"
   text_time_entries_destroy_confirmation: 您確定要刪除所選擇的工時紀錄？
-  text_select_project_modules: '選擇此專案可使用之模組：'
   text_default_administrator_account_changed: 已變更預設管理員帳號內容
   text_file_repository_writable: 可寫入附加檔案目錄
-  text_plugin_assets_writable: 可寫入外掛程式目錄
   text_minimagick_available: 可使用 MiniMagick (選配)
   text_convert_available: 可使用 ImageMagick 轉換圖片格式 (選配)
   text_destroy_time_entries_question: 您即將刪除的議題已報工 %{hours} 小時. 您的選擇是？
@@ -1272,9 +1258,7 @@
   enumeration_doc_categories: 文件分類
   enumeration_activities: 活動 (時間追蹤)
   enumeration_system_activity: 系統活動
-  description_filter: 篩選條件
   description_search: 搜尋欄位
-  description_choose_project: 專案清單
   description_project_scope: 搜尋範圍
   description_notes: 筆記
   description_message_content: 訊息內容
@@ -1304,8 +1288,6 @@
   error_token_expired: 此密碼復原連結已經過期, 請再試一次.
   error_spent_on_future_date: 無法輸入未來日期的工時紀錄
   setting_timelog_accept_future_dates: 接受輸入未來日期的工時紀錄
-  label_delete_link_to_subtask: 刪除連結至子任務的關聯
-  error_not_allowed_to_log_time_for_other_users: 您未被允許可替他人輸入工時紀錄
   permission_log_time_for_other_users: 輸入他人的工時紀錄
   label_tomorrow: 明天
   label_next_week: 下一週
@@ -1504,3 +1486,151 @@
   field_name_or_email_or_login: 姓名, 電子郵件或帳戶名稱
   text_default_active_job_queue_changed: 已變更僅適用於開發/測試環境的佇列適配器 (queue adapter)
   label_option_auto_lang: 自動選取語言
+  label_issue_attachment_added: 附加檔案已新增
+  field_estimated_remaining_hours: 預估剩餘工時
+  field_last_activity_date: 最近一次活動
+  setting_issue_done_ratio_interval: 完成比例選項的間隔值
+  setting_copy_attachments_on_issue_copy: 連同附件檔案一起複製
+  field_thousands_delimiter: 千分位分隔符號
+  label_involved_principals: Author / Recent participants
+  label_attachment_summary:
+    zero: "%{filename}"
+    one: "%{filename} 與另 1 個檔案"
+    other: "%{filename} 與另外 %{count} 個檔案"
+  setting_wiki_tablesort_enabled: 在維基頁面的內容中, 啟用基於 JavaScript 的表格排序功能
+  label_progressbar: 進度條
+  error_spent_on_closed_issue: 無法在已結束的議題上記錄工時
+  setting_timelog_accept_closed_issues: 允許在已結束的議題上紀錄工時
+  setting_related_issues_default_columns: 預設顯示於相關議題與子任務清單的欄位
+  setting_display_related_issues_table_headers: 顯示表格標題欄位
+  error_can_not_remove_role_reason_members_html: "<p>下列專案中有成員
+    屬於此角色:<br>%{projects}</p>"
+  setting_reactions_enabled: 啟用表情回應功能
+  reaction_text_x_other_users:
+    one: 1 位其他用戶
+    other: "%{count} 位其他用戶"
+  text_setting_gravatar_default_initials_html: 用戶姓名的首字母縮寫將被送往 <a href="%{url}">%{url}</a>
+    用以產生其大頭貼.
+  permission_view_project: 檢視專案
+  permission_search_project: 搜尋專案
+  permission_view_members: 檢視專案成員
+  label_oauth_permission_admin: 管理此 Redmine
+  label_oauth_admin_access: 管理權限
+  label_oauth_application_plural: 應用程式
+  label_oauth_authorized_application_plural: 已授權之應用程式
+  text_oauth_admin_permission: 完整的系統管理存取權限。經由管理者授權後，
+    本應用程式將可讀取與寫入所有資料，並能模擬其他使用者操作。
+  text_oauth_admin_permission_info: 此應用程式要求取得完整的系統管理存取權限。
+    若您目前（或未來具備）管理者身分，它將可代表您讀取及寫入所有資料，並能模擬其他使用者操作。
+    如欲避免此情況，請改以「一般使用者」（無管理者權限）身分進行授權。
+  text_oauth_copy_secret_now: 請立即將密鑰複製到安全的地方保存，之後將無法再次顯示。
+  text_oauth_implicit_permissions: 檢視您的姓名、登入帳號及主要電子郵件地址
+  text_oauth_info_scopes: 請選擇此應用程式可要求存取的權限範圍。
+    應用程式僅能執行您在此選擇的權限，無法超越此範圍。
+    此外，其存取權限也將始終受限於授權使用者的角色與所屬專案成員資格。
+  label_position: 位置
+  label_message: 訊息
+  twofa_already_setup: 雙因素驗證已啟用
+  permission_use_webhooks: 使用 webhooks
+  label_webhook_plural: Webhooks
+  label_webhook_new: 新增 webhook
+  label_webhook_edit: 編輯 webhook
+  label_webhook_events: 事件
+  webhook_url_info: 當所選專案中任一已勾選的事件發生時，Redmine 會向此 URL 送出 POST 請求。
+  webhook_secret_info_html: 若提供此欄位，Redmine 會使用它產生雜湊簽章，並在每次傳送時以
+    X-Redmine-Signature-256 標頭的值一併送出。
+  setting_webhooks_enabled: 啟用 webhooks
+  label_integrations: 整合服務
+  label_alert_note: 提醒
+  label_alert_tip: 提示
+  label_alert_warning: 警告
+  label_alert_caution: 注意
+  label_alert_important: 重要
+  field_ratio_interval: 完成比例間隔
+  webhook_event_created: "%{object_name} 已建立"
+  webhook_event_updated: "%{object_name} 已更新"
+  webhook_event_deleted: "%{object_name} 已刪除"
+  label_auto_watch_on_issue_assigned_to_me: 分派給我的議題
+  label_relation_remove: 移除關聯
+  label_subtask_remove: 移除子任務
+  button_remove: 移除
+  label_open_in_full_view: 以全頁模式開啟
+  text_pandoc_available: 可使用 Pandoc (選配)
+  label_user_mail_option_only_my_watches: 只提醒我監看中的事物
+  label_last_used_on: '最後使用於 %{value} 之前'
+  label_never_used: 從未使用
+  setting_assignee_dropdown_display_format: 被分派者下拉選單顯示格式
+  label_assignee_dropdown_display_format_users_then_groups: 使用者在前、群組在後
+  label_assignee_dropdown_display_format_groups_then_users: 群組在前、使用者在後
+  label_enable_default_issue_due_date_offset: 啟用新議題的預設截止日期
+  label_days_relative_to_today: 相對於今天的天數
+  label_wiki_toolbar_strong: 粗體
+  label_wiki_toolbar_italic: 斜體
+  label_wiki_toolbar_underline: 底線
+  label_wiki_toolbar_deleted: 刪除線
+  label_wiki_toolbar_code: 程式碼
+  label_wiki_toolbar_heading_1: 標題 1
+  label_wiki_toolbar_heading_2: 標題 2
+  label_wiki_toolbar_heading_3: 標題 3
+  label_wiki_toolbar_unordered_list: 項目清單
+  label_wiki_toolbar_ordered_list: 編號清單
+  label_wiki_toolbar_task_list: Task list
+  label_wiki_toolbar_quote: 引文
+  label_wiki_toolbar_unquote: 取消引文
+  label_wiki_toolbar_table: 表格
+  label_wiki_toolbar_preformatted_text: 已格式文字
+  label_wiki_toolbar_preformatted_code: 反白程式碼
+  label_wiki_toolbar_wiki_link: 連結至 Wiki 頁面
+  label_wiki_toolbar_image: 圖片
+  label_wiki_toolbar_help: Help
+  label_assignee_dropdown_display_format_users_by_group: 依群組顯示使用者
+  button_remove_from_group: 移除群組
+  button_add_to_group: 加入群組
+  setting_default_issue_due_date_offset: 新議題的預設截止日期
+  field_private_by_default: 預設為私人
+  field_default_value_mode: 預設值模式
+  label_absolute: 絕對
+  label_relative: 相對
+  error_issue_status_in_use_by_issues: 這個狀態正被某些議題使用中
+  error_issue_status_default_for_trackers: 這個狀態正被某些追蹤標籤設為預設狀態中
+  text_users_remove_from_group_confirmation: 您確定要將選取的用戶從 %{group} 群組中移除嗎？
+  webhook_secret_keep_info: The secret of another user is not displayed. Leave this
+    field blank to keep it unchanged.
+  webhook_disabled_info_html: Webhooks are disabled, so none of the webhooks below is
+    triggered. They are still listed here so that they can be reviewed or removed. Webhooks
+    can be enabled in the %{link} settings.
+  permission_export_issues: Export issues
+  permission_export_time_entries: Export time entries
+  label_users_and_groups: Users and groups
+  mail_subject_test_email: Redmine test
+  mail_body_test_email: This is a test email sent by Redmine.
+  text_mermaid_available: Mermaid.js available (optional)
+  label_member_view_all: View all members
+  field_date: Date
+  label_non_working_date_plural: Non-working dates
+  label_non_working_date_new: New non-working date
+  text_non_working_dates_html: 'You can add non-working dates such as holidays: <a href="%{non_working_dates_path}">Manage
+    non-working dates</a>'
+  text_non_working_dates_export_all_years: Non-working dates of all years will be exported.
+  label_import_non_working_dates: Import non-working dates
+  field_avatar: Avatar
+  setting_avatar_enabled: Allow users to set their avatar
+  button_change_avatar: Change avatar
+  text_avatar_uploaded: The uploaded image is currently used as the avatar.
+  text_avatar_from_server_html: The image from <a href="%{url}">%{url}</a> associated
+    with the user's email address is currently used as the avatar. It can be changed
+    on that site. If no image is registered there, a default avatar is shown.
+  text_avatar_initials: The image generated from the user's name is currently used as
+    the avatar.
+  text_avatar_upload_instead: You can upload an image to use instead.
+  text_avatar_upload_disabled: Uploading an avatar image to Redmine has been disabled
+    by the administrator.
+  text_setting_avatar_enabled_imagemagick_unavailable: ImageMagick is not available,
+    so users cannot set their avatar.
+  text_setting_gravatar_enabled_fallback: If enabled, Gravatar is used for users who
+    have not set their avatar in Redmine.
+  label_show_more: Show more
+  setting_favicon: Custom favicon
+  text_setting_favicon_format: PNG or ICO, up to %{max_size}
+  notice_search_tokens_truncated: 'A maximum of %{max} search terms can be used. Only
+    the following terms were used: %{tokens}'

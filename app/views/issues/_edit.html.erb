@@ -1,4 +1,5 @@
 <%= labelled_form_for @issue, :html => {:id => 'issue-form', :multipart => true} do |f| %>
+    <%= call_hook(:view_issues_edit_top, { :issue => @issue, :form => f }) %>
     <%= error_messages_for 'issue', 'time_entry' %>
     <%= render :partial => 'conflict' if @conflict %>
     <div class="box">
@@ -9,7 +10,7 @@
         </div>
         </fieldset>
     <% end %>
-    <% if User.current.allowed_to?(:log_time, @issue.project) %>
+    <% if @issue.time_loggable? %>
         <fieldset class="tabular" id="log_time"><legend><%= l(:button_log_time) %></legend>
         <%= labelled_fields_for :time_entry, @time_entry do |time_entry| %>
         <div class="splitcontent">
@@ -29,12 +30,9 @@
     <% end %>
     <% if @issue.notes_addable? %>
       <fieldset id="add_notes"><legend><%= l(:field_notes) %></legend>
-      <%= f.text_area :notes, :cols => 60, :rows => 10, :class => 'wiki-edit',
-            :data => {
-                :auto_complete => true
-            },
-            :no_label => true %>
-      <%= wikitoolbar_for 'issue_notes', preview_issue_path(:project_id => @project, :issue_id => @issue) %>
+      <%= f.wiki_textarea :notes, :cols => 60, :rows => 10, :no_label => true,
+            :data => {:auto_complete => true},
+            :preview_url => preview_issue_path(:project_id => @project, :issue_id => @issue) %>
 
       <% if @issue.safe_attribute? 'private_notes' %>
       <%= f.check_box :private_notes, :no_label => true %> <label for="issue_private_notes"><%= l(:field_private_notes) %></label>
@@ -54,6 +52,7 @@
         <div id="existing-attachments" style="<%= @issue.deleted_attachment_ids.blank? ? 'display:none;' : '' %>">
           <% @issue.attachments.each do |attachment| %>
           <span class="existing-attachment">
+            <%= file_type_icon(attachment.content_type, filename: attachment.filename, size: 12) %>
             <%= text_field_tag '', attachment.filename, :class => "icon icon-attachment filename", :disabled => true %>
             <label>
               <%= check_box_tag 'issue[deleted_attachment_ids][]',

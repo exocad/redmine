@@ -21,7 +21,7 @@ require 'redmine/scm/adapters/subversion_adapter'
 
 class Repository::Subversion < Repository
   validates_presence_of :url
-  validates_format_of :url, :with => %r{\A(http|https|svn(\+[^\s:\/\\]+)?|file):\/\/.+}i
+  validates_format_of :url, :with => %r{\A(http|https|svn(\+[^\s:\/\\]+)?|file):\/\/.+\z}i
 
   def self.scm_adapter_class
     Redmine::Scm::Adapters::SubversionAdapter
@@ -117,6 +117,11 @@ class Repository::Subversion < Repository
   #     url      = file:///var/svn/foo/bar
   #     => returns /bar
   def relative_url
-    @relative_url ||= url.gsub(Regexp.new("^#{Regexp.escape(root_url || scm.root_url)}", Regexp::IGNORECASE), '')
+    @relative_url ||= begin
+      # root_url is the repository root reported by "svn info", which is
+      # percent-encoded (e.g. file:///var/svn/foo%20bar)
+      root = Addressable::URI.unencode((root_url || scm.root_url).to_s)
+      url.gsub(Regexp.new("^#{Regexp.escape(root)}", Regexp::IGNORECASE), '')
+    end
   end
 end

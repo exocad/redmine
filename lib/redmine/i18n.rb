@@ -50,12 +50,12 @@ module Redmine
     end
 
     def l_hours(hours)
-      hours = hours.to_f
+      hours = hours.to_f unless hours.is_a?(Numeric)
       l((hours < 2.0 ? :label_f_hour : :label_f_hour_plural), :value => format_hours(hours))
     end
 
     def l_hours_short(hours)
-      l(:label_f_hour_short, :value => format_hours(hours.to_f))
+      l(:label_f_hour_short, :value => format_hours(hours.is_a?(Numeric) ? hours : hours.to_f))
     end
 
     def ll(lang, str, arg=nil)
@@ -65,9 +65,9 @@ module Redmine
     end
 
     # Localizes the given args with user's language
-    def lu(user, *args)
+    def lu(user, *)
       lang = user.try(:language).presence || Setting.default_language
-      ll(lang, *args)
+      ll(lang, *)
     end
 
     def format_date(date)
@@ -83,7 +83,7 @@ module Redmine
 
       user ||= User.current
       options = {}
-      options[:format] = (Setting.time_format.blank? ? :time : Setting.time_format)
+      options[:format] = (Setting.time_format.presence || :time)
       time = time.to_time if time.is_a?(String)
       local = user.convert_time_to_user_timezone(time)
       (include_date ? "#{format_date(local)} " : "") + ::I18n.l(local, **options)
@@ -92,12 +92,13 @@ module Redmine
     def format_hours(hours)
       return "" if hours.blank?
 
+      minutes = (hours * 60).round
       if Setting.timespan_format == 'minutes'
-        h = hours.floor
-        m = ((hours - h) * 60).round
-        "%d:%02d" % [h, m]
+        h, m = minutes.abs.divmod(60)
+        sign = minutes.negative? ? '-' : ''
+        "%s%d:%02d" % [sign, h, m]
       else
-        number_with_delimiter(sprintf('%.2f', hours.to_f), delimiter: nil)
+        number_with_delimiter(sprintf('%.2f', minutes.fdiv(60)), delimiter: nil)
       end
     end
 
@@ -110,7 +111,7 @@ module Redmine
     #       will clash with the dot separator.
     def normalize_float(value)
       separator = ::I18n.t('number.format.separator')
-      value.gsub(/[#{separator}]/, separator => '.')
+      value.to_s.gsub(/[#{separator}]/, separator => '.')
     end
 
     def day_name(day)
@@ -151,14 +152,13 @@ module Redmine
             languages_options :cache => false
           end
         end
-      options.map {|name, lang| [name.force_encoding("UTF-8"), lang.force_encoding("UTF-8")]}
+      options.map {|name, lang| [(+name).force_encoding("UTF-8"), (+lang).force_encoding("UTF-8")]}
     end
 
     def find_language(lang)
       @@languages_lookup ||=
-        valid_languages.inject({}) do |k, v|
-          k[v.to_s.downcase] = v
-          k
+        valid_languages.index_by do |v|
+          v.to_s.downcase
         end
       @@languages_lookup[lang.to_s.downcase]
     end
@@ -171,25 +171,6 @@ module Redmine
 
     def current_language
       ::I18n.locale
-    end
-
-    # Custom backend based on I18n::Backend::Simple with the following changes:
-    # * available_locales are determined by looking at translation file names
-    class Backend < ::I18n::Backend::Simple
-      module Implementation
-        # Get available locales from the translations filenames
-        def available_locales
-          @available_locales ||= begin
-            redmine_locales = Dir[Rails.root / 'config' / 'locales' / '*.yml'].map { |f| File.basename(f, '.yml').to_sym }
-            super & redmine_locales
-          end
-        end
-      end
-
-      # Adds custom pluralization rules
-      include ::I18n::Backend::Pluralization
-      # Adds fallback to default locale for untranslated strings
-      include ::I18n::Backend::Fallbacks
     end
   end
 end

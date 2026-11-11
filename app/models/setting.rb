@@ -82,6 +82,9 @@ class Setting < ApplicationRecord
                   Big5-HKSCS
                   TIS-620)
 
+  FAVICON_MAX_SIZE = 32.kilobytes
+  FAVICON_CONTENT_TYPES = %w(image/png image/vnd.microsoft.icon)
+
   cattr_accessor :available_settings
   self.available_settings ||= {}
 
@@ -192,6 +195,30 @@ class Setting < ApplicationRecord
         messages << [:mail_from, l('activerecord.errors.messages.invalid')]
       end
     end
+    if settings.key?(:default_issue_due_date_offset)
+      value = settings[:default_issue_due_date_offset].to_s.strip
+      unless value.blank?
+        begin
+          offset = Integer(value, 10)
+          if offset < 0
+            messages << [
+              :default_issue_due_date_offset,
+              l('activerecord.errors.messages.greater_than_or_equal_to', :count => 0)
+            ]
+          end
+        rescue ArgumentError
+          messages << [:default_issue_due_date_offset, l('activerecord.errors.messages.not_a_number')]
+        end
+      end
+    end
+    if settings.key?(:favicon)
+      file = settings[:favicon]
+      unless file.respond_to?(:original_filename) &&
+             file.size <= FAVICON_MAX_SIZE &&
+             FAVICON_CONTENT_TYPES.include?(Marcel::MimeType.for(file))
+        messages << [:favicon, l('activerecord.errors.messages.invalid')]
+      end
+    end
     messages
   end
 
@@ -236,6 +263,29 @@ class Setting < ApplicationRecord
     # unpair all current 2FA pairings when switching off 2FA
     Redmine::Twofa.unpair_all! if params == '0' && self.twofa?
     params
+  end
+
+  def self.favicon_from_params(file)
+    data = file.read
+    {
+      'content_type' => Marcel::MimeType.for(StringIO.new(data)),
+      'data' => Base64.strict_encode64(data),
+      'digest' => Digest::SHA256.hexdigest(data)[0, 8]
+    }
+  end
+
+  def self.default_issue_due_date_offset_from_params(params)
+    params.to_s.strip
+  end
+
+  def self.default_issue_due_date_offset_in_days
+    value = default_issue_due_date_offset.to_s.strip
+    return nil if value.blank?
+
+    offset = Integer(value, 10)
+    offset if offset >= 0
+  rescue ArgumentError
+    nil
   end
 
   def self.twofa_required?
@@ -333,6 +383,17 @@ class Setting < ApplicationRecord
 
   load_available_settings
   load_plugin_settings
+
+  # Returns an array containing the names of enabled and available scm adapters
+  #
+  # This must be defined after running load_available_settings since it
+  # overrides the default enabled_scm setting reader.
+  def self.enabled_scm
+    enabled_scm = self[:enabled_scm] & Redmine::Scm::Base.all
+    enabled_scm.keep_if do |scm_name|
+      Repository.repository_class(scm_name)&.scm_available
+    end.freeze
+  end
 
   private
 

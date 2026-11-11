@@ -10,11 +10,14 @@ api.array :custom_fields do
       api.min_length        field.min_length
       api.max_length        field.max_length
       api.is_required       field.is_required?
+      api.is_for_all        field.is_for_all?
       api.is_filter         field.is_filter?
       api.searchable        field.searchable
       api.multiple          field.multiple?
-      api.default_value     field.default_value
+      api.default_value     field[:default_value]
+      api.default_value_mode(field.default_value_mode.presence || 'fixed_date') if field.field_format == 'date'
       api.visible           field.visible?
+      api.editable          field.editable?
 
       values = field.possible_values_options
       if values.present?
@@ -29,11 +32,20 @@ api.array :custom_fields do
       end
 
       if field.is_a?(IssueCustomField)
+        api.array :projects do
+          field.projects.each do |project|
+            api.project :id => project.id, :name => project.name
+          end
+        end
+
         api.array :trackers do
           field.trackers.each do |tracker|
             api.tracker :id => tracker.id, :name => tracker.name
           end
         end
+      end
+
+      if %w(IssueCustomField TimeEntryCustomField ProjectCustomField VersionCustomField).include?(field.class.name)
         api.array :roles do
           field.roles.each do |role|
             api.role :id => role.id, :name => role.name

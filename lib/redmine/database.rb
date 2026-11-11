@@ -58,11 +58,15 @@ module Redmine
 
       # Returns true if the database is MySQL
       def mysql?
-        /mysql/i.match?(ActiveRecord::Base.connection.adapter_name)
+        /mysql|trilogy/i.match?(ActiveRecord::Base.connection.adapter_name)
       end
 
       def mysql_version
         mysql? ? ActiveRecord::Base.connection.select_value("SELECT VERSION()") : nil
+      end
+
+      def sqlserver?
+        /sqlserver/i.match?(ActiveRecord::Base.connection.adapter_name)
       end
 
       # Returns a SQL statement for case/accent (if possible) insensitive match

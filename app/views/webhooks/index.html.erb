@@ -1,0 +1,7 @@
+<div class="contextual">
+  <%= link_to sprite_icon('add', l(:label_webhook_new)), new_webhook_path, class: 'icon icon-add' %>
+</div>
+
+<%= title l :label_webhook_plural %>
+
+<%= render :partial => 'webhooks/list', :locals => { :webhooks => @webhooks, :show_author => false, :back_url => nil } %>

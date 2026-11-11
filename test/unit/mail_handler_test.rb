@@ -20,26 +20,12 @@
 require_relative '../test_helper'
 
 class MailHandlerTest < ActiveSupport::TestCase
-  fixtures :users, :projects, :enabled_modules, :roles,
-           :members, :member_roles, :users,
-           :email_addresses, :user_preferences,
-           :issues, :issue_statuses,
-           :journals, :journal_details,
-           :workflows, :trackers, :projects_trackers,
-           :versions, :enumerations, :issue_categories,
-           :custom_fields, :custom_fields_trackers, :custom_fields_projects, :custom_values,
-           :boards, :messages, :watchers, :news, :comments
-
   FIXTURES_PATH = File.dirname(__FILE__) + '/../fixtures/mail_handler'
 
   def setup
     ActionMailer::Base.deliveries.clear
     Setting.notified_events = Redmine::Notifiable.all.collect(&:name)
     User.current = nil
-  end
-
-  def teardown
-    Setting.clear_cache
   end
 
   def test_add_issue_with_specific_overrides
@@ -182,6 +168,18 @@ class MailHandlerTest < ActiveSupport::TestCase
     assert_equal true, issue.reload.is_private
   end
 
+  def test_add_issue_should_use_tracker_private_by_default_setting
+    Member.find_by(:project_id => 2, :user_id => 2).roles.each do |role|
+      role.add_permission! :set_own_issues_private
+    end
+    Project.find(2).trackers.first.update! :private_by_default => true
+
+    issue = submit_email('ticket_on_given_project.eml')
+    assert issue.is_a?(Issue)
+    assert !issue.new_record?
+    assert_equal true, issue.reload.is_private
+  end
+
   def test_add_issue_with_group_assignment
     with_settings :issue_group_assignment => '1' do
       issue = submit_email('ticket_on_given_project.eml', :allow_override => ['assigned_to']) do |email|
@@ -302,6 +300,14 @@ class MailHandlerTest < ActiveSupport::TestCase
       issue = submit_email('ticket_with_cc.eml', :issue => {:project => 'ecookbook'})
       assert issue.is_a?(Issue)
       assert_equal Date.today, issue.start_date
+    end
+  end
+
+  def test_add_issue_should_set_default_due_date
+    with_settings :default_issue_due_date_offset => '5' do
+      issue = submit_email('ticket_with_cc.eml', :issue => {:project => 'ecookbook'})
+      assert issue.is_a?(Issue)
+      assert_equal Date.today + 5, issue.due_date
     end
   end
 
@@ -489,7 +495,7 @@ class MailHandlerTest < ActiveSupport::TestCase
         :default_group => "#{group1.name},#{group2.name}"
       )
     end
-    user = User.order('id DESC').first
+    user = User.order(id: :desc).first
     assert_equal [group1, group2].sort, user.groups.sort
   end
 
@@ -519,7 +525,7 @@ class MailHandlerTest < ActiveSupport::TestCase
         :no_notification => '1'
       )
     end
-    user = User.order('id DESC').first
+    user = User.order(id: :desc).first
     assert_equal 'none', user.mail_notification
   end
 
@@ -901,7 +907,7 @@ class MailHandlerTest < ActiveSupport::TestCase
       "Auto-Submitted: auto-generated",
       'X-Autoreply: yes'
     ].each do |header|
-      raw = IO.read(File.join(FIXTURES_PATH, 'ticket_on_given_project.eml'))
+      raw = File.read(File.join(FIXTURES_PATH, 'ticket_on_given_project.eml'))
       raw = header + "\n" + raw
 
       assert_no_difference 'Issue.count' do
@@ -914,7 +920,7 @@ class MailHandlerTest < ActiveSupport::TestCase
     [
       "Auto-Submitted: auto-forwarded"
     ].each do |header|
-      raw = IO.read(File.join(FIXTURES_PATH, 'ticket_on_given_project.eml'))
+      raw = File.read(File.join(FIXTURES_PATH, 'ticket_on_given_project.eml'))
       raw = header + "\n" + raw
 
       assert_difference 'Issue.count', 1 do
@@ -998,7 +1004,7 @@ class MailHandlerTest < ActiveSupport::TestCase
         end
       end
     end
-    journal = Journal.order('id DESC').first
+    journal = Journal.order(id: :desc).first
     assert_equal Issue.find(2), journal.journalized
     assert_equal 1, journal.details.size
 
@@ -1101,6 +1107,26 @@ class MailHandlerTest < ActiveSupport::TestCase
     end
   end
 
+  def test_reply_to_a_non_visible_issue
+    role = Role.find_by_name('Developer')
+    role.remove_permission! :view_issues
+
+    issue = Issue.find(4)
+    user = User.find_by_login('jsmith')
+
+    assert_not issue.visible?(user)
+
+    assert_no_difference 'Issue.count' do
+      assert_no_difference 'Journal.count' do
+        journal = submit_email('ticket_reply.eml') do |email|
+          email.sub! %r{^From:.*$}, "From: <#{user.mail}>"
+          email.sub! %r{^In-Reply-To:.*$}, "In-Reply-To: <redmine.issue-#{issue.id}.20060719210421@osiris>"
+        end
+        assert_not journal
+      end
+    end
+  end
+
   def test_reply_to_a_nonexitent_journal
     journal_id = Issue.find(2).journals.last.id
     Journal.destroy(journal_id)
@@ -1192,7 +1218,7 @@ class MailHandlerTest < ActiveSupport::TestCase
     assert_equal "This is a reply to a comment.", m.content
   end
 
-  def test_reply_to_a_nonexistant_news
+  def test_reply_to_a_nonexistent_news
     News.find(1).destroy
     assert_no_difference('Comment.count') do
       assert_not submit_email('news_reply.eml')
@@ -1404,7 +1430,7 @@ class MailHandlerTest < ActiveSupport::TestCase
           :unknown_user => 'create'
         )
     end
-    user = User.order('id DESC').first
+    user = User.order(id: :desc).first
     assert_equal "foo@example.org", user.mail
     assert_equal 'Ää', user.firstname
     assert_equal 'Öö', user.lastname
@@ -1419,7 +1445,7 @@ class MailHandlerTest < ActiveSupport::TestCase
           :unknown_user => 'create'
         )
     end
-    user = User.order('id DESC').first
+    user = User.order(id: :desc).first
     assert_equal "jdoe@example.net", user.mail
     assert_equal 'John', user.firstname
     assert_equal 'Doe', user.lastname
@@ -1461,13 +1487,13 @@ class MailHandlerTest < ActiveSupport::TestCase
     assert_equal 'smime.sh.txt', issue.attachments[0].filename
     assert_equal 'text/plain', issue.attachments[0].content_type
     assert_equal 'smime.p7s', issue.attachments[1].filename
-    assert_equal 'application/x-pkcs7-signature', issue.attachments[1].content_type
+    assert_equal 'application/pkcs7-signature', issue.attachments[1].content_type
   end
 
   private
 
   def submit_email(filename, options={})
-    raw = IO.read(File.join(FIXTURES_PATH, filename))
+    raw = File.read(File.join(FIXTURES_PATH, filename))
     yield raw if block_given?
     MailHandler.receive(raw, options)
   end

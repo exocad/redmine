@@ -20,10 +20,6 @@
 require_relative '../test_helper'
 
 class DocumentsControllerTest < Redmine::ControllerTest
-  fixtures :projects, :users, :email_addresses, :roles, :members, :member_roles,
-           :enabled_modules, :documents, :enumerations,
-           :groups_users, :attachments, :user_preferences
-
   def setup
     User.current = nil
   end
@@ -63,18 +59,20 @@ class DocumentsControllerTest < Redmine::ControllerTest
   end
 
   def test_index_grouped_by_date
-    get(
-      :index,
-      :params => {
-        :project_id => 'ecookbook',
-        :sort_by => 'date'
-      }
-    )
-    assert_response :success
-    assert_select '#content' do
-      # descending order of date.
-      ['2007-03-05', '2007-02-12'].each_with_index do |text, idx|
-        assert_select ".document-group:nth-of-type(#{idx + 1}) h3.group-name", :text => text
+    with_locale 'en' do
+      get(
+        :index,
+        :params => {
+          :project_id => 'ecookbook',
+          :sort_by => 'date'
+        }
+      )
+      assert_response :success
+      assert_select '#content' do
+        # descending order of date.
+        ['03/05/2007', '02/12/2007'].each_with_index do |text, idx|
+          assert_select ".document-group:nth-of-type(#{idx + 1}) h3.group-name", :text => text
+        end
       end
     end
   end
@@ -117,9 +115,9 @@ class DocumentsControllerTest < Redmine::ControllerTest
     # adds a long description to the first document
     doc = documents(:documents_001)
     doc.update(:description => <<~LOREM)
-      Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut egestas, mi vehicula varius varius, ipsum massa fermentum orci, eget tristique ante sem vel mi. Nulla facilisi. Donec enim libero, luctus ac sagittis sit amet, vehicula sagittis magna. Duis ultrices molestie ante, eget scelerisque sem iaculis vitae. Etiam fermentum mauris vitae metus pharetra condimentum fermentum est pretium. Proin sollicitudin elementum quam quis pharetra.  Aenean facilisis nunc quis elit volutpat mollis. Aenean eleifend varius euismod. Ut dolor est, congue eget dapibus eget, elementum eu odio. Integer et lectus neque, nec scelerisque nisi. EndOfLineHere
+      Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut egestas, mi vehicula varius varius, ipsum massa fermentum orci, eget tristique ante sem vel mi. Nulla facilisi. Donec enim libero, luctus ac sagittis sit amet, vehicula sagittis magna. Duis ultrices molestie ante, eget scelerisque sem iaculis vitae. Etiam fermentum mauris vitae metus pharetra condimentum fermentum est pretium. Proin sollicitudin elementum quam quis pharetra. Aenean facilisis nunc quis elit volutpat mollis. Aenean eleifend varius euismod. Ut dolor est, congue eget dapibus eget, elementum eu odio. Integer et lectus neque, nec scelerisque nisi. EndOfLineHere
 
-      Vestibulum non velit mi. Aliquam scelerisque libero ut nulla fringilla a sollicitudin magna rhoncus.  Praesent a nunc lorem, ac porttitor eros. Sed ac diam nec neque interdum adipiscing quis quis justo. Donec arcu nunc, fringilla eu dictum at, venenatis ac sem. Vestibulum quis elit urna, ac mattis sapien. Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+      Vestibulum non velit mi. Aliquam scelerisque libero ut nulla fringilla a sollicitudin magna rhoncus. Praesent a nunc lorem, ac porttitor eros. Sed ac diam nec neque interdum adipiscing quis quis justo. Donec arcu nunc, fringilla eu dictum at, venenatis ac sem. Vestibulum quis elit urna, ac mattis sapien. Lorem ipsum dolor sit amet, consectetur adipiscing elit.
     LOREM
     get(:index, :params => {:project_id => 'ecookbook'})
     assert_response :success
@@ -239,6 +237,27 @@ class DocumentsControllerTest < Redmine::ControllerTest
     assert_equal 'test_update', document.title
   end
 
+  def test_update_should_not_add_attachments
+    @request.session[:user_id] = 2
+    set_tmp_attachments_directory
+
+    assert_no_difference 'Attachment.count' do
+      put(
+        :update,
+        :params => {
+          :id => 1,
+          :document => {:title => 'test_update'},
+          :attachments => {
+            '1' => {
+              'file' => uploaded_test_file('testfile.txt', 'text/plain')
+            }
+          }
+        }
+      )
+    end
+    assert_redirected_to '/documents/1'
+  end
+
   def test_update_with_failure
     @request.session[:user_id] = 2
     put(
@@ -286,7 +305,7 @@ class DocumentsControllerTest < Redmine::ControllerTest
         }
       )
     end
-    attachment = Attachment.order('id DESC').first
+    attachment = Attachment.order(id: :desc).first
     assert_equal Document.find(1), attachment.container
   end
 end

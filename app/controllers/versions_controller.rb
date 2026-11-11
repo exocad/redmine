@@ -18,8 +18,9 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 class VersionsController < ApplicationController
+  self.model_object = Version
+
   menu_item :roadmap
-  model_object Version
   before_action :find_model_object, :except => [:index, :new, :create, :close_completed]
   before_action :find_project_from_association, :except => [:index, :new, :create, :close_completed]
   before_action :find_project_by_project_id, :only => [:index, :new, :create, :close_completed]
@@ -51,7 +52,7 @@ class VersionsController < ApplicationController
         if @selected_tracker_ids.any? && @versions.any?
           issues = Issue.visible.
             includes(:project, :tracker).
-            preload(:status, :priority, :fixed_version).
+            preload(:status, :priority, :fixed_version, {:assigned_to => :email_address}).
             where(:tracker_id => @selected_tracker_ids, :project_id => project_ids, :fixed_version_id => @versions.map(&:id)).
             order("#{Project.table_name}.lft, #{Tracker.table_name}.position, #{Issue.table_name}.id")
           @issues_by_version = issues.group_by(&:fixed_version)
@@ -69,7 +70,7 @@ class VersionsController < ApplicationController
       format.html do
         @issues = @version.fixed_issues.visible.
           includes(:status, :tracker, :priority).
-          preload(:project).
+          preload(:project, {:assigned_to => :email_address}).
           reorder("#{Tracker.table_name}.position, #{Issue.table_name}.id").
           to_a
       end
@@ -165,7 +166,7 @@ class VersionsController < ApplicationController
           flash[:error] = l(:notice_unable_delete_version)
           redirect_to settings_project_path(@project, :tab => 'versions')
         end
-        format.api  {head :unprocessable_entity}
+        format.api  {head :unprocessable_content}
       end
     end
   end

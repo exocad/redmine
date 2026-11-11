@@ -20,17 +20,9 @@
 require_relative '../test_helper'
 
 class SettingsControllerTest < Redmine::ControllerTest
-  fixtures :projects, :trackers, :issue_statuses, :issues,
-           :users, :email_addresses
-
   def setup
     User.current = nil
     @request.session[:user_id] = 1 # admin
-  end
-
-  def teardown
-    Setting.delete_all
-    Setting.clear_cache
   end
 
   def test_index
@@ -53,7 +45,7 @@ class SettingsControllerTest < Redmine::ControllerTest
       assert_response :success
     end
 
-    assert_select 'select[name=?]', 'settings[issue_list_default_columns][]' do
+    assert_select 'select#selected_settings_issue_list_default_columns' do
       assert_select 'option', 4
       assert_select 'option[value=tracker]', :text => 'Tracker'
       assert_select 'option[value=subject]', :text => 'Subject'
@@ -61,7 +53,7 @@ class SettingsControllerTest < Redmine::ControllerTest
       assert_select 'option[value=updated_on]', :text => 'Updated'
     end
 
-    assert_select 'select[name=?]', 'available_columns[]' do
+    assert_select 'select#available_settings_issue_list_default_columns' do
       assert_select 'option[value=tracker]', 0
       assert_select 'option[value=priority]', :text => 'Priority'
     end
@@ -72,6 +64,19 @@ class SettingsControllerTest < Redmine::ControllerTest
 
     get :edit
     assert_response :success
+  end
+
+  def test_get_edit_should_show_avatar_server_url_in_info_texts
+    url = 'https://seccdn.libravatar.org'
+    with_settings :gravatar_enabled => '1', :gravatar_default => 'initials' do
+      Redmine::Configuration.with 'avatar_server_url' => url do
+        get :edit
+        assert_response :success
+      end
+    end
+
+    assert_select '#settings_gravatar_enabled ~ em.info a[href=?]', url, :text => url
+    assert_select '#settings_gravatar_default ~ em.info a[href=?]', url, :text => url
   end
 
   def test_post_edit_notifications
@@ -149,6 +154,20 @@ class SettingsControllerTest < Redmine::ControllerTest
     )
   end
 
+  def test_post_edit_should_clear_default_due_date_offset_when_disabled
+    with_settings :default_issue_due_date_offset => '5' do
+      post :edit, :params => {
+        :tab => 'issues',
+        :settings => {
+          :default_issue_due_date_offset_enabled => '0',
+          :default_issue_due_date_offset => '7'
+        }
+      }
+      assert_redirected_to '/settings?tab=issues'
+      assert_equal '', Setting.default_issue_due_date_offset
+    end
+  end
+
   def test_post_edit_with_invalid_setting_should_not_error
     post :edit, :params => {
       :settings => {
@@ -219,7 +238,7 @@ class SettingsControllerTest < Redmine::ControllerTest
 
   def test_get_invalid_plugin_settings
     get :plugin, :params => {:id => 'none'}
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_get_non_configurable_plugin_settings
@@ -228,7 +247,7 @@ class SettingsControllerTest < Redmine::ControllerTest
     end
 
     get :plugin, :params => {:id => 'foo'}
-    assert_response 404
+    assert_response :not_found
 
   ensure
     Redmine::Plugin.unregister(:foo)
@@ -274,10 +293,41 @@ class SettingsControllerTest < Redmine::ControllerTest
       :id => 'foo',
       :settings => {'sample_setting' => 'Value'}
     }
-    assert_response 404
+    assert_response :not_found
 
   ensure
     Redmine::Plugin.unregister(:foo)
+  end
+
+  def test_post_edit_should_store_favicon
+    with_settings :favicon => {} do
+      post :edit, :params => {
+        :settings => {:favicon => fixture_file_upload('2010/11/101123161450_testfile_1.png', 'image/png')}
+      }
+      assert_redirected_to '/settings'
+
+      data = File.binread(file_fixture('2010/11/101123161450_testfile_1.png'))
+      assert_equal 'image/png', Setting.favicon['content_type']
+      assert_equal data, Base64.decode64(Setting.favicon['data'])
+      assert_equal Digest::SHA256.hexdigest(data)[0, 8], Setting.favicon['digest']
+    end
+  end
+
+  def test_post_edit_should_not_store_favicon_that_is_not_an_icon_image
+    post :edit, :params => {:settings => {:favicon => fixture_file_upload('testfile.svg', 'image/svg+xml')}}
+    assert_response :success
+
+    assert_select_error /Custom favicon is invalid/
+    assert_equal({}, Setting.favicon)
+  end
+
+  def test_delete_favicon
+    with_settings :favicon => {'content_type' => 'image/png', 'data' => 'AA==', 'digest' => '0' * 8} do
+      delete :delete_favicon
+      assert_redirected_to '/settings?tab=display'
+
+      assert_equal({}, Setting.favicon)
+    end
   end
 
   def test_post_mail_handler_delimiters_should_not_save_invalid_regex_delimiters

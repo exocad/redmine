@@ -20,8 +20,6 @@
 require_relative '../test_helper'
 
 class RepositoryMercurialTest < ActiveSupport::TestCase
-  fixtures :projects
-
   include Redmine::I18n
 
   REPOSITORY_PATH = Rails.root.join('tmp/test/mercurial_repository').to_s
@@ -37,6 +35,22 @@ class RepositoryMercurialTest < ActiveSupport::TestCase
         :path_encoding => 'ISO-8859-1'
       )
     assert @repository
+    skip "SCM command is unavailable" unless @repository.class.scm_available
+  end
+
+  def test_scm_available
+    klass = Repository::Mercurial
+    assert_equal "Mercurial", klass.scm_name
+    assert klass.scm_adapter_class
+    assert_not_equal "", klass.scm_command
+
+    Redmine::Configuration.with 'scm_mercurial_path_regexp' => '' do
+      assert_equal false, klass.scm_available
+    end
+
+    Redmine::Configuration.with 'scm_mercurial_path_regexp' => Regexp.escape(REPOSITORY_PATH) do
+      assert_equal true, klass.scm_available
+    end
   end
 
   def test_blank_path_to_repository_error_message
@@ -65,14 +79,6 @@ class RepositoryMercurialTest < ActiveSupport::TestCase
   end
 
   if File.directory?(REPOSITORY_PATH)
-    def test_scm_available
-      klass = Repository::Mercurial
-      assert_equal "Mercurial", klass.scm_name
-      assert klass.scm_adapter_class
-      assert_not_equal "", klass.scm_command
-      assert_equal true, klass.scm_available
-    end
-
     def test_entries_on_tip
       entries = @repository.entries
       assert_kind_of Redmine::Scm::Adapters::Entries, entries
@@ -170,7 +176,7 @@ class RepositoryMercurialTest < ActiveSupport::TestCase
       @repository.fetch_changesets
       @project.reload
       assert_equal NUM_REV, @repository.changesets.count
-      assert_equal 53, @repository.filechanges.count
+      assert_equal 47, @repository.filechanges.count
       rev0 = @repository.changesets.find_by_revision('0')
       assert_equal "Initial import.\nThe repository contains 3 files.",
                    rev0.comments
@@ -263,13 +269,13 @@ class RepositoryMercurialTest < ActiveSupport::TestCase
         @repository.latest_changesets(
           '/sql_escape/percent%dir/percent%file1.txt', nil
         )
-      assert_equal %w|30 11 10 9|, changesets.collect(&:revision)
+      assert_equal %w|11 10 9|, changesets.collect(&:revision)
 
       changesets =
         @repository.latest_changesets(
           '/sql_escape/underscore_dir/understrike_file.txt', nil
         )
-      assert_equal %w|30 12 9|, changesets.collect(&:revision)
+      assert_equal %w|12 9|, changesets.collect(&:revision)
 
       changesets = @repository.latest_changesets('README', nil)
       assert_equal %w|31 30 28 17 8 6 1 0|, changesets.collect(&:revision)
@@ -286,7 +292,7 @@ class RepositoryMercurialTest < ActiveSupport::TestCase
 
       path = 'sql_escape/percent%dir'
       changesets = @repository.latest_changesets(path, nil)
-      assert_equal %w|30 13 11 10 9|, changesets.collect(&:revision)
+      assert_equal %w|13 11 10 9|, changesets.collect(&:revision)
 
       changesets = @repository.latest_changesets(path, '11')
       assert_equal %w|11 10 9|, changesets.collect(&:revision)
@@ -296,7 +302,7 @@ class RepositoryMercurialTest < ActiveSupport::TestCase
 
       path = 'sql_escape/underscore_dir'
       changesets = @repository.latest_changesets(path, nil)
-      assert_equal %w|30 13 12 9|, changesets.collect(&:revision)
+      assert_equal %w|13 12 9|, changesets.collect(&:revision)
 
       changesets = @repository.latest_changesets(path, '12')
       assert_equal %w|12 9|, changesets.collect(&:revision)

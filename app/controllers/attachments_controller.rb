@@ -56,11 +56,15 @@ class AttachmentsController < ApplicationController
             User.current.preference.save
           end
           render :action => 'diff'
+        elsif @attachment.is_image?
+          render :action => 'image'
+        elsif @attachment.pdf_previewable?
+          render :action => 'pdf'
         elsif @attachment.is_text? && @attachment.filesize <= Setting.file_max_size_displayed.to_i.kilobyte
           @content = File.read(@attachment.diskfile, :mode => "rb")
           render :action => 'file'
-        elsif @attachment.is_image?
-          render :action => 'image'
+        elsif @content = @attachment.markdownized_preview_content
+          render :action => 'markdownized'
         else
           render :action => 'other'
         end
@@ -75,9 +79,11 @@ class AttachmentsController < ApplicationController
     end
 
     if stale?(:etag => @attachment.digest, :template => false)
-      # images are sent inline
+      # Send PDF compatible files, such as Illustrator files, as PDF so that
+      # browsers display them inline
+      is_inline_pdf = disposition(@attachment) == 'inline' && @attachment.pdf_previewable?
       send_file @attachment.diskfile, :filename => filename_for_content_disposition(@attachment.filename),
-                                      :type => detect_content_type(@attachment),
+                                      :type => is_inline_pdf ? 'application/pdf' : detect_content_type(@attachment),
                                       :disposition => disposition(@attachment)
     end
   end
@@ -93,7 +99,7 @@ class AttachmentsController < ApplicationController
       end
     else
       # No thumbnail for the attachment or thumbnail could not be created
-      head 404
+      head :not_found
     end
   end
 
@@ -101,14 +107,15 @@ class AttachmentsController < ApplicationController
     # Make sure that API users get used to set this content type
     # as it won't trigger Rails' automatic parsing of the request body for parameters
     unless request.media_type == 'application/octet-stream'
-      head 406
+      head :not_acceptable
       return
     end
 
     @attachment = Attachment.new(:file => raw_request_body)
     @attachment.author = User.current
     @attachment.filename = params[:filename].presence || Redmine::Utils.random_hex(16)
-    @attachment.content_type = params[:content_type].presence
+    # The content type is detected from the file contents on save,
+    # so params[:content_type] is ignored
     saved = @attachment.save
 
     respond_to do |format|
@@ -234,6 +241,11 @@ class AttachmentsController < ApplicationController
   end
 
   def find_downloadable_attachments
+    unless @container.try(:attachments_visible?)
+      deny_access
+      return
+    end
+
     @attachments = @container.attachments.select(&:readable?)
     bulk_download_max_size = Setting.bulk_download_max_size.to_i.kilobytes
     if @attachments.sum(&:filesize) > bulk_download_max_size
@@ -291,16 +303,18 @@ class AttachmentsController < ApplicationController
         "application/octet-stream"
     end
 
-    if is_thumb && content_type == "application/pdf"
-      # PDF previews are stored in PNG format
+    if is_thumb && !content_type.start_with?("image/")
+      # Thumbnails of non-image files are stored in PNG format
       content_type = "image/png"
     end
 
     content_type
   end
 
+  # Inline disposition can be requested only for PDF compatible files (used
+  # by the PDF preview), to prevent XSS with e.g. HTML or SVG files
   def disposition(attachment)
-    if attachment.is_pdf?
+    if params[:disposition] == 'inline' && attachment.pdf_previewable?
       'inline'
     else
       'attachment'

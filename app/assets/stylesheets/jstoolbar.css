@@ -8,66 +8,67 @@
     display: none;
 }
 .jstEditor {
-    padding-left: 0px;
+    padding-inline-start: 0px;
 }
 .jstEditor textarea, .jstEditor iframe {
     margin: 0;
 }
 .jstHandle {
-    height: 10px;
+    block-size: 10px;
     font-size: 0.1em;
     cursor: s-resize;
     /*background: transparent url(img/resizer.png) no-repeat 45% 50%;*/
 }
 #content .jstTabs.tabs {
-    margin-bottom: -1px;
+    margin-block-end: -1px;
 }
-#content .jstTabs.tabs ul {border-bottom:0;}
+#content .jstTabs.tabs ul {border-block-end: 0;}
 #content .jstTabs.tabs li {
-    height: 42px;
+    block-size: 42px;
 }
 #content .jstTabs.tabs li:before{
     content: '';
     display: inline-block;
     vertical-align: middle;
-    height: 100%;
+    block-size: 100%;
 }
 #content .jstTabs.tabs li a {
     display: inline-block;
     vertical-align: bottom;
     line-height: 19px;
-  border-bottom: 1px solid transparent;
+    border-block-end: 1px solid transparent;
 }
 .jstElements {
     display: inline-block;
     vertical-align: bottom;
-    padding-left: 6px;
-    padding-bottom:2px;
-    height: 26px;
+    padding-inline-start: 6px;
+    padding-block-end: 2px;
+    block-size: 26px;
 }
 .wiki-preview {
-    background-color: #ffffff;
-    border: 1px solid #bbbbbb;
+    color: var(--oc-gray-9);
+    background-color: var(--oc-white);
+    border: 1px solid var(--oc-gray-4);
 }
-.wiki-preview p.empty-preview {color:#999; font-style:italic; margin-top:1em; text-align:center;}
+.wiki-preview p.empty-preview {color: var(--color-text-muted); font-style: italic; margin-block-start: 1em; text-align: center;}
 
 .jstElements button {
-    margin-right: 2px;
-    width : 24px;
-    height: 24px;
+    margin-inline-end: 2px;
+    inline-size : 24px;
+    block-size: 24px;
     padding: 4px;
     border-style: solid;
     border-width: 1px;
-    border-color: #ddd;
-    background-color : #f7f7f7;
+    border-color: var(--oc-gray-4);
+    background-color : var(--oc-gray-0);
     background-position : 50% 50%;
     background-repeat: no-repeat;
     cursor:pointer;
     opacity:0.7;
 }
 .jstElements button:hover {
-    border-color: #bbb;
-    background-color: #e5e5e5;
+    border-color: var(--oc-gray-5);
+    background-color: var(--oc-gray-3);
     opacity:1;
 }
 .jstElements button span {
@@ -78,86 +79,136 @@
 }
 
 .jstSpacer {
-    width : 0px;
+    inline-size : 0px;
     font-size: 1px;
-    margin-right: 6px;
+    margin-inline-end: 6px;
 }
 
-.jstElements .help { float: right; margin-right: 0.5em; padding-top: 8px; font-size: 0.9em; }
-.jstElements .help a {padding: 2px 0 2px 20px; background: url(./help.png) no-repeat 0 50%;}
+.jstElements .help { float: inline-end; margin-inline-end: 0.5em; padding-block-start: 8px; font-size: 0.9em; }
+.jstElements .help a {padding-block: 2px; padding-inline-start: 20px; padding-inline-end: 0; background: url(./help.png) no-repeat 0 50%;}
+
+.jstBlock {
+    position: relative;
+}
 
 .table-generator td {
-    border: 2px solid #ccc;
+    border: 2px solid var(--oc-gray-5);
     background-color: white;
-    padding: 10px;
+    padding: 0;
+}
+
+.table-generator td button {
+    display: block;
+    inline-size: 22px;
+    block-size: 22px;
+    padding: 0;
+    border: 0;
+    background: transparent;
     cursor: pointer;
 }
 
 .table-generator td.selected-cell, .table-generator td:hover {
-    background-color: #759FCF;
+    background-color: var(--oc-blue-1);
+}
+
+.table-generator, .jstMenu {
+    position: fixed;
+    z-index: 100;
 }
 
 .table-generator {
-    position: absolute;
     border-collapse: collapse;
+}
+
+.jstMenu {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    inline-size: 150px;
+    max-block-size: 300px;
+    overflow-y: auto;
+    background-color: var(--oc-white);
+    border: 1px solid var(--oc-gray-4);
+    border-radius: 2px;
+}
+
+.jstMenu button {
+    display: block;
+    inline-size: 100%;
+    padding-block: 4px;
+    padding-inline: 8px;
+    border: 0;
+    background: transparent;
+    color: var(--oc-gray-9);
+    text-align: start;
+    cursor: pointer;
+}
+
+.jstMenu button:hover, .jstMenu button:focus {
+    color: var(--oc-white);
+    background-color: var(--oc-blue-7);
+    outline: none;
 }
 
 /* Buttons
 -------------------------------------------------------- */
 .jstb_strong {
-    background-image: url(/jstoolbar/bt_strong.png);
+    background-image: url(/jstoolbar/bold.svg);
 }
 .jstb_em {
-    background-image: url(/jstoolbar/bt_em.png);
+    background-image: url(/jstoolbar/italic.svg);
 }
 .jstb_ins {
-    background-image: url(/jstoolbar/bt_ins.png);
+    background-image: url(/jstoolbar/underline.svg);
 }
 .jstb_del {
-    background-image: url(/jstoolbar/bt_del.png);
+    background-image: url(/jstoolbar/strikethrough.svg);
 }
 .jstb_code {
-    background-image: url(/jstoolbar/bt_code.png);
+    background-image: url(/jstoolbar/letter-c.svg);
 }
 .jstb_h1 {
-    background-image: url(/jstoolbar/bt_h1.png);
+    background-image: url(/jstoolbar/h1.svg);
 }
 .jstb_h2 {
-    background-image: url(/jstoolbar/bt_h2.png);
+    background-image: url(/jstoolbar/h2.svg);
 }
 .jstb_h3 {
-    background-image: url(/jstoolbar/bt_h3.png);
+    background-image: url(/jstoolbar/h3.svg);
 }
 .jstb_ul {
-    background-image: url(/jstoolbar/bt_ul.png);
+    background-image: url(/jstoolbar/list.svg);
 }
 .jstb_ol {
-    background-image: url(/jstoolbar/bt_ol.png);
+    background-image: url(/jstoolbar/list-numbers.svg);
 }
 .jstb_tl {
-    background-image: url(/jstoolbar/bt_tl.png);
+    background-image: url(/jstoolbar/list-check.svg);
 }
 .jstb_bq {
-    background-image: url(/jstoolbar/bt_bq.png);
+    background-image: url(/jstoolbar/indent-increase.svg);
 }
 .jstb_unbq {
-    background-image: url(/jstoolbar/bt_bq_remove.png);
+    background-image: url(/jstoolbar/indent-decrease.svg);
 }
-.jstb_pre {
-    background-image: url(/jstoolbar/bt_pre.png);
+.jstb_pre::before {
+    content: "pre";
+    font-size: 10px;
+    color: var(--oc-gray-9);
+    font-weight: 700
 }
 .jstb_precode {
-    background-image: url(/jstoolbar/bt_precode.png);
+    background-image: url(/jstoolbar/code.svg);
 }
 .jstb_link {
-    background-image: url(/jstoolbar/bt_link.png);
+    background-image: url(/jstoolbar/wiki_link.svg);
 }
 .jstb_img {
-    background-image: url(/jstoolbar/bt_img.png);
+    background-image: url(/jstoolbar/image.svg);
 }
 .jstb_table {
-    background-image: url(/jstoolbar/bt_table.png);
+    background-image: url(/jstoolbar/table.svg);
 }
 .jstb_help {
-    background-image: url(/help.png);
+    background-image: url(/jstoolbar/help.svg);
 }

@@ -1,24 +1,89 @@
-h1 { font-family: Verdana, sans-serif; font-size: 14px; text-align: center; color: #444; }
-body { font-family: Verdana, sans-serif; font-size: 12px; color: #444; }
-pre, code {font-family: Consolas, Menlo, "Liberation Mono", Courier, monospace; }
-table th { padding-top: 1em; }
-table th img { border: 1px solid #bbb; }
-table td { background-color: #f5f5f5; height: 2em; vertical-align: middle;}
+@import url('/open-color.css');
+
+@font-face {
+  font-family: "Noto Sans";
+  src: url("/NotoSans-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans";
+  src: url("/NotoSans-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans";
+  src: url("/NotoSans-Italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans";
+  src: url("/NotoSans-BoldItalic.woff2") format("woff2");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  --fonts-main: "Noto Sans", sans-serif;
+  --fonts-monospace: Consolas, Menlo, "Liberation Mono", monospace;
+}
+
+h1 { font-family: var(--fonts-main); font-size: 0.875rem; text-align: center; color: var(--oc-gray-8); }
+body { font-family: var(--fonts-main); font-size: 0.75rem; color: var(--oc-gray-8); }
+pre, code { font-family: var(--fonts-monospace); }
+table th { padding-block-start: 1em; }
+table th img {
+  border: 1px solid var(--oc-gray-5);
+  opacity: 0.7;
+}
+table th .syntax-pre {
+  display: inline-block;
+  border: 1px solid var(--oc-gray-5);
+  inline-size: 18px;
+  block-size: 18px;
+}
+table th .syntax-pre:before {
+  content: "pre";
+  font-size: 0.625rem;
+  color: var(--oc-gray-7);
+}
+table td { background-color: var(--oc-gray-0); block-size: 2em; vertical-align: middle;}
 table td code { font-size: 1.2em; }
-table td h1 { font-size: 1.8em; text-align: left; }
-table td h2 { font-size: 1.4em; text-align: left; }
-table td h3 { font-size: 1.2em; text-align: left; }
+table td img { max-width: 100%; }
+table td h1 { font-size: 1.8em; text-align: start; }
+table td h2 { font-size: 1.4em; text-align: start; }
+table td h3 { font-size: 1.2em; text-align: start; }
 
 table.sample { border-collapse: collapse; border-spacing: 0; margin: 4px; }
-table.sample th, table.sample td { border: solid 1px #bbb; padding: 4px; height: 1em; }
+table.sample th, table.sample td { border: solid 1px var(--oc-gray-5); padding: 4px; block-size: 1em; }
 
-a, a:link, a:visited{ color: #169; text-decoration: none; }
-a:hover, a:active{ color: #c61a1a; text-decoration: underline;}
+a, a:link, a:visited{ color: var(--oc-blue-9); text-decoration: none; }
+a:hover, a:active{ color: var(--oc-red-9); text-decoration: underline;}
 
-.syntaxhl .mi { color: #0000DD; font-weight: bold }
-.syntaxhl .nf { color: #0066BB; font-weight: bold }
-.syntaxhl .k { color: #008800; font-weight: bold }
-.syntaxhl .nb { color: #007020 }
-.syntaxhl .s1 { background-color: #fff0f0 }
+.syntaxhl .mi { color: var(--oc-violet-9); font-weight: bold }
+.syntaxhl .nf { color: var(--oc-blue-9); font-weight: bold }
+.syntaxhl .k { color: var(--oc-green-9); font-weight: bold }
+.syntaxhl .nb { color: var(--oc-green-9) }
+.syntaxhl .s1 { background-color: var(--oc-red-0) }
 
 span.more_info { font-weight: normal; }
+
+.markdown-alert {
+  border-inline-start: 4px solid;
+  padding-inline-start: 10px;
+  margin-inline-start: 10px;
+}
+.markdown-alert-title {
+  font-weight: bold;
+}
+.markdown-alert-note { border-color: var(--oc-indigo-7); }
+.markdown-alert-note .markdown-alert-title { color: var(--oc-indigo-9); }

@@ -19,9 +19,10 @@
 
 if ENV["COVERAGE"]
   require 'simplecov'
-  require_relative 'coverage/html_formatter'
-  SimpleCov.formatter = Redmine::Coverage::HtmlFormatter
-  SimpleCov.start 'rails'
+  SimpleCov.start 'rails' do
+    cover_views # Include app/views templates in the report
+    track_tests # Track which tests execute each line
+  end
 end
 
 $redmine_test_ldap_server = ENV['REDMINE_TEST_LDAP_SERVER'] || '127.0.0.1'
@@ -37,14 +38,12 @@ require 'net/ldap'
 require 'mocha/minitest'
 require 'fileutils'
 
-Redmine::SudoMode.disable!
-
 $redmine_tmp_attachments_directory = "#{Rails.root}/tmp/test/attachments"
 FileUtils.mkdir_p $redmine_tmp_attachments_directory
 
 $redmine_tmp_pdf_directory = "#{Rails.root}/tmp/test/pdf"
 FileUtils.mkdir_p $redmine_tmp_pdf_directory
-FileUtils.rm Dir.glob('#$redmine_tmp_pdf_directory/*.pdf')
+FileUtils.rm Dir.glob("#{$redmine_tmp_pdf_directory}/*.pdf")
 
 class ActionView::TestCase
   helper :application
@@ -56,8 +55,53 @@ class ActiveSupport::TestCase
 
   include ActionDispatch::TestProcess
 
+  fixtures :all
+
   self.use_transactional_tests = true
   self.use_instantiated_fixtures  = false
+
+  # Use the same time for fixtures and tests to prevent date-dependent
+  # failures when the date changes while running the test suite.
+  FROZEN_TIME = Time.now.freeze
+
+  def before_setup
+    travel_to FROZEN_TIME
+    super
+  end
+
+  setup do
+    Redmine::SudoMode.stubs(:enabled?).returns(false)
+  end
+
+  setup do
+    # Tests mutate the process-global locale; reset it so test order does not
+    # affect translated assertions in later tests run by the same worker.
+    ::I18n.locale = ::I18n.default_locale
+  end
+
+  setup do
+    Redmine::Scm::Base.all.each do |scm_name|
+      config = "scm_#{scm_name.to_s.downcase}_path_regexp"
+      Redmine::Configuration.instance_variable_get(:@config)[config] ||= '.*'
+    end
+  end
+
+  parallelize_setup do |worker|
+    # Use a separate attachment directory for each worker.
+    $redmine_tmp_attachments_directory =
+      File.join($redmine_tmp_attachments_directory, worker.to_s)
+    FileUtils.mkdir_p $redmine_tmp_attachments_directory
+
+    # Use a separate thumbnail directory for each worker.
+    Attachment.thumbnails_storage_path =
+      File.join(Attachment.thumbnails_storage_path, worker.to_s)
+    FileUtils.mkdir_p Attachment.thumbnails_storage_path
+  end
+
+  # Clear Settings cache after each test to prevent test interference
+  teardown do
+    Setting.clear_cache
+  end
 
   def uploaded_test_file(name, mime)
     fixture_file_upload(name.to_s, mime, true)
@@ -87,16 +131,14 @@ class ActiveSupport::TestCase
     Attachment.storage_path = "#{Rails.root}/test/fixtures/files"
   end
 
-  def with_settings(options, &block)
-    saved_settings = options.keys.inject({}) do |h, k|
-      h[k] =
-        case Setting[k]
-        when Symbol, false, true, nil
-          Setting[k]
-        else
-          Setting[k].dup
-        end
-      h
+  def with_settings(options, &)
+    saved_settings = options.keys.index_with do |k|
+      case Setting[k]
+      when Symbol, false, true, nil
+        Setting[k]
+      else
+        Setting[k].dup
+      end
     end
     options.each {|k, v| Setting[k] = v}
     yield
@@ -105,7 +147,7 @@ class ActiveSupport::TestCase
   end
 
   # Yields the block with user as the current user
-  def with_current_user(user, &block)
+  def with_current_user(user, &)
     saved_user = User.current
     User.current = user
     yield
@@ -113,7 +155,7 @@ class ActiveSupport::TestCase
     User.current = saved_user
   end
 
-  def with_locale(locale, &block)
+  def with_locale(locale, &)
     saved_localed = ::I18n.locale
     ::I18n.locale = locale
     yield
@@ -145,11 +187,17 @@ class ActiveSupport::TestCase
     self.class.gs_installed?
   end
 
+  def self.mermaid_installed?
+    Redmine::Mermaid.available?
+  end
+
+  def mermaid_installed?
+    self.class.mermaid_installed?
+  end
+
   # Returns the path to the test +vendor+ repository
   def self.repository_path(vendor)
-    path = Rails.root.join("tmp/test/#{vendor.downcase}_repository").to_s
-    # Unlike ruby, JRuby returns Rails.root with backslashes under Windows
-    path.tr("\\", "/")
+    Rails.root.join("tmp/test/#{vendor.downcase}_repository").to_s
   end
 
   # Returns the url of the subversion test repository
@@ -219,13 +267,13 @@ class ActiveSupport::TestCase
 
   # Asserts that a new record for the given class is created
   # and returns it
-  def new_record(klass, &block)
-    new_records(klass, 1, &block).first
+  def new_record(klass, &)
+    new_records(klass, 1, &).first
   end
 
   # Asserts that count new records for the given class are created
   # and returns them as an array order by object id
-  def new_records(klass, count, &block)
+  def new_records(klass, count, &)
     assert_difference "#{klass}.count", count do
       yield
     end
@@ -292,23 +340,15 @@ class ActiveSupport::TestCase
 end
 
 module Redmine
-  class MockFile
-    attr_reader :size, :original_filename, :content_type
+  class MockFile < StringIO
+    attr_reader :original_filename, :content_type
 
     def initialize(options={})
-      @size = options[:size] || 32
       @original_filename = options[:original_filename] || options[:filename]
       @content_type = options[:content_type]
-      @content = options[:content] || 'x'*size
-    end
-
-    def read(*args)
-      if @eof
-        false
-      else
-        @eof = true
-        @content
-      end
+      size = options[:size] || 32
+      content = options[:content] || 'x' * size
+      super(content)
     end
   end
 
@@ -335,11 +375,20 @@ module Redmine
   class HelperTest < ActionView::TestCase
     include Redmine::I18n
     include Propshaft::Helper
+    include IconsHelper
 
     def setup
       super
       User.current = nil
       ::I18n.locale = 'en'
+    end
+
+    def pre_wrapper(text)
+      icon = sprite_icon('copy-pre-content', size: 18)
+      '<div class="pre-wrapper" data-controller="clipboard"><a class="copy-pre-content-link icon-only" title="Copy" data-action="clipboard#copyPre">' +
+      icon + '</a>' +
+      text +
+      '</div>'
     end
   end
 
@@ -478,6 +527,23 @@ module Redmine
         else
           raise "Unknown response format: #{format}"
         end
+      end
+
+      # Returns the headers for a request authenticated with an OAuth access
+      # token of the given user, limited to the given space separated scopes
+      def oauth_credentials(login, scopes)
+        application = Doorkeeper::Application.create!(
+          :name => 'Test App',
+          :redirect_uri => 'http://localhost/callback',
+          :scopes => scopes
+        )
+        token = Doorkeeper::AccessToken.create!(
+          :application_id => application.id,
+          :resource_owner_id => User.find_by_login(login).id,
+          :scopes => scopes,
+          :expires_in => 7200
+        )
+        {'Authorization' => "Bearer #{token.plaintext_token}"}
       end
     end
 

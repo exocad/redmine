@@ -20,8 +20,6 @@
 require_relative '../test_helper'
 
 class CommentsControllerTest < Redmine::ControllerTest
-  fixtures :projects, :users, :email_addresses, :roles, :members, :member_roles, :enabled_modules, :news, :comments
-
   def setup
     User.current = nil
   end
@@ -75,7 +73,7 @@ class CommentsControllerTest < Redmine::ControllerTest
           }
         }
       )
-      assert_response 403
+      assert_response :forbidden
     end
   end
 

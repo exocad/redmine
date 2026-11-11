@@ -19,16 +19,14 @@
 
 require_relative '../../../../../test_helper'
 
-if Object.const_defined?(:CommonMarker)
-  require 'redmine/wiki_formatting/common_mark/sanitization_filter'
+if Object.const_defined?(:Commonmarker)
 
   class Redmine::WikiFormatting::CommonMark::SanitizationFilterTest < ActiveSupport::TestCase
     def filter(html)
-      Redmine::WikiFormatting::CommonMark::SanitizationFilter.to_html(html, @options)
-    end
-
-    def setup
-      @options = { }
+      fragment = Redmine::WikiFormatting::HtmlParser.parse(html)
+      sanitizer = Redmine::WikiFormatting::CommonMark::SanitizationFilter.new
+      sanitizer.call(fragment)
+      fragment.to_s
     end
 
     def test_should_filter_tags
@@ -47,10 +45,14 @@ if Object.const_defined?(:CommonMarker)
     end
 
     def test_should_support_footnotes
-      input = %(<a href="#fn-1" id="fnref-1">foo</a>)
-      assert_equal input, filter(input)
-      input = %(<ol><li id="fn-1">footnote</li></ol>)
-      assert_equal input, filter(input)
+      [
+        %(<a href="#fn-1" id="fnref-1">foo</a>),
+        %(<a href="#fn-1" id="fnref-1-2">foo</a>),
+        %(<ol><li id="fn-1">footnote</li></ol>),
+      ].each do |input|
+        assert_equal input, filter(input)
+        assert_equal input, filter(input)
+      end
     end
 
     def test_should_remove_invalid_ids
@@ -69,6 +71,32 @@ if Object.const_defined?(:CommonMarker)
 
       input = %(<code class="foo">foo</code>)
       assert_equal %(<code>foo</code>), filter(input)
+    end
+
+    def test_should_allow_valid_alert_div_and_p_classes
+      html = <<~HTML
+        <div class="markdown-alert markdown-alert-tip">
+          <p class="markdown-alert-title">Tip</p>
+          <p>Useful tip.</p>
+        </div>
+      HTML
+
+      sanitized = filter(html)
+
+      assert_include 'class="markdown-alert markdown-alert-tip"', sanitized
+      assert_include 'class="markdown-alert-title"', sanitized
+    end
+
+    def test_should_remove_invalid_div_class
+      html = '<div class="bad-class">Text</div>'
+      sanitized = filter(html)
+      assert_not_includes 'bad-class', sanitized
+    end
+
+    def test_should_remove_invalid_p_class
+      html = '<p class="bad-class">Text</p>'
+      sanitized = filter(html)
+      assert_not_include 'bad-class', sanitized
     end
 
     def test_should_allow_links_with_safe_url_schemes
@@ -91,22 +119,26 @@ if Object.const_defined?(:CommonMarker)
     end
 
     # samples taken from the Sanitize test suite
-    # rubocop:disable Layout/LineLength
+    # rubocop:disable-next Layout/LineLength
     STRINGS = [
       [
         '<span style="color: #333; background: url(\'https://example.com/evil.svg\')">hello</span>"',
         '<span style="color: #333; ">hello</span>"'
       ],
       [
+        '<span style="background: #fdd; vertical-align: top; border-top-left-radius: 4px;">hello</span>',
+        '<span style="background: #fdd; vertical-align: top; border-top-left-radius: 4px;">hello</span>'
+      ],
+      [
         '<img src="photo.jpg" style="min-width: 100px; max-width: 200px; min-height: 100px; max-height: 200px;">',
         '<img src="photo.jpg" style="min-width: 100px; max-width: 200px; min-height: 100px; max-height: 200px;">'
       ],
       [
-        '<b>Lo<!-- comment -->rem</b> <a href="pants" title="foo" style="text-decoration: underline;">ipsum</a> <a href="http://foo.com/"><strong>dolor</strong></a> sit<br/>amet <style>.foo { color: #fff; }</style> <script>alert("hello world");</script>',
-        '<b>Lorem</b> <a href="pants" title="foo">ipsum</a> <a href="http://foo.com/"><strong>dolor</strong></a> sit<br>amet .foo { color: #fff; } '
+        '<b>Lo<!-- comment -->rem</b> <a href="pants" title="foo" style="text-decoration: underline;">ipsum</a> <a href="http://example.com/"><strong>dolor</strong></a> sit<br/>amet <style>.foo { color: #fff; }</style> <script>alert("hello world");</script>',
+        '<b>Lorem</b> <a href="pants" title="foo" style="text-decoration: underline;">ipsum</a> <a href="http://example.com/"><strong>dolor</strong></a> sit<br>amet .foo { color: #fff; } '
       ],
       [
-        'Lo<!-- comment -->rem</b> <a href=pants title="foo>ipsum <a href="http://foo.com/"><strong>dolor</a></strong> sit<br/>amet <script>alert("hello world");',
+        'Lo<!-- comment -->rem</b> <a href=pants title="foo>ipsum <a href="http://example.com/"><strong>dolor</a></strong> sit<br/>amet <script>alert("hello world");',
         'Lorem <a href="pants" title="foo&gt;ipsum &lt;a href="><strong>dolor</strong></a> sit<br>amet '
       ],
       [
@@ -114,11 +146,10 @@ if Object.const_defined?(:CommonMarker)
         '<p>a</p><blockquote>b</blockquote>'
       ],
       [
-        '<b>Lo<!-- comment -->rem</b> <a href="javascript:pants" title="foo">ipsum</a> <a href="http://foo.com/"><strong>dolor</strong></a> sit<br/>amet <<foo>script>alert("hello world");</script>',
-        '<b>Lorem</b> <a title="foo">ipsum</a> <a href="http://foo.com/"><strong>dolor</strong></a> sit<br>amet &lt;script&gt;alert("hello world");'
+        '<b>Lo<!-- comment -->rem</b> <a href="javascript:pants" title="foo">ipsum</a> <a href="http://example.com/"><strong>dolor</strong></a> sit<br/>amet <<foo>script>alert("hello world");</script>',
+        '<b>Lorem</b> <a title="foo">ipsum</a> <a href="http://example.com/"><strong>dolor</strong></a> sit<br>amet &lt;script&gt;alert("hello world");'
       ]
     ]
-    # rubocop:enable Layout/LineLength
 
     def test_should_sanitize_html_strings
       STRINGS.each do |input, expected|
@@ -163,12 +194,11 @@ if Object.const_defined?(:CommonMarker)
         '<a>foo</a>'
       ],
 
-      # rubocop:disable Layout/LineLength
+      # rubocop:disable-next Layout/LineLength
       'protocol-based JS injection: long UTF-8 encoding without semicolons' => [
         '<a href=&#0000106&#0000097&#0000118&#0000097&#0000115&#0000099&#0000114&#0000105&#0000112&#0000116&#0000058&#0000097&#0000108&#0000101&#0000114&#0000116&#0000040&#0000039&#0000088&#0000083&#0000083&#0000039&#0000041>foo</a>',
         '<a>foo</a>'
       ],
-      # rubocop:enable Layout/LineLength
 
       'protocol-based JS injection: hex encoding' => [
         '<a href="javascript&#x3A;">foo</a>',
@@ -187,8 +217,7 @@ if Object.const_defined?(:CommonMarker)
 
       'protocol-based JS injection: null char' => [
         "<img src=java\0script:alert(\"XSS\")>",
-        '<img src="java">'
-        # '<img>'
+        '<img>'
       ],
 
       'protocol-based JS injection: invalid URL char' => [
@@ -198,8 +227,7 @@ if Object.const_defined?(:CommonMarker)
 
       'protocol-based JS injection: spaces and entities' => [
         '<img src=" &#14;  javascript:alert(\'XSS\');">',
-        '<img src="">'
-        # '<img>'
+        '<img>'
       ],
 
       'protocol whitespace' => [

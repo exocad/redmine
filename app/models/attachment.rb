@@ -57,7 +57,8 @@ class Attachment < ApplicationRecord
               "ON #{Version.table_name}.project_id = #{Project.table_name}.id " \
               "OR ( #{Attachment.table_name}.container_type='Project' " \
               "AND #{Attachment.table_name}.container_id = #{Project.table_name}.id )"
-          )
+          ).
+          preload(:author, :container)
       end
   )
   acts_as_activity_provider(
@@ -73,7 +74,8 @@ class Attachment < ApplicationRecord
             "AND #{Document.table_name}.id = #{Attachment.table_name}.container_id " \
             "LEFT JOIN #{Project.table_name} " \
             "ON #{Document.table_name}.project_id = #{Project.table_name}.id"
-          )
+          ).
+          preload(:author, :container)
       end
   )
 
@@ -83,12 +85,20 @@ class Attachment < ApplicationRecord
   cattr_accessor :thumbnails_storage_path
   @@thumbnails_storage_path = File.join(Rails.root, "tmp", "thumbnails")
 
-  before_create :files_to_final_location
-  after_rollback :delete_from_disk, :on => :create
+  # Since markdownized previews can contain sensitive data, they should be
+  # stored under storage_path, which is expected to have appropriately
+  # restrictive permissions.
+  def self.markdownized_previews_storage_path
+    File.join(storage_path, 'derived_cache', 'markdownized_previews')
+  end
+
+  before_create :set_content_type, :files_to_final_location
+  before_update :reset_content_type, :if => :filename_changed?
   after_commit :delete_from_disk, :on => :destroy
   after_commit :reuse_existing_file_if_possible, :on => :create
+  after_rollback :delete_from_disk, :on => :create
 
-  safe_attributes 'filename', 'content_type', 'description'
+  safe_attributes 'filename', 'description'
 
   # Returns an unsaved copy of the attachment
   def copy(attributes=nil)
@@ -118,9 +128,6 @@ class Attachment < ApplicationRecord
         self.filename = @temp_file.original_filename
         self.filename.force_encoding("UTF-8")
       end
-      if @temp_file.respond_to?(:content_type)
-        self.content_type = @temp_file.content_type.to_s.chomp
-      end
       self.filesize = @temp_file.size
     end
   end
@@ -134,8 +141,37 @@ class Attachment < ApplicationRecord
     filename
   end
 
+  def set_content_type
+    return unless @temp_file
+
+    io = @temp_file.respond_to?(:read) ? @temp_file : StringIO.new(@temp_file)
+    if io.respond_to?(:rewind)
+      io.rewind
+    else
+      # Marcel rewinds the io while reading it, which a plain reader may not
+      # support; detect the type from the filename alone in that case
+      io = nil
+    end
+    # The filename is passed as a hint because many formats, plain text and
+    # Markdown among them, cannot be identified from their contents alone.
+    # Without it they would all be detected as application/octet-stream.
+    self.content_type = Marcel::MimeType.for(io, name: filename)
+    @temp_file.rewind if @temp_file.respond_to?(:rewind)
+  end
+
+  # Re-detects the content type from the file on disk. Needed after a rename
+  # because the filename is used as a hint for contents that cannot be
+  # identified on their own.
+  def reset_content_type
+    return unless readable?
+
+    File.open(diskfile, 'rb') do |io|
+      self.content_type = Marcel::MimeType.for(io, name: filename)
+    end
+  end
+
   # Copies the temporary file to its final location
-  # and computes its MD5 hash
+  # and computes its hash
   def files_to_final_location
     if @temp_file
       self.disk_directory = target_directory
@@ -157,14 +193,6 @@ class Attachment < ApplicationRecord
       self.digest = sha.hexdigest
     end
     @temp_file = nil
-
-    if content_type.blank? && filename.present?
-      self.content_type = Redmine::MimeType.of(filename)
-    end
-    # Don't save the content type if it's longer than the authorized length
-    if self.content_type && self.content_type.length > 255
-      self.content_type = nil
-    end
   end
 
   # Deletes the file from the file system if it's not referenced by other attachments
@@ -220,17 +248,21 @@ class Attachment < ApplicationRecord
   end
 
   def image?
-    !!(self.filename =~ /\.(bmp|gif|jpg|jpe|jpeg|png|webp)$/i)
+    !!(self.filename =~ /\.(avif|bmp|gif|jpg|jpe|jpeg|png|webp)$/i)
   end
 
   def thumbnailable?
     Redmine::Thumbnail.convert_available? && (
-      image? || (is_pdf? && Redmine::Thumbnail.gs_available?)
+      image? ||
+        (Redmine::Thumbnail.gs_available? &&
+         # Illustrator files are often PDF compatible
+         ['application/pdf', 'application/illustrator'].include?(Redmine::MimeType.of(filename)))
     )
   end
 
   # Returns the full path the attachment thumbnail, or nil
   # if the thumbnail cannot be generated.
+  # Pass :crop => true to get a square thumbnail cropped around the center.
   def thumbnail(options={})
     if thumbnailable? && readable?
       size = options[:size].to_i
@@ -243,14 +275,15 @@ class Attachment < ApplicationRecord
         size = Setting.thumbnails_size.to_i
       end
       size = 100 unless size > 0
-      target = thumbnail_path(size)
+      crop = !!options[:crop]
+      target = thumbnail_path(crop ? "#{size}_crop" : size)
 
       begin
-        Redmine::Thumbnail.generate(self.diskfile, target, size, is_pdf?)
+        Redmine::Thumbnail.generate(self.diskfile, target, size, :crop => crop)
       rescue => e
         if logger
           logger.error(
-            "An error occured while generating thumbnail for #{disk_filename} " \
+            "An error occurred while generating thumbnail for #{disk_filename} " \
               "to #{target}\nException was: #{e.message}"
           )
         end
@@ -262,6 +295,12 @@ class Attachment < ApplicationRecord
   # Deletes all thumbnails
   def self.clear_thumbnails
     Dir.glob(File.join(thumbnails_storage_path, "*.thumb")).each do |file|
+      File.delete file
+    end
+  end
+
+  def self.clear_markdownized_previews
+    Dir.glob(File.join(markdownized_previews_storage_path, "*.md")).each do |file|
       File.delete file
     end
   end
@@ -290,12 +329,50 @@ class Attachment < ApplicationRecord
     Redmine::MimeType.of(filename) == "application/pdf"
   end
 
+  # Returns true for attachments that can be previewed as PDF files,
+  # including PDF compatible files such as Adobe Illustrator
+  # (application/illustrator)
+  def pdf_previewable?
+    if content_type.blank? || content_type == 'application/octet-stream'
+      # The type of attachments created before Redmine started detecting the
+      # content type from the file contents can only be guessed from the name
+      is_pdf?
+    else
+      !!Marcel::Magic.child?(content_type, 'application/pdf')
+    end
+  end
+
   def is_video?
     Redmine::MimeType.is_type?('video', filename)
   end
 
   def is_audio?
     Redmine::MimeType.is_type?('audio', filename)
+  end
+
+  def markdownized_previewable?
+    readable? && Redmine::Markdownizer.available? && Redmine::Markdownizer.supports?(filename)
+  end
+
+  def markdownized_preview_content
+    return nil unless markdownized_previewable?
+
+    target = markdownized_preview_cache_path
+    if Redmine::Markdownizer.convert(diskfile, target)
+      File.read(target, :mode => "rb")
+    end
+  rescue => e
+    if logger
+      logger.error(
+        "An error occurred while generating markdownized preview for #{disk_filename} " \
+          "to #{target}\nException was: #{e.message}"
+      )
+    end
+    nil
+  end
+
+  def markdownized_preview_cache_path
+    File.join(self.class.markdownized_previews_storage_path, "#{digest}_#{filesize}.md")
   end
 
   def previewable?
@@ -393,7 +470,7 @@ class Attachment < ApplicationRecord
           filename = "#{basename}(#{dup_count})#{extname}"
         end
         zos.put_next_entry(filename)
-        zos << IO.binread(attachment.diskfile)
+        zos << File.binread(attachment.diskfile)
         archived_file_names << filename
       end
     end
@@ -404,7 +481,7 @@ class Attachment < ApplicationRecord
 
   # Moves an existing attachment to its target directory
   def move_to_target_directory!
-    return unless !new_record? & readable?
+    return unless !new_record? && readable?
 
     src = diskfile
     self.disk_directory = target_directory
@@ -412,12 +489,12 @@ class Attachment < ApplicationRecord
 
     return if src == dest
 
-    if !FileUtils.mkdir_p(File.dirname(dest))
+    unless FileUtils.mkdir_p(File.dirname(dest))
       logger.error "Could not create directory #{File.dirname(dest)}" if logger
       return
     end
 
-    if !FileUtils.mv(src, dest)
+    unless FileUtils.mv(src, dest)
       logger.error "Could not move attachment from #{src} to #{dest}" if logger
       return
     end
@@ -529,6 +606,7 @@ class Attachment < ApplicationRecord
     Dir[thumbnail_path("*")].each do |thumb|
       File.delete(thumb)
     end
+    FileUtils.rm_f(markdownized_preview_cache_path)
   end
 
   def thumbnail_path(size)
@@ -541,7 +619,7 @@ class Attachment < ApplicationRecord
     just_filename = value.gsub(/\A.*(\\|\/)/m, '')
 
     # Finally, replace invalid characters with underscore
-    just_filename.gsub(/[\/\?\%\*\:\|\"\'<>\n\r]+/, '_')
+    just_filename.gsub(/[\/?%*:|"'<>\n\r\x00]+/, '_')
   end
 
   # Returns the subdirectory in which the attachment will be saved
@@ -553,15 +631,18 @@ class Attachment < ApplicationRecord
   # Singleton class method is public
   class << self
     # Claims a unique ASCII or hashed filename, yields the open file handle
-    def create_diskfile(filename, directory=nil, &block)
+    def create_diskfile(filename, directory=nil, &)
       timestamp = DateTime.now.strftime("%y%m%d%H%M%S")
       ascii = ''
-      if %r{^[a-zA-Z0-9_\.\-]*$}.match?(filename) && filename.length <= 50
+      max_filename_length = 50
+      if %r{^[a-zA-Z0-9_.-]*$}.match?(filename) && filename.length <= max_filename_length
         ascii = filename
       else
-        ascii = Digest::MD5.hexdigest(filename)
+        ascii = ActiveSupport::Digest.hexdigest(filename)
         # keep the extension if any
-        ascii << $1 if filename =~ %r{(\.[a-zA-Z0-9]+)$}
+        if filename =~ %r{(\.[a-zA-Z0-9]+)$} && (ascii.length + $1.length) <= max_filename_length
+          ascii << $1
+        end
       end
 
       path = File.join storage_path, directory.to_s
@@ -572,7 +653,7 @@ class Attachment < ApplicationRecord
           File.join(path, name),
           flags: File::CREAT | File::EXCL | File::WRONLY,
           binmode: true,
-          &block
+          &
         )
       rescue Errno::EEXIST
         timestamp.succ!

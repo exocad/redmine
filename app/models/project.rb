@@ -60,6 +60,8 @@ class Project < ApplicationRecord
                           :class_name => 'IssueCustomField',
                           :join_table => "#{table_name_prefix}custom_fields_projects#{table_name_suffix}",
                           :association_foreign_key => 'custom_field_id'
+  has_and_belongs_to_many :webhooks
+
   # Default Custom Query
   belongs_to :default_issue_query, :class_name => 'IssueQuery'
 
@@ -84,16 +86,18 @@ class Project < ApplicationRecord
   validates_format_of :identifier, :with => /\A(?!\d+$)[a-z0-9\-_]*\z/,
                       :if => proc {|p| p.identifier_changed?}
   # reserved words
-  validates_exclusion_of :identifier, :in => %w(new)
+  validates_exclusion_of :identifier,
+                         :in => %w(new autocomplete bulk_destroy),
+                         :if => -> { new_record? || will_save_change_to_identifier? }
   validate :validate_parent
 
+  after_update :update_versions_from_hierarchy_change,
+               :if => proc {|project| project.saved_change_to_parent_id?}
+  before_destroy :delete_all_members
   after_save :update_inherited_members,
              :if => proc {|project| project.saved_change_to_inherit_members?}
   after_save :remove_inherited_member_roles, :add_inherited_member_roles,
              :if => proc {|project| project.saved_change_to_parent_id?}
-  after_update :update_versions_from_hierarchy_change,
-               :if => proc {|project| project.saved_change_to_parent_id?}
-  before_destroy :delete_all_members
 
   scope :has_module, (lambda do |mod|
     where("#{Project.table_name}.id IN (SELECT em.project_id FROM #{EnabledModule.table_name} em WHERE em.name=?)", mod.to_s)
@@ -110,7 +114,7 @@ class Project < ApplicationRecord
   scope :like, (lambda do |arg|
     if arg.present?
       pattern = "%#{sanitize_sql_like arg.to_s.strip}%"
-      where("LOWER(identifier) LIKE LOWER(:p) ESCAPE :s OR LOWER(name) LIKE LOWER(:p) ESCAPE :s", :p => pattern, :s => '\\')
+      where("LOWER(#{Project.table_name}.identifier) LIKE LOWER(:p) ESCAPE :s OR LOWER(#{Project.table_name}.name) LIKE LOWER(:p) ESCAPE :s", :p => pattern, :s => '\\')
     end
   end)
   scope :sorted, lambda {order(:lft)}
@@ -121,6 +125,7 @@ class Project < ApplicationRecord
   def initialize(attributes=nil, *args)
     super
 
+    # rubocop:disable Style/NegatedIf
     initialized = (attributes || {}).stringify_keys
     if !initialized.key?('identifier') && Setting.sequential_project_identifiers?
       self.identifier = Project.next_identifier
@@ -139,6 +144,7 @@ class Project < ApplicationRecord
         self.trackers = Tracker.sorted.to_a
       end
     end
+    # rubocop:enable Style/NegatedIf
   end
 
   def identifier=(identifier)
@@ -184,7 +190,7 @@ class Project < ApplicationRecord
     perm = Redmine::AccessControl.permission(permission)
     base_statement =
       if perm && perm.read?
-        "#{Project.table_name}.status <> #{Project::STATUS_ARCHIVED} AND #{Project.table_name}.status <> #{Project::STATUS_SCHEDULED_FOR_DELETION}"
+        "#{Project.table_name}.status IN (#{Project::STATUS_ACTIVE}, #{Project::STATUS_CLOSED})"
       else
         "#{Project.table_name}.status = #{Project::STATUS_ACTIVE}"
       end
@@ -204,15 +210,21 @@ class Project < ApplicationRecord
       base_statement
     else
       statement_by_role = {}
+      oauth_scope = user.oauth_scope
       unless options[:member]
         role = user.builtin_role
-        if role.allowed_to?(permission)
-          s = "#{Project.table_name}.is_public = #{connection.quoted_true}"
-          if user.id
+        if role.allowed_to?(permission, oauth_scope)
+          public_project_condition = "#{Project.table_name}.is_public = #{connection.quoted_true}"
+          # The subquery is not needed when project_ids_by_role is empty: the
+          # user and the builtin group have no memberships, so it would return
+          # nothing
+          if user.id.nil? || user.project_ids_by_role.empty?
+            s = public_project_condition
+          else
             group = role.anonymous? ? Group.anonymous : Group.non_member
             principal_ids = [user.id, group.id].compact
             s =
-              "(#{s} AND #{Project.table_name}.id NOT IN " \
+              "(#{public_project_condition} AND #{Project.table_name}.id NOT IN " \
                 "(SELECT project_id FROM #{Member.table_name} " \
                 "WHERE user_id IN (#{principal_ids.join(',')})))"
           end
@@ -220,7 +232,7 @@ class Project < ApplicationRecord
         end
       end
       user.project_ids_by_role.each do |role, project_ids|
-        if role.allowed_to?(permission) && project_ids.any?
+        if role.allowed_to?(permission, oauth_scope) && project_ids.any?
           statement_by_role[role] = "#{Project.table_name}.id IN (#{project_ids.join(',')})"
         end
       end
@@ -356,12 +368,12 @@ class Project < ApplicationRecord
     end
   end
 
-  def self.find_by_param(*args)
-    self.find(*args)
+  def self.find_by_param(*)
+    self.find(*)
   end
 
   alias :base_reload :reload
-  def reload(*args)
+  def reload(*)
     @principals = nil
     @users = nil
     @shared_versions = nil
@@ -379,7 +391,8 @@ class Project < ApplicationRecord
     @due_date = nil
     @override_members = nil
     @assignable_users = nil
-    base_reload(*args)
+    @last_activity_date = nil
+    base_reload(*)
   end
 
   def to_param
@@ -401,6 +414,21 @@ class Project < ApplicationRecord
 
   def archived?
     self.status == STATUS_ARCHIVED
+  end
+
+  # Atomically marks one or more projects (and all their descendants) as
+  # scheduled for deletion. Holds the nested-set lock and resolves the
+  # descendant set by id so a concurrent create/rename/move/destroy cannot
+  # shift lft/rgt out from under a stale cached range.
+  def self.mark_for_deletion(projects)
+    transaction do
+      order(:id).lock.ids
+      ids = Array(projects).flat_map do |p|
+        p.reload
+        p.self_and_descendants.pluck(:id)
+      end
+      where(id: ids).update_all(status: STATUS_SCHEDULED_FOR_DELETION)
+    end
   end
 
   def scheduled_for_deletion?
@@ -493,6 +521,7 @@ class Project < ApplicationRecord
   def rolled_up_statuses
     issue_status_ids = WorkflowTransition.
       where(:tracker_id => rolled_up_trackers.map(&:id)).
+      where('old_status_id <> new_status_id').
       distinct.
       pluck(:old_status_id, :new_status_id).
       flatten.
@@ -815,7 +844,7 @@ class Project < ApplicationRecord
   #   project.disable_module!(project.enabled_modules.first)
   def disable_module!(target)
     target = enabled_modules.detect{|mod| target.to_s == mod.name} unless enabled_modules.include?(target)
-    target.destroy unless target.blank?
+    (target.presence&.destroy)
   end
 
   safe_attributes(
@@ -840,7 +869,7 @@ class Project < ApplicationRecord
           if user.admin?
             true
           else
-            default_member_role&.has_permission?(:select_project_publicity)
+            default_member_role&.allowed_to?(:select_project_publicity, user.oauth_scope)
           end
         else
           user.allowed_to?(:select_project_publicity, project)
@@ -856,7 +885,7 @@ class Project < ApplicationRecord
           if user.admin?
             true
           else
-            default_member_role&.has_permission?(:select_project_modules)
+            default_member_role&.allowed_to?(:select_project_modules, user.oauth_scope)
           end
         else
           user.allowed_to?(:select_project_modules, project)
@@ -866,7 +895,21 @@ class Project < ApplicationRecord
 
   safe_attributes(
     'inherit_members',
-    :if => lambda {|project, user| project.parent.nil? || project.parent.visible?(user)})
+    :if =>
+      lambda do |project, user|
+        next false unless project.parent.nil? || project.parent.visible?(user)
+
+        if project.new_record?
+          if user.admin?
+            true
+          else
+            default_member_role&.allowed_to?(:manage_members, user.oauth_scope)
+          end
+        else
+          user.allowed_to?(:manage_members, project)
+        end
+      end
+  )
 
   def safe_attributes=(attrs, user=User.current)
     if attrs.respond_to?(:to_unsafe_hash)
@@ -900,12 +943,12 @@ class Project < ApplicationRecord
       attrs['custom_fields'].reject! {|c| !editable_custom_field_ids.include?(c['id'].to_s)}
     end
 
-    super(attrs, user)
+    super
   end
 
   # Returns an auto-generated project identifier based on the last identifier used
   def self.next_identifier
-    p = Project.order('id DESC').first
+    p = Project.order(id: :desc).first
     p.nil? ? nil : p.identifier.to_s.succ
   end
 
@@ -1002,6 +1045,20 @@ class Project < ApplicationRecord
     user ||= User.current
     custom_field_values.select do |value|
       value.custom_field.visible_by?(project, user)
+    end
+  end
+
+  def last_activity_date
+    @last_activity_date || fetch_last_activity_date
+  end
+
+  # Preloads last activity date for a collection of projects
+  def self.load_last_activity_date(projects, user=User.current)
+    if projects.any?
+      last_activities = Redmine::Activity::Fetcher.new(User.current).events(nil, nil, :last_by_project => true).to_h
+      projects.each do |project|
+        project.instance_variable_set(:@last_activity_date, last_activities[project.id])
+      end
     end
   end
 
@@ -1135,9 +1192,8 @@ class Project < ApplicationRecord
       new_issue.project = self
       # Changing project resets the custom field values
       # TODO: handle this in Issue#project=
-      new_issue.custom_field_values = issue.custom_field_values.inject({}) do |h, v|
-        h[v.custom_field_id] = v.value
-        h
+      new_issue.custom_field_values = issue.custom_field_values.to_h do |v|
+        [v.custom_field_id, v.value]
       end
       # Reassign fixed_versions by name, since names are unique per project
       if issue.fixed_version && issue.fixed_version.project == project
@@ -1224,9 +1280,9 @@ class Project < ApplicationRecord
   # Copies members from +project+
   def copy_members(project)
     # Copy users first, then groups to handle members with inherited and given roles
-    members_to_copy = []
-    members_to_copy += project.memberships.select {|m| m.principal.is_a?(User)}
-    members_to_copy += project.memberships.select {|m| !m.principal.is_a?(User)}
+    user_memberships, group_memberships =
+      project.memberships.partition {|m| m.principal.is_a?(User)}
+    members_to_copy = user_memberships + group_memberships
 
     members_to_copy.each do |member|
       new_member = Member.new
@@ -1311,5 +1367,10 @@ class Project < ApplicationRecord
       subproject.send :archive!
     end
     update_attribute :status, STATUS_ARCHIVED
+  end
+
+  def fetch_last_activity_date
+    latest_activities = Redmine::Activity::Fetcher.new(User.current, :project => self).events(nil, nil, :last_by_project => true)
+    latest_activities.empty? ? nil : latest_activities.to_h[self.id]
   end
 end

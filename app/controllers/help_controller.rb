@@ -21,7 +21,7 @@ class HelpController < ApplicationController
   def show_wiki_syntax
     type = params[:type].nil? ? "" : "#{params[:type]}_"
 
-    lang = current_language.to_s
+    lang = current_language.to_s.downcase
     template = "help/wiki_syntax/#{Setting.text_formatting}/#{lang}/wiki_syntax_#{type}#{Setting.text_formatting}"
     unless lookup_context.exists?(template)
       lang = "en"
@@ -30,6 +30,7 @@ class HelpController < ApplicationController
   end
 
   def show_code_highlighting
+    @available_lexers = Rouge::Lexer.all.sort_by(&:tag)
     render template: "help/wiki_syntax/code_highlighting_languages", layout: nil
   end
 end

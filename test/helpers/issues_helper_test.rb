@@ -23,18 +23,6 @@ class IssuesHelperTest < Redmine::HelperTest
   include IssuesHelper
   include CustomFieldsHelper
   include ERB::Util
-  include Rails.application.routes.url_helpers
-
-  fixtures :projects, :trackers, :issue_statuses, :issues,
-           :enumerations, :users, :issue_categories,
-           :projects_trackers,
-           :roles,
-           :member_roles,
-           :members,
-           :enabled_modules,
-           :custom_fields,
-           :attachments,
-           :versions, :workflows
 
   def test_issue_heading
     assert_equal "Bug #1", issue_heading(Issue.find(1))
@@ -407,6 +395,7 @@ class IssuesHelperTest < Redmine::HelperTest
   end
 
   def test_render_issue_relations
+    User.current = User.find(1)
     issue = Issue.generate!(:status_id => 1)
     closed_issue = Issue.generate!(:status_id => 5)
     relation = IssueRelation.create!(:issue_from => closed_issue,
@@ -423,6 +412,7 @@ class IssuesHelperTest < Redmine::HelperTest
       " closed rel-follows\">",
       html
     )
+    assert_include 'title="Remove relation"', html
 
     html = render_issue_relations(closed_issue, [relation])
     assert_include(
@@ -434,6 +424,7 @@ class IssuesHelperTest < Redmine::HelperTest
       " rel-precedes\">",
       html
     )
+    assert_include 'title="Remove relation"', html
   end
 
   def test_render_descendants_stats
@@ -464,5 +455,19 @@ class IssuesHelperTest < Redmine::HelperTest
     assert_include "<a href=\"/issues?issue_id=#{open_issue.id}%2C#{closed_issue.id}&amp;set_filter=true&amp;status_id=%2A\">2</a></span>", html
     assert_include "<a href=\"/issues?issue_id=#{open_issue.id}%2C#{closed_issue.id}&amp;set_filter=true&amp;status_id=o\">1 open</a>", html
     assert_include "<a href=\"/issues?issue_id=#{open_issue.id}%2C#{closed_issue.id}&amp;set_filter=true&amp;status_id=c\">1 closed</a>", html
+  end
+
+  def test_journals_by_attachment_id
+    issue = Issue.find(2)
+    # Detail of a removed attachment
+    JournalDetail.create!(:journal => issue.journals.last, :property => 'attachment',
+                          :prop_key => '99', :old_value => 'removed.txt')
+    journals = issue.visible_journals_with_index(User.find(2))
+
+    result = journals_by_attachment_id(journals)
+
+    assert_equal [4], result.keys
+    assert_equal 3, result[4].id
+    assert_equal 1, result[4].indice
   end
 end

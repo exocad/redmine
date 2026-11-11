@@ -20,9 +20,6 @@
 require_relative '../test_helper'
 
 class PrincipalTest < ActiveSupport::TestCase
-  fixtures :users, :projects, :members, :member_roles, :roles,
-           :email_addresses
-
   def setup
     User.current = nil
   end
@@ -88,8 +85,8 @@ class PrincipalTest < ActiveSupport::TestCase
 
   def test_sorted_scope_should_sort_users_before_groups
     scope = Principal.where(:type => ['User', 'Group'])
-    users = scope.select {|p| p.is_a?(User)}.sort
-    groups = scope.select {|p| p.is_a?(Group)}.sort
+    users = scope.grep(User).sort
+    groups = scope.grep(Group).sort
 
     assert_equal (users + groups).map {|p| p.name.downcase},
                  scope.sorted.map {|p| p.name.downcase}
@@ -168,5 +165,9 @@ class PrincipalTest < ActiveSupport::TestCase
     user.update_column :lastname, 'da Vi_ci'
     r = Principal.like('vi_ci')
     assert_include user, r
+  end
+
+  def test_initials_should_return_nil
+    assert_nil Group.first.initials
   end
 end

@@ -20,15 +20,6 @@
 require_relative '../test_helper'
 
 class SearchControllerTest < Redmine::ControllerTest
-  fixtures :projects, :projects_trackers,
-           :enabled_modules, :roles, :users, :members, :member_roles,
-           :issues, :trackers, :issue_statuses, :enumerations,
-           :issue_categories, :workflows,
-           :custom_fields, :custom_values,
-           :custom_fields_projects, :custom_fields_trackers,
-           :repositories, :changesets,
-           :user_preferences
-
   def setup
     User.current = nil
   end
@@ -48,18 +39,18 @@ class SearchControllerTest < Redmine::ControllerTest
   def test_search_on_archived_project_should_return_403
     Project.find(3).archive
     get :index, :params => {:id => 3}
-    assert_response 403
+    assert_response :forbidden
   end
 
   def test_search_on_invisible_project_by_user_should_be_denied
     @request.session[:user_id] = 7
     get :index, :params => {:id => 2}
-    assert_response 403
+    assert_response :forbidden
   end
 
   def test_search_on_invisible_project_by_anonymous_user_should_redirect
     get :index, :params => {:id => 2}
-    assert_response 302
+    assert_response :found
   end
 
   def test_search_on_private_project_by_member_should_succeed
@@ -75,16 +66,18 @@ class SearchControllerTest < Redmine::ControllerTest
     assert_response :success
 
     assert_select '#search-results' do
-      assert_select 'dt.issue a', :text => /Feature request #2/
+      assert_select 'dt.issue a', :text => /Bug #1/
       assert_select 'dt.issue a', :text => /Bug #5/
       assert_select 'dt.changeset a', :text => /Revision 1/
 
-      assert_select 'dt.issue a', :text => /Add ingredients categories/
-      assert_select 'dd', :text => /should be classified by categories/
+      assert_select 'dt.issue a', :text => /Cannot print recipes/
+      assert_select 'dd', :text => /Unable to print/
     end
 
     assert_select '#search-results-counts' do
-      assert_select 'a', :text => 'Changesets (5)'
+      assert_select 'a', :text => 'Changesets (6)'
+      assert_select 'a', :text => 'Issues (5)'
+      assert_select 'a', :text => 'Projects (4)'
     end
   end
 
@@ -352,7 +345,7 @@ class SearchControllerTest < Redmine::ControllerTest
 
   def test_search_with_invalid_project_id
     get :index, :params => {:id => 195, :q => 'recipe'}
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_search_should_include_closed_projects

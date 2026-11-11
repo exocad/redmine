@@ -94,9 +94,15 @@ class Token < ApplicationRecord
 
   # Returns the active user who owns the key for the given action
   def self.find_active_user(action, key, validity_days=nil)
-    user = find_user(action, key, validity_days)
-    if user && user.active?
-      user
+    token = find_token(action, key, validity_days)
+    if token
+      user = token.user
+      if user&.active?
+        if token.updated_on.nil? || token.updated_on <= 1.minute.ago
+          token.update_column(:updated_on, Time.now.utc)
+        end
+        user
+      end
     end
   end
 
@@ -123,6 +129,10 @@ class Token < ApplicationRecord
     return unless validity_days.nil? || (token.created_on > validity_days.days.ago)
 
     token
+  end
+
+  def used?
+    updated_on.present? && updated_on > created_on
   end
 
   def self.generate_token_value

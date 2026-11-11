@@ -20,15 +20,6 @@
 require_relative '../test_helper'
 
 class AttachmentsTest < Redmine::IntegrationTest
-  fixtures :projects, :enabled_modules,
-           :users, :email_addresses,
-           :roles, :members, :member_roles,
-           :trackers, :projects_trackers,
-           :issues, :issue_statuses, :enumerations,
-           :attachments,
-           :wiki_content_versions, :wiki_contents, :wiki_pages,
-           :journals, :journal_details
-
   def test_upload_should_set_default_content_type
     log_user('jsmith', 'jsmith')
     assert_difference 'Attachment.count' do
@@ -42,17 +33,17 @@ class AttachmentsTest < Redmine::IntegrationTest
     assert_equal 'text/plain', attachment.content_type
   end
 
-  def test_upload_should_accept_content_type_param
+  def test_upload_should_detect_file_content_type
     log_user('jsmith', 'jsmith')
     assert_difference 'Attachment.count' do
       post(
-        "/uploads.js?attachment_id=1&filename=foo&content_type=image/jpeg",
-        :params => "File content",
+        "/uploads.js?attachment_id=1&filename=foo",
+        :params => "\xCA\xFE\xBA\xBE", # Java class file magic bytes
         :headers => {"CONTENT_TYPE" => 'application/octet-stream'})
       assert_response :success
     end
     attachment = Attachment.order(:id => :desc).first
-    assert_equal 'image/jpeg', attachment.content_type
+    assert_equal 'application/java-vm', attachment.content_type
   end
 
   def test_upload_as_js_and_attach_to_an_issue
@@ -75,10 +66,10 @@ class AttachmentsTest < Redmine::IntegrationTest
           }
         }
       )
-      assert_response 302
+      assert_response :found
     end
 
-    issue = Issue.order('id DESC').first
+    issue = Issue.order(id: :desc).first
     assert_equal 'Issue with upload', issue.subject
     assert_equal 1, issue.attachments.count
 
@@ -159,10 +150,10 @@ class AttachmentsTest < Redmine::IntegrationTest
           }
         }
       )
-      assert_response 302
+      assert_response :found
     end
 
-    issue = Issue.order('id DESC').first
+    issue = Issue.order(id: :desc).first
     assert_equal 'Issue with upload', issue.subject
     assert_equal 1, issue.attachments.count
 
@@ -185,9 +176,9 @@ class AttachmentsTest < Redmine::IntegrationTest
           :attachments => {'p0' => {:filename => filename, :token => token}}
         }
       )
-      assert_response 302
+      assert_response :found
     end
-    issue = Issue.order('id DESC').first
+    issue = Issue.order(id: :desc).first
     assert_equal 'Issue with upload', issue.subject
     assert_equal 1, issue.attachments.count
 
@@ -202,7 +193,7 @@ class AttachmentsTest < Redmine::IntegrationTest
 
     token = ajax_upload('myupload.txt', 'File content')
 
-    attachment = Attachment.order('id DESC').first
+    attachment = Attachment.order(id: :desc).first
     attachment_path = "/attachments/#{attachment.id}.js?attachment_id=1"
     assert_include(
       "href: '#{attachment_path}'",
@@ -234,7 +225,7 @@ class AttachmentsTest < Redmine::IntegrationTest
     # make the attachment readable
     assert a = Attachment.find(3)
     FileUtils.mkdir_p File.dirname(a.diskfile)
-    (File.open(a.diskfile, 'wb') << 'test').close
+    File.write(a.diskfile, 'test', :mode => 'wb')
 
     # there is no 'download all' for WikiContentVersions
     with_settings :login_required => '0' do
@@ -254,11 +245,11 @@ class AttachmentsTest < Redmine::IntegrationTest
     # make the attachment readable
     assert a = Attachment.find(4)
     FileUtils.mkdir_p File.dirname(a.diskfile)
-    (File.open(a.diskfile, 'wb') << 'test').close
+    File.write(a.diskfile, 'test', :mode => 'wb')
 
     with_settings :login_required => '0' do
       get "/attachments/journals/3/download"
-      assert_response 403
+      assert_response :forbidden
     end
     with_settings :login_required => '1' do
       get "/attachments/journals/3/download"
@@ -273,6 +264,16 @@ class AttachmentsTest < Redmine::IntegrationTest
     with_settings :login_required => '1' do
       get "/attachments/journals/3/download"
       assert_redirected_to "/login?back_url=http%3A%2F%2Fwww.example.com%2Fattachments%2Fjournals%2F3%2Fdownload"
+    end
+  end
+
+  def test_unauthorized_named_download_link_should_redirect_to_login
+    with_settings login_required: '1' do
+      get "/attachments/download/1"
+      assert_redirected_to "/login?back_url=http%3A%2F%2Fwww.example.com%2Fattachments%2Fdownload%2F1"
+
+      get "/attachments/download/1/error281.txt"
+      assert_redirected_to "/login?back_url=http%3A%2F%2Fwww.example.com%2Fattachments%2Fdownload%2F1%2Ferror281.txt"
     end
   end
 

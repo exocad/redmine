@@ -21,19 +21,6 @@ require_relative '../test_helper'
 
 class TimelogCustomFieldsVisibilityTest < Redmine::ControllerTest
   tests TimelogController
-  fixtures :projects,
-           :users, :email_addresses,
-           :roles,
-           :members,
-           :member_roles,
-           :issues, :issue_statuses,
-           :trackers,
-           :projects_trackers,
-           :enabled_modules,
-           :time_entries, :enumerations,
-           :workflows,
-           :custom_fields, :custom_values, :custom_fields_trackers
-
   def test_index_should_show_visible_custom_fields_only
     prepare_test_data
 
@@ -87,13 +74,13 @@ class TimelogCustomFieldsVisibilityTest < Redmine::ControllerTest
     User.add_to_project(user, p1, Role.where(:id => [1, 3]).to_a)
     User.add_to_project(user, p2, Role.where(:id => 3).to_a)
     TimeEntry.generate!(
-      :issue => Issue.generate!(:project => p1, :tracker_id => 1,
+      :issue => Issue.generate!(:project => p1, :tracker_id => 1, :author_id => 1,
                                 :custom_field_values => {@field2.id => 'ValueA'}))
     TimeEntry.generate!(
-      :issue => Issue.generate!(:project => p2, :tracker_id => 1,
+      :issue => Issue.generate!(:project => p2, :tracker_id => 1, :author_id => 1,
                                 :custom_field_values => {@field2.id => 'ValueB'}))
     TimeEntry.generate!(
-      :issue => Issue.generate!(:project => p1, :tracker_id => 1,
+      :issue => Issue.generate!(:project => p1, :tracker_id => 1, :author_id => 1,
                                 :custom_field_values => {@field2.id => 'ValueC'}))
     @request.session[:user_id] = user.id
 

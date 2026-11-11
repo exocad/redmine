@@ -47,19 +47,21 @@ class WikiPage < ApplicationRecord
                      :preload => [:content, {:wiki => :project}],
                      :permission => :view_wiki_pages,
                      :project_key => "#{Wiki.table_name}.project_id"
+  acts_as_webhookable
+  include WikiPage::Webhookable
 
   attr_accessor :redirect_existing_links
   attr_writer   :deleted_attachment_ids
 
   validates_presence_of :title
-  validates_format_of :title, :with => /\A[^,\.\/\?\;\|\s]*\z/
+  validates_format_of :title, :with => /\A[^,.\/?;|\s]*\z/
   validates_uniqueness_of :title, :scope => :wiki_id, :case_sensitive => false
   validates_length_of :title, maximum: 255
   validates_associated :content
 
   validate :validate_parent_title
-  before_destroy :delete_redirects
   before_save :handle_rename_or_move, :update_wiki_start_page
+  before_destroy :delete_redirects
   after_save :handle_children_move, :delete_selected_attachments
 
   # eager load information about last updates, without loading text
@@ -108,7 +110,7 @@ class WikiPage < ApplicationRecord
       end
     end
 
-    super(attrs, user)
+    super
   end
 
   # Manages redirects if page is renamed or moved
@@ -192,6 +194,10 @@ class WikiPage < ApplicationRecord
     wiki.try(:project)
   end
 
+  def project_id
+    wiki&.project_id
+  end
+
   def text
     content.text if content
   end
@@ -210,7 +216,7 @@ class WikiPage < ApplicationRecord
   end
 
   def attachments_deletable?(usr=User.current)
-    editable_by?(usr) && super(usr)
+    editable_by?(usr) && super
   end
 
   def parent_title

@@ -27,9 +27,13 @@ class TwofaController < ApplicationController
 
   before_action :require_active_twofa
 
-  require_sudo_mode :activate_init, :deactivate_init
+  require_sudo_mode :select_scheme,
+                    :activate_init, :activate_confirm, :activate,
+                    :deactivate_init, :deactivate_confirm, :deactivate
 
   skip_before_action :check_twofa_activation, only: [:select_scheme, :activate_init, :activate_confirm, :activate]
+
+  before_action :ensure_user_has_no_twofa, only: [:select_scheme, :activate_init, :activate_confirm, :activate]
 
   def select_scheme
     @user = User.current
@@ -43,12 +47,13 @@ class TwofaController < ApplicationController
 
   def activate_confirm
     @twofa_view = @twofa.init_pairing_view_variables
+    no_store
   end
 
   def activate
     if @twofa.confirm_pairing!(params[:twofa_code].to_s)
       # The session token was destroyed by the twofa pairing, generate a new one
-      session[:tk] = @user.generate_session_token
+      renew_session_token
       flash[:notice] = l('twofa_activated', bc_path: my_twofa_backup_codes_init_path)
       redirect_to my_account_path
     else
@@ -113,5 +118,14 @@ class TwofaController < ApplicationController
     if params[:scheme].to_s != @twofa.scheme_name
       redirect_to my_account_path
     end
+  end
+
+  def ensure_user_has_no_twofa
+    # Allow activating a new 2FA scheme / showing twofa secret only if no other
+    # is already configured
+    return true if User.current.twofa_scheme.blank?
+
+    flash[:warning] = l('twofa_already_setup')
+    redirect_to controller: 'my', action: 'account'
   end
 end

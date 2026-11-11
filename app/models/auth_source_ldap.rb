@@ -25,7 +25,7 @@ class AuthSourceLdap < AuthSource
   NETWORK_EXCEPTIONS = [
     Net::LDAP::Error,
     Errno::ECONNABORTED, Errno::ECONNREFUSED, Errno::ECONNRESET,
-    Errno::EHOSTDOWN, Errno::EHOSTUNREACH,
+    Errno::EHOSTDOWN, Errno::EHOSTUNREACH, Errno::EPIPE,
     SocketError
   ]
 
@@ -73,7 +73,7 @@ class AuthSourceLdap < AuthSource
       ldap_con.open {}
       if self.account.present? && !self.account.include?("$login") && self.account_password.present?
         ldap_auth = authenticate_dn(self.account, self.account_password)
-        raise AuthSourceException.new(l(:error_ldap_bind_credentials)) if !ldap_auth
+        raise AuthSourceException.new(l(:error_ldap_bind_credentials)) unless ldap_auth
       end
     end
   rescue *NETWORK_EXCEPTIONS => e
@@ -137,7 +137,7 @@ class AuthSourceLdap < AuthSource
 
   private
 
-  def with_timeout(&block)
+  def with_timeout(&)
     timeout = self.timeout
     timeout = 20 unless timeout && timeout > 0
     Timeout.timeout(timeout) do
@@ -228,8 +228,8 @@ class AuthSourceLdap < AuthSource
       ldap_con = initialize_ldap_con(self.account, self.account_password)
     end
     attrs = {}
-    search_filter = base_filter & Net::LDAP::Filter.eq(self.attr_login, login)
-    ldap_con.search( :base => self.base_dn,
+    search_filter = base_filter & Net::LDAP::Filter.equals(self.attr_login, login)
+    ldap_con.search(:base => self.base_dn,
                      :filter => search_filter,
                      :attributes=> search_attributes) do |entry|
       if onthefly_register?

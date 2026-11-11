@@ -18,7 +18,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 module CustomFieldsHelper
-
   CUSTOM_FIELDS_TABS = [
     {:name => 'IssueCustomField', :partial => 'custom_fields/index',
      :label => :label_issue_plural},
@@ -78,26 +77,22 @@ module CustomFieldsHelper
   end
 
   # Return custom field html tag corresponding to its format
-  def custom_field_tag(prefix, custom_value)
+  #
+  # Options:
+  # * :wiki_toolbar - renders the wiki toolbar for full text formatting fields
+  # * :preview_url - URL used to preview the text with the wiki toolbar
+  def custom_field_tag(prefix, custom_value, options={})
     cf = custom_value.custom_field
-    css = cf.css_classes
-    placeholder = cf.description
-    placeholder&.tr!("\n", ' ') if cf.field_format != 'text'
-    data = nil
-    if cf.full_text_formatting?
-      css += ' wiki-edit'
-      data = {
-        :auto_complete => true
-      }
+    with_custom_field_wiki_toolbar(cf, custom_field_tag_id(prefix, cf), options) do |tag_options|
+      placeholder = cf.description
+      placeholder&.tr!("\n", ' ') if cf.field_format != 'text'
+      cf.format.edit_tag(
+        self,
+        custom_field_tag_id(prefix, cf),
+        custom_field_tag_name(prefix, cf),
+        custom_value,
+        tag_options.merge(:placeholder => placeholder))
     end
-    cf.format.edit_tag(
-      self,
-      custom_field_tag_id(prefix, cf),
-      custom_field_tag_name(prefix, cf),
-      custom_value,
-      :class => css,
-      :placeholder => placeholder,
-      :data => data)
   end
 
   # Return custom field name tag
@@ -121,34 +116,44 @@ module CustomFieldsHelper
 
   # Return custom field tag with its label tag
   def custom_field_tag_with_label(name, custom_value, options={})
-    tag = custom_field_tag(name, custom_value)
+    tag = custom_field_tag(name, custom_value, options.slice(:wiki_toolbar, :preview_url))
     tag_id = nil
-    ids = tag.scan(/ id="(.+?)"/)
+    ids = tag.scan(/ id="(.+?)"/).flatten.grep_v(/\Apreview_/)
     if ids.size == 1
-      tag_id = ids.first.first
+      tag_id = ids.first
     end
-    custom_field_label_tag(name, custom_value, options.merge(:for_tag_id => tag_id)) + tag
+    custom_field_label_tag(name, custom_value, options.except(:wiki_toolbar, :preview_url).merge(:for_tag_id => tag_id)) + tag
   end
 
   # Returns the custom field tag for when bulk editing objects
-  def custom_field_tag_for_bulk_edit(prefix, custom_field, objects=nil, value='')
-    css =  custom_field.css_classes
-    data = nil
-    if custom_field.full_text_formatting?
-      css += ' wiki-edit'
-      data = {
-        :auto_complete => true
-      }
+  #
+  # Options:
+  # * :wiki_toolbar - renders the wiki toolbar for full text formatting fields
+  # * :preview_url - URL used to preview the text with the wiki toolbar
+  def custom_field_tag_for_bulk_edit(prefix, custom_field, objects=nil, value='', options={})
+    tag_id = custom_field_tag_id(prefix, custom_field)
+    with_custom_field_wiki_toolbar(custom_field, tag_id, options) do |tag_options|
+      custom_field.format.bulk_edit_tag(
+        self,
+        tag_id,
+        custom_field_tag_name(prefix, custom_field),
+        custom_field,
+        objects,
+        value,
+        tag_options)
     end
-    custom_field.format.bulk_edit_tag(
-      self,
-      custom_field_tag_id(prefix, custom_field),
-      custom_field_tag_name(prefix, custom_field),
-      custom_field,
-      objects,
-      value,
-      :class => css,
-      :data => data)
+  end
+
+  # Yields the options of the custom field tag and renders the wiki toolbar
+  # around it if requested for a full text formatting custom field
+  def with_custom_field_wiki_toolbar(custom_field, tag_id, options)
+    tag_options = {:class => custom_field.css_classes}
+    return yield(tag_options) unless custom_field.full_text_formatting?
+
+    tag_options = wiki_textarea_options(tag_options.merge(:data => {:auto_complete => true}))
+    return yield(tag_options) unless options[:wiki_toolbar]
+
+    wiki_toolbar(tag_id, preview_url: options[:preview_url] || preview_text_path) {yield(tag_options)}
   end
 
   # Returns custom field value tag
@@ -164,12 +169,12 @@ module CustomFieldsHelper
 
   # Return a string used to display a custom value
   def show_value(custom_value, html=true)
-    format_object(custom_value, html)
+    format_object(custom_value, html: html)
   end
 
   # Return a string used to display a custom value
   def format_value(value, custom_field)
-    format_object(custom_field.format.formatted_value(self, custom_field, value, false), false)
+    format_object(custom_field.format.formatted_value(self, custom_field, value, false), html: false)
   end
 
   # Return an array of custom field formats which can be used in select_tag
@@ -179,7 +184,7 @@ module CustomFieldsHelper
 
   # Yields the given block for each custom field value of object that should be
   # displayed, with the custom field and the formatted value as arguments
-  def render_custom_field_values(object, &block)
+  def render_custom_field_values(object, &)
     object.visible_custom_field_values.each do |custom_value|
       formatted = show_value(custom_value)
       if formatted.present?

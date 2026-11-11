@@ -22,18 +22,18 @@ require_relative '../test_helper'
 class TimeEntryTest < ActiveSupport::TestCase
   include Redmine::I18n
 
-  fixtures :issues, :projects, :users, :time_entries,
-           :members, :roles, :member_roles,
-           :trackers, :issue_statuses,
-           :projects_trackers,
-           :journals, :journal_details,
-           :issue_categories, :enumerations,
-           :groups_users,
-           :enabled_modules,
-           :custom_fields, :custom_fields_projects, :custom_values
-
   def setup
     User.current = nil
+  end
+
+  def test_find_with_preloads
+    time_entries = TimeEntry.find_with_preloads([1, 2])
+    assert_equal 2, time_entries.size
+    time_entries.each do |entry|
+      assert entry.association(:project).loaded?
+      assert entry.project.association(:time_entry_activities).loaded?
+      assert entry.association(:user).loaded?
+    end
   end
 
   def test_visibility_with_permission_to_view_all_time_entries
@@ -87,11 +87,25 @@ class TimeEntryTest < ActiveSupport::TestCase
       "3 hours"  => 3.0,
       "12min"    => 0.2,
       "12 Min"    => 0.2,
+      "0:23"   => Rational(23, 60), # 0.38333333333333336
+      "0.9913888888888889" => Rational(59, 60), # 59m 29s is rounded to 59m
+      "0.9919444444444444" => 1     # 59m 30s is rounded to 60m
     }
     assertions.each do |k, v|
       t = TimeEntry.new(:hours => k)
-      assert_equal v, t.hours, "Converting #{k} failed:"
+      assert v == t.hours && t.hours.is_a?(Rational), "Converting #{k} failed:"
     end
+  end
+
+  def test_hours_sum_precision
+    # The sum of 10, 10, and 40 minutes should be 1 hour, but in older
+    # versions of Redmine, the result was 1.01 hours. This was because
+    # TimeEntry#hours was a float value rounded to 2 decimal places.
+    #  [0.17, 0.17, 0.67].sum => 1.01
+
+    hours = %w[10m 10m 40m].map {|m| TimeEntry.new(hours: m).hours}
+    assert_equal 1, hours.sum
+    hours.map {|h| assert h.is_a?(Rational)}
   end
 
   def test_hours_should_default_to_nil
@@ -171,6 +185,19 @@ class TimeEntryTest < ActiveSupport::TestCase
     end
   end
 
+  def test_should_not_accept_closed_issue
+    set_language_if_valid 'en'
+    with_settings :timelog_accept_closed_issues => '0' do
+      project = Project.find(1)
+      entry = TimeEntry.generate project: project
+      issue = project.issues.to_a.detect(&:closed?)
+      entry.issue = issue
+      assert !entry.save
+      assert entry.errors[:base].present?
+      assert_equal 'Cannot log time on a closed issue', entry.errors[:base].first
+    end
+  end
+
   def test_should_require_spent_on
     with_settings :timelog_accept_future_dates => '0' do
       entry = TimeEntry.find(1)
@@ -241,6 +268,29 @@ class TimeEntryTest < ActiveSupport::TestCase
     entry = TimeEntry.new(:spent_on => Date.today, :hours => 1.0, :user => User.find(1), :project_id => 1, :activity => activity)
     assert entry.invalid?
     assert_include I18n.translate('activerecord.errors.messages.inclusion'), entry.errors[:activity_id]
+  end
+
+  def test_move_to_another_project_should_update_activity
+    override = TimeEntryActivity.create!(:name => 'Design', :parent_id => 9, :project_id => 2)
+    entry = TimeEntry.generate!(:project_id => 1, :activity_id => 9)
+
+    entry.project_id = 2
+    assert entry.save
+    assert_equal override.id, entry.reload.activity_id
+
+    entry.project_id = 1
+    assert entry.save
+    assert_equal 9, entry.reload.activity_id
+  end
+
+  def test_move_to_another_project_should_keep_activity_explicitly_set
+    TimeEntryActivity.create!(:name => 'Design', :parent_id => 9, :project_id => 2)
+    entry = TimeEntry.generate!(:project_id => 1, :activity_id => 9)
+
+    entry.project_id = 2
+    entry.activity_id = 10
+    assert entry.save
+    assert_equal 10, entry.reload.activity_id
   end
 
   def test_spent_on_with_2_digits_year_should_not_be_valid

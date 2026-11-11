@@ -60,8 +60,8 @@ class Changeset < ApplicationRecord
     where(Project.allowed_to_condition(args.shift || User.current, :view_changesets, *args))
   end)
 
-  after_create :scan_for_issues
   before_create :before_create_cs
+  after_create :scan_for_issues
 
   def revision=(r)
     write_attribute :revision, (r.nil? ? nil : r.to_s)
@@ -117,7 +117,7 @@ class Changeset < ApplicationRecord
     |
     (\d+):(\d+)
     |
-    (\d+([\.,]\d+)?)h?
+    (\d+([.,]\d+)?)h?
     )
     /x
 
@@ -135,7 +135,7 @@ class Changeset < ApplicationRecord
     referenced_issues = []
     regexp =
       %r{
-        ([\s\(\[,-]|^)((#{kw_regexp})[\s:]+)?
+        ([\s(\[,-]|^)((#{kw_regexp})[\s:]+)?
         (\#\d+(\s+@#{TIMELOG_RE})?([\s,;&]+\#\d+(\s+@#{TIMELOG_RE})?)*)
         (?=[[:punct:]]|\s|<|$)
       }xi
@@ -191,12 +191,12 @@ class Changeset < ApplicationRecord
 
   # Returns the previous changeset
   def previous
-    @previous ||= Changeset.where(["id < ? AND repository_id = ?", id, repository_id]).order('id DESC').first
+    @previous ||= repository&.previous_changeset(self)
   end
 
   # Returns the next changeset
   def next
-    @next ||= Changeset.where(["id > ? AND repository_id = ?", id, repository_id]).order('id ASC').first
+    @next ||= repository&.next_changeset(self)
   end
 
   # Creates a new Change from it's common parameters

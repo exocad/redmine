@@ -20,18 +20,6 @@
 require_relative '../test_helper'
 
 class ChangesetTest < ActiveSupport::TestCase
-  fixtures :projects, :repositories,
-           :issues, :issue_statuses, :issue_categories,
-           :journals, :journal_details,
-           :workflows,
-           :changesets, :changes,
-           :enumerations,
-           :custom_fields, :custom_values,
-           :users, :members, :member_roles,
-           :email_addresses,
-           :trackers, :projects_trackers,
-           :enabled_modules, :roles
-
   def setup
     User.current = nil
   end
@@ -99,7 +87,7 @@ class ChangesetTest < ActiveSupport::TestCase
       c.scan_comment_for_issue_ids
     end
 
-    time = TimeEntry.order('id desc').first
+    time = TimeEntry.order(id: :desc).first
     assert_equal project_specific_activity, time.activity
   end
 
@@ -133,7 +121,7 @@ class ChangesetTest < ActiveSupport::TestCase
       end
       assert_equal [1], c.issue_ids.sort
 
-      time = TimeEntry.order('id desc').first
+      time = TimeEntry.order(id: :desc).first
       assert_equal 1, time.issue_id
       assert_equal 1, time.project_id
       assert_equal 2, time.user_id
@@ -168,7 +156,7 @@ class ChangesetTest < ActiveSupport::TestCase
     assert Issue.find(1).closed?
     assert Issue.find(2).closed?
 
-    times = TimeEntry.order('id desc').limit(2)
+    times = TimeEntry.order(id: :desc).limit(2)
     assert_equal [1, 2], times.collect(&:issue_id).sort
   end
 
@@ -225,7 +213,7 @@ class ChangesetTest < ActiveSupport::TestCase
                 :comments => "Fixes ##{issue.id}"
               )
         assert_include c.id, issue.reload.changeset_ids
-        journal = Journal.order('id DESC').first
+        journal = Journal.order(id: :desc).first
         assert_equal 1, journal.details.count
       end
     end
@@ -324,13 +312,15 @@ class ChangesetTest < ActiveSupport::TestCase
         assert c.save
       end
       assert issue.reload.closed?
-      journal = Journal.order('id DESC').first
+      journal = Journal.order(id: :desc).first
       assert_equal issue, journal.issue
       assert_include "Applied in changeset ecookbook:r12345.", journal.notes
     end
   end
 
   def test_commit_referencing_a_parent_project_issue
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
+
     # repository of child project
     r = Repository::Subversion.
          create!(
@@ -347,6 +337,8 @@ class ChangesetTest < ActiveSupport::TestCase
   end
 
   def test_commit_referencing_a_project_with_commit_cross_project_ref_disabled
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
+
     r = Repository::Subversion.
           create!(
             :project => Project.find(3),
@@ -363,6 +355,8 @@ class ChangesetTest < ActiveSupport::TestCase
   end
 
   def test_commit_referencing_a_project_with_commit_cross_project_ref_enabled
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
+
     r = Repository::Subversion.
           create!(
             :project => Project.find(3),
@@ -401,6 +395,8 @@ class ChangesetTest < ActiveSupport::TestCase
   end
 
   def test_2_repositories_with_same_backend_should_not_link_issue_multiple_times
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
+
     Setting.commit_ref_keywords = '*'
     r1 = Repository::Subversion.create!(:project_id => 1, :identifier => 'svn1', :url => 'file:///svn1')
     r2 = Repository::Subversion.create!(:project_id => 1, :identifier => 'svn2', :url => 'file:///svn1')
@@ -427,6 +423,8 @@ class ChangesetTest < ActiveSupport::TestCase
   end
 
   def test_text_tag_revision_with_repository_identifier
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
+
     r = Repository::Subversion.
          create!(
            :project_id => 1,
@@ -463,6 +461,8 @@ class ChangesetTest < ActiveSupport::TestCase
   end
 
   def test_text_tag_hash_with_repository_identifier
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
+
     r =
       Repository::Subversion.
         new(
@@ -480,6 +480,32 @@ class ChangesetTest < ActiveSupport::TestCase
     assert_equal Changeset.find_by_revision('2'), changeset.previous
   end
 
+  def test_previous_uses_same_order_as_changeset_list
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
+
+    repository =
+      Repository::Subversion.create!(
+        :project => Project.find(3),
+        :url => 'svn://localhost/test/previous-order'
+      )
+    newer_changeset =
+      Changeset.create!(
+        :repository => repository,
+        :committed_on => Time.utc(2025, 4, 8, 10, 0, 0),
+        :comments => 'Newer changeset',
+        :revision => 'previous-order-newer'
+      )
+    older_changeset =
+      Changeset.create!(
+        :repository => repository,
+        :committed_on => Time.utc(2025, 4, 7, 10, 0, 0),
+        :comments => 'Older changeset',
+        :revision => 'previous-order-older'
+      )
+
+    assert_equal older_changeset, newer_changeset.previous
+  end
+
   def test_previous_nil
     changeset = Changeset.find_by_revision('1')
     assert_nil changeset.previous
@@ -490,12 +516,40 @@ class ChangesetTest < ActiveSupport::TestCase
     assert_equal Changeset.find_by_revision('3'), changeset.next
   end
 
+  def test_next_uses_same_order_as_changeset_list
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
+
+    repository =
+      Repository::Subversion.create!(
+        :project => Project.find(3),
+        :url => 'svn://localhost/test/next-order'
+      )
+    newer_changeset =
+      Changeset.create!(
+        :repository => repository,
+        :committed_on => Time.utc(2025, 4, 8, 10, 0, 0),
+        :comments => 'Newer changeset',
+        :revision => 'next-order-newer'
+      )
+    older_changeset =
+      Changeset.create!(
+        :repository => repository,
+        :committed_on => Time.utc(2025, 4, 7, 10, 0, 0),
+        :comments => 'Older changeset',
+        :revision => 'next-order-older'
+      )
+
+    assert_equal newer_changeset, older_changeset.next
+  end
+
   def test_next_nil
-    changeset = Changeset.find_by_revision('10')
+    changeset = Changeset.find_by_revision('11')
     assert_nil changeset.next
   end
 
   def test_comments_should_be_converted_to_utf8
+    skip "Bazaar is unavailable" unless Repository::Bazaar.scm_available
+
     proj = Project.find(3)
     str = "Texte encod\xe9 en ISO-8859-1.".b
     r = Repository::Bazaar.
@@ -510,11 +564,13 @@ class ChangesetTest < ActiveSupport::TestCase
                       :revision     => '123',
                       :scmid        => '12345',
                       :comments     => str)
-    assert( c.save )
+    assert(c.save)
     assert_equal 'Texte encodé en ISO-8859-1.', c.comments
   end
 
   def test_invalid_utf8_sequences_in_comments_should_be_replaced_latin1
+    skip "Bazaar is unavailable" unless Repository::Bazaar.scm_available
+
     proj = Project.find(3)
     str2 = "\xe9a\xe9b\xe9c\xe9d\xe9e test".b
     r = Repository::Bazaar.
@@ -530,12 +586,14 @@ class ChangesetTest < ActiveSupport::TestCase
                       :scmid        => '12345',
                       :comments     => "Texte encod\xE9 en ISO-8859-1.",
                       :committer    => str2)
-    assert( c.save )
+    assert(c.save)
     assert_equal "Texte encod? en ISO-8859-1.", c.comments
     assert_equal "?a?b?c?d?e test", c.committer
   end
 
   def test_invalid_utf8_sequences_in_comments_should_be_replaced_ja_jis
+    skip "Bazaar is unavailable" unless Repository::Bazaar.scm_available
+
     proj = Project.find(3)
     str = "test\xb5\xfetest\xb5\xfe".b
     r = Repository::Bazaar.
@@ -550,11 +608,13 @@ class ChangesetTest < ActiveSupport::TestCase
                       :revision     => '123',
                       :scmid        => '12345',
                       :comments     => str)
-    assert( c.save )
+    assert(c.save)
     assert_equal "test??test??", c.comments
   end
 
   def test_comments_should_be_converted_all_latin1_to_utf8
+    skip "Bazaar is unavailable" unless Repository::Bazaar.scm_available
+
     s1 = +"\xC2\x80"
     s2 = +"\xc3\x82\xc2\x80"
     s4 = s2.dup
@@ -577,11 +637,13 @@ class ChangesetTest < ActiveSupport::TestCase
                       :revision     => '123',
                       :scmid        => '12345',
                       :comments     => s1)
-    assert( c.save )
+    assert(c.save)
     assert_equal s4, c.comments
   end
 
   def test_invalid_utf8_sequences_in_paths_should_be_replaced
+    skip "Bazaar is unavailable" unless Repository::Bazaar.scm_available
+
     proj = Project.find(3)
     str2 = "\xe9a\xe9b\xe9c\xe9d\xe9e test".b
     r = Repository::Bazaar.
@@ -614,6 +676,8 @@ class ChangesetTest < ActiveSupport::TestCase
   end
 
   def test_comments_nil
+    skip "Bazaar is unavailable" unless Repository::Bazaar.scm_available
+
     proj = Project.find(3)
     r = Repository::Bazaar.
           create!(
@@ -628,13 +692,15 @@ class ChangesetTest < ActiveSupport::TestCase
                       :scmid        => '12345',
                       :comments     => nil,
                       :committer    => nil)
-    assert( c.save )
+    assert(c.save)
     assert_equal "", c.comments
     assert_nil c.committer
     assert_equal "UTF-8", c.comments.encoding.to_s
   end
 
   def test_comments_empty
+    skip "Bazaar is unavailable" unless Repository::Bazaar.scm_available
+
     proj = Project.find(3)
     r = Repository::Bazaar.
           create!(
@@ -649,7 +715,7 @@ class ChangesetTest < ActiveSupport::TestCase
                       :scmid        => '12345',
                       :comments     => "",
                       :committer    => "")
-    assert( c.save )
+    assert(c.save)
     assert_equal "", c.comments
     assert_equal "", c.committer
     assert_equal "UTF-8", c.comments.encoding.to_s
@@ -661,10 +727,10 @@ class ChangesetTest < ActiveSupport::TestCase
                       :committed_on => Time.now,
                       :revision     => '123',
                       :scmid        => '12345',
-                      :comments     => "a" * 500.kilobyte)
+                      :comments     => "a" * 500.kilobytes)
     assert c.save
     c.reload
-    assert_equal 500.kilobyte, c.comments.size
+    assert_equal 500.kilobytes, c.comments.size
   end
 
   def test_identifier

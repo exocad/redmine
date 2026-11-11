@@ -114,8 +114,9 @@ pt-BR:
           tb: "TB"
   support:
     array:
-      sentence_connector: "e"
-      skip_last_comma: true
+      last_word_connector: " e "
+      two_words_connector: " e "
+      words_connector: ", "
 
   # Active Record
   activerecord:
@@ -157,6 +158,7 @@ pt-BR:
         must_contain_digits: "must contain digits (0-9)"
         must_contain_special_chars: "must contain special characters (!, $, %, ...)"
         domain_not_allowed: "contains a domain not allowed (%{domain})"
+        too_simple: "is too simple"
 
   actionview_instancetag_blank_option: Selecione
 
@@ -299,6 +301,7 @@ pt-BR:
   field_default_value: Padrão
   field_comments_sorting: Visualizar comentários
   field_parent_title: Página pai
+  field_last_activity_date: Última atividade
 
   setting_app_title: Título da aplicação
   setting_welcome_text: Texto de boas-vindas
@@ -407,7 +410,6 @@ pt-BR:
   label_registered_on: Registrado em
   label_activity: Atividade
   label_new: Novo
-  label_logged_as: "Acessando como:"
   label_environment: Ambiente
   label_authentication: Autenticação
   label_auth_source: Modo de autenticação
@@ -449,7 +451,6 @@ pt-BR:
   label_confirmation: Confirmação
   label_export_to: Exportar para
   label_read: Ler...
-  label_public_projects: Projetos públicos
   label_open_issues: Aberta
   label_open_issues_plural: Abertas
   label_closed_issues: Fechada
@@ -478,8 +479,6 @@ pt-BR:
   label_months_from: meses a partir de
   label_gantt: Gantt
   label_internal: Interno
-  label_last_changes: "últimas %{count} alterações"
-  label_change_view_all: Mostrar todas as alterações
   label_comment: Comentário
   label_comment_plural: Comentários
   label_x_comments:
@@ -507,7 +506,6 @@ pt-BR:
   label_this_month: este mês
   label_last_month: último mês
   label_this_year: este ano
-  label_date_range: Período
   label_less_than_ago: menos de
   label_more_than_ago: mais de
   label_ago: dias atrás
@@ -516,7 +514,6 @@ pt-BR:
   label_day_plural: dias
   label_repository: Repositório
   label_repository_plural: Repositórios
-  label_browse: Procurar
   label_revision: Revisão
   label_revision_plural: Revisões
   label_associated_revisions: Revisões associadas
@@ -541,7 +538,6 @@ pt-BR:
   label_wiki_page_plural: páginas Wiki
   label_index_by_title: Índice por título
   label_index_by_date: Índice por data
-  label_current_version: Versão atual
   label_preview: Pré-visualizar
   label_feed_plural: Feeds
   label_changes_details: Detalhes de todas as alterações
@@ -565,7 +561,6 @@ pt-BR:
   label_applied_status: Situação alterada
   label_loading: Carregando...
   label_relation_new: Nova relação
-  label_relation_delete: Excluir relação
   label_relates_to: relacionado a
   label_duplicates: duplica
   label_duplicated_by: duplicado por
@@ -590,8 +585,6 @@ pt-BR:
   label_year: Ano
   label_month: Mês
   label_week: Semana
-  label_date_from: De
-  label_date_to: Para
   label_language_based: Com base no idioma do usuário
   label_sort_by: "Ordenar por %{value}"
   label_send_test_email: Enviar um e-mail de teste
@@ -623,7 +616,6 @@ pt-BR:
   label_ldap_authentication: Autenticação LDAP
   label_downloads_abbr: D/L
   label_optional_description: Descrição opcional
-  label_add_another_file: Adicionar outro arquivo
   label_preferences: Preferências
   label_chronological_order: Em ordem cronológica
   label_reverse_chronological_order: Em ordem cronológica inversa
@@ -701,7 +693,6 @@ pt-BR:
   text_load_default_configuration: Carregar a configuração padrão
   text_status_changed_by_changeset: "Aplicado no conjunto de alterações %{value}."
   text_issues_destroy_confirmation: 'Você tem certeza que deseja excluir a(s) tarefa(s) selecionada(s)?'
-  text_select_project_modules: 'Selecione módulos para habilitar para este projeto:'
   text_default_administrator_account_changed: Conta padrão do administrador alterada
   text_file_repository_writable: Repositório com permissão de escrita
   text_minimagick_available: MiniMagick disponível (opcional)
@@ -797,7 +788,6 @@ pt-BR:
   label_updated_time_by: "Atualizado por %{author} há %{age}"
   text_diff_truncated: '... Este diff foi truncado porque excede o tamanho máximo que pode ser exibido.'
   setting_diff_max_lines_displayed: Número máximo de linhas exibidas no diff
-  text_plugin_assets_writable: Diretório de plugins gravável
   warning_attachments_not_saved: "%{count} arquivo(s) não puderam ser salvo(s)."
   button_create_and_continue: Criar e continuar
   text_custom_field_possible_values_info: 'Uma linha para cada valor'
@@ -902,7 +892,7 @@ pt-BR:
   error_can_not_delete_custom_field: Não foi possível excluir o campo personalizado
   error_unable_to_connect: Não foi possível conectar (%{value})
   error_can_not_remove_role: Este papel está em uso e não pode ser excluído.
-  error_can_not_delete_tracker: Este tipo de tarefa está atribuído a alguma(s) tarefa(s) e não pode ser excluído.
+  error_can_not_delete_tracker_html: Este tipo de tarefa está atribuído a alguma(s) tarefa(s) e não pode ser excluído.<p>The following projects have issues with this tracker:<br>%{projects}</p>
   field_principal: User or Group
   notice_failed_to_save_members: "Falha ao salvar membro(s): %{errors}."
   text_zoom_out: Afastar zoom
@@ -971,14 +961,12 @@ pt-BR:
 
   description_query_sort_criteria_direction: Escolher ordenação
   description_project_scope: Escopo da pesquisa
-  description_filter: Filtro
   description_user_mail_notification: Configuração de notificações por e-mail
   description_message_content: Conteúdo da mensagem
   description_available_columns: Colunas disponíveis
   description_issue_category_reassign: Escolha uma categoria de tarefas
   description_search: Campo de busca
   description_notes: Notas
-  description_choose_project: Projetos
   description_query_sort_criteria_attribute: Atributo de ordenação
   description_wiki_subpages_reassign: Escolha uma nova página pai
   description_selected_columns: Colunas selecionadas
@@ -1250,8 +1238,6 @@ pt-BR:
   error_token_expired: Este link de recuperação de senha expirou. Por favor, tente novamente.
   error_spent_on_future_date: Não é possível registrar o tempo em uma data futura
   setting_timelog_accept_future_dates: Permitir registros de tempo em datas futuras
-  label_delete_link_to_subtask: Excluir relação
-  error_not_allowed_to_log_time_for_other_users: Você não possuí permissão para registrar o tempo
     para outros usuários
   permission_log_time_for_other_users: Tempo de registro gasto para outros usuários
   label_tomorrow: amanhã
@@ -1304,191 +1290,341 @@ pt-BR:
   label_display_type_board: Quadro
   label_my_bookmarks: Meus marcaroes
   label_import_time_entries: Importar tempo gasto
-  field_toolbar_language_options: Code highlighting toolbar languages
-  label_user_mail_notify_about_high_priority_issues_html: Also notify me about issues
-    with a priority of <em>%{prio}</em> or higher
-  label_assign_to_me: Assign to me
-  notice_issue_not_closable_by_open_tasks: This issue cannot be closed because it has
-    at least one open subtask.
-  notice_issue_not_closable_by_blocking_issue: This issue cannot be closed because it
-    is blocked by at least one open issue.
-  notice_issue_not_reopenable_by_closed_parent_issue: This issue cannot be reopened
-    because its parent issue is closed.
-  error_bulk_download_size_too_big: These attachments cannot be bulk downloaded because
-    the total file size exceeds the maximum allowed size (%{max_size})
-  setting_bulk_download_max_size: Maximum total size for bulk download
-  label_download_all_attachments: Download all files
-  error_attachments_too_many: This file cannot be uploaded because it exceeds the maximum
-    number of files that can be attached simultaneously (%{max_number_of_files})
-  setting_email_domains_allowed: Allowed email domains
-  setting_email_domains_denied: Disallowed email domains
-  field_passwd_changed_on: Password last changed
-  label_relations_mapping: Relations mapping
-  label_import_users: Import users
-  label_days_to_html: "%{days} days up to %{date}"
-  setting_twofa: Two-factor authentication
-  label_optional: optional
-  label_required_lower: required
-  button_disable: Disable
-  twofa__totp__name: Authenticator app
-  twofa__totp__text_pairing_info_html: Scan this QR code or enter the plain text key
-    into a TOTP app (e.g. <a href="https://support.google.com/accounts/answer/1066447">Google
+  field_toolbar_language_options: Barra de idiomas para destaque de código
+  label_user_mail_notify_about_high_priority_issues_html: Também me notifique sobre problemas
+    com prioridade de <em>%{prio}</em> ou maior
+  label_assign_to_me: Atribuir para mim
+  notice_issue_not_closable_by_open_tasks: Este problema não pode ser fechado porque possui
+    pelo menos uma subtarefa aberta.
+  notice_issue_not_closable_by_blocking_issue: Este problema não pode ser fechado porque está
+    bloqueado por pelo menos um problema em aberto.
+  notice_issue_not_reopenable_by_closed_parent_issue: Este problema não pode ser reaberto
+    porque o problema pai está fechado.
+  error_bulk_download_size_too_big: Esses anexos não podem ser baixados em massa porque
+    o tamanho total dos arquivos excede o tamanho máximo permitido (%{max_size})
+  setting_bulk_download_max_size: Tamanho total máximo para download em massa
+  label_download_all_attachments: Baixar todos os arquivos
+  error_attachments_too_many: Este arquivo não pode ser carregado porque excede o número máximo
+    de arquivos que podem ser anexados simultaneamente (%{max_number_of_files})
+  setting_email_domains_allowed: Domínios de e-mail permitidos
+  setting_email_domains_denied: Domínios de e-mail não permitidos
+  field_passwd_changed_on: Senha alterada pela última vez
+  label_relations_mapping: Mapeamento de relações
+  label_import_users: Importar usuários
+  label_days_to_html: "%{days} dias até %{date}"
+  setting_twofa: Autenticação de dois fatores
+  label_optional: Opcional
+  label_required_lower: Obrigatório
+  button_disable: Desativar
+  twofa__totp__name: Aplicativo autenticador
+  twofa__totp__text_pairing_info_html: Escaneie este código QR ou insira a chave em texto simples
+    em um aplicativo TOTP (por exemplo, <a href="https://support.google.com/accounts/answer/1066447">Google
     Authenticator</a>, <a href="https://authy.com/download/">Authy</a>, <a href="https://guide.duo.com/third-party-accounts">Duo
-    Mobile</a>) and enter the code in the field below to activate two-factor authentication.
-  twofa__totp__label_plain_text_key: Plain text key
-  twofa__totp__label_activate: Enable authenticator app
-  twofa_currently_active: 'Currently active: %{twofa_scheme_name}'
-  twofa_not_active: Not activated
-  twofa_label_code: Code
-  twofa_hint_disabled_html: Setting <strong>%{label}</strong> will deactivate and unpair
-    two-factor authentication devices for all users.
-  twofa_hint_required_html: Setting <strong>%{label}</strong> will require all users
-    to set up two-factor authentication at their next login.
-  twofa_label_setup: Enable two-factor authentication
-  twofa_label_deactivation_confirmation: Disable two-factor authentication
-  twofa_notice_select: 'Please select the two-factor scheme you would like to use:'
-  twofa_warning_require: The administrator requires you to enable two-factor authentication.
-  twofa_activated: Two-factor authentication successfully enabled. It is recommended
-    to <a data-method="post" href="%{bc_path}">generate backup codes</a> for your account.
-  twofa_deactivated: Two-factor authentication disabled.
-  twofa_mail_body_security_notification_paired: Two-factor authentication successfully
-    enabled using %{field}.
-  twofa_mail_body_security_notification_unpaired: Two-factor authentication disabled
-    for your account.
-  twofa_mail_body_backup_codes_generated: New two-factor authentication backup codes
-    generated.
-  twofa_mail_body_backup_code_used: A two-factor authentication backup code has been
-    used.
-  twofa_invalid_code: Code is invalid or outdated.
-  twofa_label_enter_otp: Please enter your two-factor authentication code.
-  twofa_too_many_tries: Too many tries.
-  twofa_resend_code: Resend code
-  twofa_code_sent: An authentication code has been sent to you.
-  twofa_generate_backup_codes: Generate backup codes
-  twofa_text_generate_backup_codes_confirmation: This will invalidate all existing backup
-    codes and generate new ones. Would you like to continue?
-  twofa_notice_backup_codes_generated: Your backup codes have been generated.
-  twofa_warning_backup_codes_generated_invalidated: New backup codes have been generated.
-    Your existing codes from %{time} are now invalid.
-  twofa_label_backup_codes: Two-factor authentication backup codes
-  twofa_text_backup_codes_hint: Use these codes instead of a one-time password should
-    you not have access to your second factor. Each code can only be used once. It is
-    recommended to print and store them in a safe place.
-  twofa_text_backup_codes_created_at: Backup codes generated %{datetime}.
-  twofa_backup_codes_already_shown: Backup codes cannot be shown again, please <a data-method="post"
-    href="%{bc_path}">generate new backup codes</a> if required.
-  error_can_not_execute_macro_html: Error executing the <strong>%{name}</strong> macro
+    Mobile</a>) e insira o código no campo abaixo para ativar a autenticação de dois fatores.
+  twofa__totp__label_plain_text_key: Chave em texto simples
+  twofa__totp__label_activate: Ativar aplicativo autenticador
+  twofa_currently_active: 'Atualmente ativo: %{twofa_scheme_name}'
+  twofa_not_active: Não ativado
+  twofa_label_code: Código
+  twofa_hint_disabled_html: Configurar <strong>%{label}</strong> desativará e desvinculará dispositivos
+    de autenticação de dois fatores para todos os usuários.
+  twofa_hint_required_html: Configurar <strong>%{label}</strong> exigirá que todos os usuários
+    configurem a autenticação de dois fatores no próximo login.
+  twofa_label_setup: Ativar autenticação de dois fatores
+  twofa_label_deactivation_confirmation: Desativar autenticação de dois fatores
+  twofa_notice_select: 'Por favor, selecione o esquema de autenticação de dois fatores que você gostaria de usar:'
+  twofa_warning_require: O administrador exige que você ative a autenticação de dois fatores.
+  twofa_activated: Autenticação de dois fatores ativada com sucesso.
+    Recomenda-se <a data-method="post" href="%{bc_path}"> gerar códigos de backup</a> para sua conta.
+  twofa_deactivated: Autenticação de dois fatores desativada.
+  twofa_mail_body_security_notification_paired: Autenticação de dois fatores ativada com
+    sucesso usando %{field}.
+  twofa_mail_body_security_notification_unpaired: Autenticação de dois fatores desativada
+    para sua conta.
+  twofa_mail_body_backup_codes_generated: Novos códigos de backup para autenticação de dois
+    fatores gerados.
+  twofa_mail_body_backup_code_used: Um código de backup de autenticação de dois fatores foi
+    utilizado.
+  twofa_invalid_code: O código é inválido ou está desatualizado.
+  twofa_label_enter_otp: Por favor, insira seu código de autenticação de dois fatores.
+  twofa_too_many_tries: Muitas tentativas.
+  twofa_resend_code: Reenviar código
+  twofa_code_sent: Um código de autenticação foi enviado para você.
+  twofa_generate_backup_codes: Gerar códigos de backup
+  twofa_text_generate_backup_codes_confirmation: Isso invalidará todos os códigos de backup existentes
+    e gerará novos. Gostaria de continuar?
+  twofa_notice_backup_codes_generated: Seus códigos de backup foram gerados.
+  twofa_warning_backup_codes_generated_invalidated: Novos códigos de backup foram gerados.
+    Seus códigos existentes de %{time} agora são inválidos.
+  twofa_label_backup_codes: Códigos de backup de autenticação de dois fatores
+  twofa_text_backup_codes_hint: Use esses códigos em vez de uma senha única caso
+    você não tenha acesso ao seu segundo fator. Cada código só pode ser usado uma vez.
+    Recomenda-se imprimir e armazená-los em um lugar seguro.
+  twofa_text_backup_codes_created_at: Códigos de backup gerados em %{datetime}.
+  twofa_backup_codes_already_shown: Os códigos de backup não podem ser exibidos novamente, por favor, <a data-method="post"
+    href="%{bc_path}">gere novos códigos de backup</a> se necessário.
+  error_can_not_execute_macro_html: Erro ao executar o macro <strong>%{name}</strong>
     (%{error})
-  error_macro_does_not_accept_block: This macro does not accept a block of text
-  error_childpages_macro_no_argument: With no argument, this macro can be called from
-    wiki pages only
-  error_circular_inclusion: Circular inclusion detected
-  error_page_not_found: Page not found
-  error_filename_required: Filename required
-  error_invalid_size_parameter: Invalid size parameter
-  error_attachment_not_found: Attachment %{name} not found
-  permission_delete_project: Delete the project
-  field_twofa_scheme: Two-factor authentication scheme
-  text_user_destroy_confirmation: Are you sure you want to delete this user and remove
-    all references to them? This cannot be undone. Often, locking a user instead of
-    deleting them is the better solution. To confirm, please enter their login (%{login})
-    below.
-  text_project_destroy_enter_identifier: To confirm, please enter the project's identifier
-    (%{identifier}) below.
-  button_add_subtask: Add subtask
-  notice_invalid_watcher: 'Invalid watcher: User will not receive any notifications
-    because it does not have access to view this object.'
-  button_fetch_changesets: Fetch commits
-  permission_view_message_watchers: View message watchers list
-  permission_add_message_watchers: Add message watchers
-  permission_delete_message_watchers: Delete message watchers
-  label_message_watchers: Watchers
-  button_copy_link: Copy link
-  error_invalid_authenticity_token: Invalid form authenticity token.
-  error_query_statement_invalid: An error occurred while executing the query and has
-    been logged. Please report this error to your Redmine administrator.
-  permission_view_wiki_page_watchers: View wiki page watchers list
-  permission_add_wiki_page_watchers: Add wiki page watchers
-  permission_delete_wiki_page_watchers: Delete wiki page watchers
-  label_wiki_page_watchers: Watchers
-  label_attachment_description: File description
-  error_no_data_in_file: The file does not contain any data
-  field_twofa_required: Require two factor authentication
-  twofa_hint_optional_html: Setting <strong>%{label}</strong> will let users set up
-    two-factor authentication at will, unless it is required by one of their groups.
-  twofa_text_group_required: This setting is only effective when the global two factor
-    authentication setting is set to 'optional'. Currently, two factor authentication
-    is required for all users.
-  twofa_text_group_disabled: This setting is only effective when the global two factor
-    authentication setting is set to 'optional'. Currently, two factor authentication
-    is disabled.
-  field_default_issue_query: Default issue query
+  error_macro_does_not_accept_block: Este macro não aceita um bloco de texto
+  error_childpages_macro_no_argument: Sem argumento, este macro só pode ser chamado a partir
+    de páginas wiki
+  error_circular_inclusion: Inclusão circular detectada
+  error_page_not_found: Página não encontrada
+  error_filename_required: Nome do arquivo é necessário
+  error_invalid_size_parameter: Parâmetro de tamanho inválido
+  error_attachment_not_found: Anexo %{name} não encontrado
+  permission_delete_project: Excluir o projeto
+  field_twofa_scheme: Esquema de autenticação de dois fatores.
+  text_user_destroy_confirmation: Tem certeza de que deseja excluir este usuário e remover
+    todas as referências a ele? Isso não pode ser desfeito. Muitas vezes, bloquear um
+    usuário em vez de excluí-lo é a melhor solução. Para confirmar, por favor, insira o login dele
+    (%{login}) abaixo.
+  text_project_destroy_enter_identifier: Para confirmar, insira o identificador do projeto
+    (%{identifier}) abaixo.
+  button_add_subtask: Adicionar subtarefa
+  notice_invalid_watcher: 'Observador inválido: O usuário não receberá nenhuma notificação
+    porque não tem acesso para visualizar este objeto.'
+  button_fetch_changesets: Buscar commits
+  permission_view_message_watchers: Ver lista de observadores de mensagens
+  permission_add_message_watchers: Adicionar observadores de mensagens
+  permission_delete_message_watchers: Excluir observadores de mensagens
+  label_message_watchers: Observadores
+  button_copy_link: Copiar link
+  error_invalid_authenticity_token: Token de autenticidade de formulário inválido.
+  error_query_statement_invalid: Ocorreu um erro ao executar a consulta e ele
+    foi registrado. Por favor, reporte este erro ao administrador do Redmine.
+  permission_view_wiki_page_watchers: Ver lista de observadores da página wiki
+  permission_add_wiki_page_watchers: Adicionar observadores da página wiki
+  permission_delete_wiki_page_watchers: Excluir observadores da página wiki
+  label_wiki_page_watchers: Observadores
+  label_attachment_description: Descrição do arquivo
+  error_no_data_in_file: O arquivo não contém dados
+  field_twofa_required: Exigir autenticação de dois fatores
+  twofa_hint_optional_html: Configurar <strong>%{label}</strong> permitirá que os usuários configurem a
+    autenticação de dois fatores por conta própria, a menos que seja exigida por um dos grupos deles.
+  twofa_text_group_required: Esta configuração só é eficaz quando a configuração global de autenticação
+    de dois fatores está definida como 'opcional'. Atualmente, a autenticação de dois fatores
+    é obrigatória para todos os usuários.
+  twofa_text_group_disabled: Esta configuração só é eficaz quando a configuração global de autenticação
+    de dois fatores está definida como 'opcional'. Atualmente, a autenticação de dois fatore
+    está desativada.
+  field_default_issue_query: Consulta padrão de problemas
   label_default_queries:
-    for_all_projects: For all projects
-    for_current_project: For current project
-    for_all_users: For all users
-    for_this_user: For this user
-  text_allowed_queries_to_select: Public (to any users) queries only selectable
-  text_all_migrations_have_been_run: All database migrations have been run
-  button_save_object: Save %{object_name}
-  button_edit_object: Edit %{object_name}
-  button_delete_object: Delete %{object_name}
-  text_setting_config_change: You can configure the behaviour in config/configuration.yml.
-    Please restart the application after editing it.
-  label_bulk_edit: Bulk edit
-  button_create_and_follow: Create and follow
-  label_subtask: Subtask
-  label_default_query: Default query
-  field_default_project_query: Default project query
-  label_required_administrators: required for administrators
-  twofa_hint_required_administrators_html: Setting <strong>%{label}</strong> behaves
-    like optional, but will require all users with administration rights to set up two-factor
-    authentication at their next login.
-  label_auto_watch_on: Auto watch
-  label_auto_watch_on_issue_contributed_to: Issues I contributed to
-  text_project_close_confirmation: Are you sure you want to close the '%{value}' project
-    to make it read-only?
-  text_project_reopen_confirmation: Are you sure you want to reopen the '%{value}' project?
-  text_project_archive_confirmation: Are you sure you want to archive the '%{value}'
-    project?
-  mail_destroy_project_failed: Project %{value} could not be deleted.
-  mail_destroy_project_successful: Project %{value} was deleted successfully.
-  mail_destroy_project_with_subprojects_successful: Project %{value} and its subprojects
-    were deleted successfully.
-  project_status_scheduled_for_deletion: scheduled for deletion
-  text_projects_bulk_destroy_confirmation: Are you sure you want to delete the selected
-    projects and related data?
+    for_all_projects: Para todos os projetos
+    for_current_project: Para o projeto atual
+    for_all_users: Para todos os usuários
+    for_this_user: Para este usuário
+  text_allowed_queries_to_select: Consultas públicas (visíveis para qualquer usuário) apenas selecionáveis
+  text_all_migrations_have_been_run: Todas as migrações de banco de dados foram executadas
+  button_save_object: Salvar %{object_name}
+  button_edit_object: Editar %{object_name}
+  button_delete_object: Excluir %{object_name}
+  text_setting_config_change: Você pode configurar o comportamento em config/configuration.yml.
+    Por favor, reinicie a aplicação após editá-lo.
+  label_bulk_edit: Edição em massa
+  button_create_and_follow: Criar e seguir
+  label_subtask: Subtarefa
+  label_default_query: Consulta padrão
+  field_default_project_query: Consulta padrão do projeto
+  label_required_administrators: Necessária para administradores
+  twofa_hint_required_administrators_html: Configurar <strong>%{label}</strong> se comporta
+    como opcional, mas exigirá que todos os usuários com direitos de administração configurem
+    a autenticação de dois fatores no próximo login.
+  label_auto_watch_on: Assistir automaticamente
+  label_auto_watch_on_issue_contributed_to: Problemas aos quais contribui
+  text_project_close_confirmation: Tem certeza de que deseja fechar o projeto '%{value}'
+    para torná-lo somente leitura?
+  text_project_reopen_confirmation: Tem certeza de que deseja reabrir o projeto '%{value}'?
+  text_project_archive_confirmation: Tem certeza de que deseja arquivar o projeto '%{value}'?
+  mail_destroy_project_failed: O projeto %{value} não pôde ser excluído.
+  mail_destroy_project_successful: O projeto %{value} foi excluído com sucesso.
+  mail_destroy_project_with_subprojects_successful: O projeto %{value} e seus subprojetos
+    foram excluídos com sucesso
+  project_status_scheduled_for_deletion: agendado para exclusão
+  text_projects_bulk_destroy_confirmation: Tem certeza de que deseja excluir os projetos selecionados
+    e os dados relacionados?
   text_projects_bulk_destroy_head: |
-    You are about to permanently delete the following projects, including possible subprojects and any related data.
-    Please review the information below and confirm that this is indeed what you want to do.
-    This action cannot be undone.
-  text_projects_bulk_destroy_confirm: To confirm, please enter "%{yes}" in the box below.
-  text_subprojects_bulk_destroy: 'including its subproject(s): %{value}'
-  field_current_password: Current password
-  sudo_mode_new_info_html: "<strong>What's happening?</strong> You need to reconfirm
-    your password before taking any administrative actions, this ensures your account
-    stays protected."
-  label_edited: Edited
-  label_time_by_author: "%{time} by %{author}"
-  field_default_time_entry_activity: Default spent time activity
-  field_is_member_of_group: Member of group
-  text_users_bulk_destroy_head: You are about to delete the following users and remove
-    all references to them. This cannot be undone. Often, locking users instead of deleting
-    them is the better solution.
-  text_users_bulk_destroy_confirm: To confirm, please enter "%{yes}" below.
-  permission_select_project_publicity: Set project public or private
-  label_auto_watch_on_issue_created: Issues I created
-  field_any_searchable: Any searchable text
-  label_contains_any_of: contains any of
-  button_apply_issues_filter: Apply issues filter
-  label_view_previous_annotation: View annotation prior to this change
-  label_has_been: has been
-  label_has_never_been: has never been
-  label_changed_from: changed from
-  label_issue_statuses_description: Issue statuses description
-  label_open_issue_statuses_description: View all issue statuses description
-  text_select_apply_issue_status: Select issue status
-  field_name_or_email_or_login: Name, email or login
-  text_default_active_job_queue_changed: Default queue adapter which is well suited
-    only for dev/test changed
-  label_option_auto_lang: auto
+    Você está prestes a excluir permanentemente os seguintes projetos,
+    incluindo possíveis subprojetos e quaisquer dados relacionados.
+    Por favor, reveja as informações abaixo e confirme se é isso que você deseja fazer.
+    Esta ação não pode ser desfeita.
+  text_projects_bulk_destroy_confirm: Para confirmar, por favor insira "%{yes}" na caixa abaixo.
+  text_subprojects_bulk_destroy: 'incluindo seu(s) subprojeto(s): %{value}'
+  field_current_password: Senha atual
+  sudo_mode_new_info_html: "<strong>O que está acontecendo?</strong> Você precisa reconfirmar
+    sua senha antes de realizar quaisquer ações administrativas, isso garante que sua conta
+    permaneça protegida."
+  label_edited: Editado
+  label_time_by_author: "%{time} por %{author}"
+  field_default_time_entry_activity: Atividade padrão de tempo gasto
+  field_is_member_of_group: Membro do grupo
+  text_users_bulk_destroy_head: Você está prestes a excluir os seguintes usuários e remover
+    todas as referências a eles. Isso não pode ser desfeito. Muitas vezes, bloquear usuários em vez de
+    excluí-los é a melhor solução.
+  text_users_bulk_destroy_confirm: Para confirmar, por favor, insira "%{yes}" abaixo.
+  permission_select_project_publicity: Definir projeto como público ou privado
+  label_auto_watch_on_issue_created: Problemas que criei
+  field_any_searchable: Qualquer texto pesquisável
+  label_contains_any_of: contém qualquer um de
+  button_apply_issues_filter: Aplicar filtro de problemas
+  label_view_previous_annotation: Ver anotação antes desta alteração
+  label_has_been: foi
+  label_has_never_been: nunca foi
+  label_changed_from: alterado de
+  label_issue_statuses_description: Descrição dos status de problemas
+  label_open_issue_statuses_description: Ver toda a descrição dos status de problemas
+  text_select_apply_issue_status: Selecionar status do problema
+  field_name_or_email_or_login: Nome, e-mail ou login
+  text_default_active_job_queue_changed: Adaptador de fila padrão que é bem adequado
+    apenas para dev/test foi alterado
+  label_option_auto_lang: automático
+  label_issue_attachment_added: Anexo adicionado
+  field_estimated_remaining_hours: Tempo restante estimado
+  setting_issue_done_ratio_interval: Intervalo de opções da taxa de conclusão
+  setting_copy_attachments_on_issue_copy: Copiar anexos ao copiar
+  field_thousands_delimiter: Separador de milhares
+  label_involved_principals: Author / Recent participants
+  label_attachment_summary:
+    zero: "%{filename}"
+    one: "%{filename} and 1 file"
+    other: "%{filename} and %{count} files"
+  setting_wiki_tablesort_enabled: JavaScript based table sorting in wiki content
+  label_progressbar: Progress bar
+  error_spent_on_closed_issue: Cannot log time on a closed issue
+  setting_timelog_accept_closed_issues: Accept time logs on closed issues
+  setting_related_issues_default_columns: Related and sub issues list defaults
+  setting_display_related_issues_table_headers: Show table headers
+  error_can_not_remove_role_reason_members_html: "<p>The following projects have members
+    with this role:<br>%{projects}</p>"
+  setting_reactions_enabled: Enable reactions
+  reaction_text_x_other_users:
+    one: 1 other
+    other: "%{count} others"
+  text_setting_gravatar_default_initials_html: Users' initials are sent to <a href="%{url}">%{url}</a>
+    to generate their avatars.
+  permission_view_project: View projects
+  permission_search_project: Search projects
+  permission_view_members: View project members
+  label_oauth_permission_admin: Administrate this Redmine
+  label_oauth_admin_access: Administration
+  label_oauth_application_plural: Applications
+  label_oauth_authorized_application_plural: Authorized applications
+  text_oauth_admin_permission: Full administrative access. When authorized by an Administrator,
+    this application will be able to read and write all data and impersonate other users.
+  text_oauth_admin_permission_info: This application requests full administrative access.
+    If you are an Administrator (or become one in the future), it will be able to read
+    and write all data and impersonate other users on your behalf. If you want to avoid
+    this, authorize it as a user without Administrator privileges instead.
+  text_oauth_copy_secret_now: Copy the secret to a safe place now, it will not be shown
+    again.
+  text_oauth_implicit_permissions: View your name, login and primary email address
+  text_oauth_info_scopes: Select the scopes this application may request. The application
+    will not be allowed to do more than what is selected here. It will also always be
+    limited by the roles and project memberships of the user who authorized it.
+  label_position: Position
+  label_message: Message
+  twofa_already_setup: Two-factor authentication already set up
+  permission_use_webhooks: Use webhooks
+  label_webhook_plural: Webhooks
+  label_webhook_new: New webhook
+  label_webhook_edit: Edit webhook
+  label_webhook_events: Events
+  webhook_url_info: Redmine will send a POST request to this URL whenever one of the
+    selected events occurs in one of the selected projects.
+  webhook_secret_info_html: If provided, Redmine will use this to create a hash signature
+    that is sent with each delivery as the value of the X-Redmine-Signature-256 header.
+  setting_webhooks_enabled: Enable webhooks
+  label_integrations: Integrations
+  label_alert_note: Note
+  label_alert_tip: Tip
+  label_alert_warning: Warning
+  label_alert_caution: Caution
+  label_alert_important: Important
+  field_ratio_interval: Ratio interval
+  webhook_event_created: "%{object_name} created"
+  webhook_event_updated: "%{object_name} updated"
+  webhook_event_deleted: "%{object_name} deleted"
+  label_auto_watch_on_issue_assigned_to_me: Issues assigned to me
+  label_relation_remove: Remove relation
+  label_subtask_remove: Remove subtask
+  button_remove: Remove
+  label_open_in_full_view: Open in full view
+  text_pandoc_available: Pandoc available (optional)
+  label_user_mail_option_only_my_watches: Only for things I watch
+  label_last_used_on: 'Last used: %{value} ago'
+  label_never_used: Never used
+  setting_assignee_dropdown_display_format: Assignee drop-down display format
+  label_assignee_dropdown_display_format_users_then_groups: Users then groups
+  label_assignee_dropdown_display_format_groups_then_users: Groups then users
+  label_enable_default_issue_due_date_offset: Enable default due date for new issues
+  label_days_relative_to_today: days relative to today
+  label_wiki_toolbar_strong: Negrito
+  label_wiki_toolbar_italic: Itálico
+  label_wiki_toolbar_underline: Sublinhado
+  label_wiki_toolbar_deleted: Excluído
+  label_wiki_toolbar_code: Código Inline
+  label_wiki_toolbar_heading_1: Cabeçalho 1
+  label_wiki_toolbar_heading_2: Cabeçalho 2
+  label_wiki_toolbar_heading_3: Cabeçalho 3
+  label_wiki_toolbar_unordered_list: Lista não ordenada
+  label_wiki_toolbar_ordered_list: Lista ordenada
+  label_wiki_toolbar_task_list: Task list
+  label_wiki_toolbar_quote: Identar
+  label_wiki_toolbar_unquote: Remover identação
+  label_wiki_toolbar_table: Tabela
+  label_wiki_toolbar_preformatted_text: Texto pré-formatado
+  label_wiki_toolbar_preformatted_code: Código destacado
+  label_wiki_toolbar_wiki_link: Link para uma página Wiki
+  label_wiki_toolbar_image: Imagem
+  label_wiki_toolbar_help: Help
+  label_assignee_dropdown_display_format_users_by_group: Users by group
+  button_remove_from_group: Remove from group
+  button_add_to_group: Add to group
+  setting_default_issue_due_date_offset: Default due date for new issues
+  field_private_by_default: Private by default
+  field_default_value_mode: Default value mode
+  label_absolute: Absolute
+  label_relative: Relative
+  error_issue_status_in_use_by_issues: This status is used by some issues
+  error_issue_status_default_for_trackers: This status is used as the default status by some trackers
+  text_users_remove_from_group_confirmation: Are you sure you want to remove the selected user(s) from the group %{group}?
+  webhook_secret_keep_info: The secret of another user is not displayed. Leave this
+    field blank to keep it unchanged.
+  webhook_disabled_info_html: Webhooks are disabled, so none of the webhooks below is
+    triggered. They are still listed here so that they can be reviewed or removed. Webhooks
+    can be enabled in the %{link} settings.
+  permission_export_issues: Export issues
+  permission_export_time_entries: Export time entries
+  label_users_and_groups: Users and groups
+  mail_subject_test_email: Redmine test
+  mail_body_test_email: This is a test email sent by Redmine.
+  text_mermaid_available: Mermaid.js available (optional)
+  label_member_view_all: View all members
+  field_date: Date
+  label_non_working_date_plural: Non-working dates
+  label_non_working_date_new: New non-working date
+  text_non_working_dates_html: 'You can add non-working dates such as holidays: <a href="%{non_working_dates_path}">Manage
+    non-working dates</a>'
+  text_non_working_dates_export_all_years: Non-working dates of all years will be exported.
+  label_import_non_working_dates: Import non-working dates
+  field_avatar: Avatar
+  setting_avatar_enabled: Allow users to set their avatar
+  button_change_avatar: Change avatar
+  text_avatar_uploaded: The uploaded image is currently used as the avatar.
+  text_avatar_from_server_html: The image from <a href="%{url}">%{url}</a> associated
+    with the user's email address is currently used as the avatar. It can be changed
+    on that site. If no image is registered there, a default avatar is shown.
+  text_avatar_initials: The image generated from the user's name is currently used as
+    the avatar.
+  text_avatar_upload_instead: You can upload an image to use instead.
+  text_avatar_upload_disabled: Uploading an avatar image to Redmine has been disabled
+    by the administrator.
+  text_setting_avatar_enabled_imagemagick_unavailable: ImageMagick is not available,
+    so users cannot set their avatar.
+  text_setting_gravatar_enabled_fallback: If enabled, Gravatar is used for users who
+    have not set their avatar in Redmine.
+  label_show_more: Show more
+  setting_favicon: Custom favicon
+  text_setting_favicon_format: PNG or ICO, up to %{max_size}
+  notice_search_tokens_truncated: 'A maximum of %{max} search terms can be used. Only
+    the following terms were used: %{tokens}'

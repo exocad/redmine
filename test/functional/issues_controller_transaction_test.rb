@@ -22,30 +22,6 @@ require 'issues_controller'
 
 class IssuesControllerTransactionTest < Redmine::ControllerTest
   tests IssuesController
-  fixtures :projects,
-           :users,
-           :roles,
-           :members,
-           :member_roles,
-           :issues,
-           :issue_statuses,
-           :versions,
-           :trackers,
-           :projects_trackers,
-           :issue_categories,
-           :enabled_modules,
-           :enumerations,
-           :attachments,
-           :workflows,
-           :custom_fields,
-           :custom_values,
-           :custom_fields_projects,
-           :custom_fields_trackers,
-           :time_entries,
-           :journals,
-           :journal_details,
-           :queries
-
   self.use_transactional_tests = false
 
   def setup
@@ -123,7 +99,7 @@ class IssuesControllerTransactionTest < Redmine::ControllerTest
 
     assert_response :success
 
-    attachment = Attachment.order('id DESC').first
+    attachment = Attachment.order(id: :desc).first
     assert_select 'input[name=?][value=?]', 'attachments[p0][token]', attachment.token
     assert_select 'input[name=?][value=?]', 'attachments[p0][filename]', 'testfile.txt'
   end
@@ -246,10 +222,10 @@ class IssuesControllerTransactionTest < Redmine::ControllerTest
       )
     end
 
-    assert_response 302
+    assert_response :found
     issue = Issue.find(1)
     assert_equal 4, issue.fixed_version_id
-    journal = Journal.order('id DESC').first
+    journal = Journal.order(id: :desc).first
     assert_equal 'overwrite_conflict_resolution', journal.notes
     assert journal.details.any?
   end
@@ -272,10 +248,10 @@ class IssuesControllerTransactionTest < Redmine::ControllerTest
       )
     end
 
-    assert_response 302
+    assert_response :found
     issue = Issue.find(1)
     assert_nil issue.fixed_version_id
-    journal = Journal.order('id DESC').first
+    journal = Journal.order(id: :desc).first
     assert_equal 'add_notes_conflict_resolution', journal.notes
     assert_equal false, journal.private_notes
     assert journal.details.empty?
@@ -300,7 +276,7 @@ class IssuesControllerTransactionTest < Redmine::ControllerTest
       )
     end
 
-    assert_response 302
+    assert_response :found
     assert_equal 'add_privates_notes_conflict_resolution', journal.notes
     assert_equal true, journal.private_notes
     assert journal.details.empty?
@@ -361,7 +337,7 @@ class IssuesControllerTransactionTest < Redmine::ControllerTest
     IssueQuery.any_instance.stubs(:statement).returns("INVALID STATEMENT")
 
     get :index
-    assert_response 500
+    assert_response :internal_server_error
     assert_select 'p', :text => /An error occurred/
     assert_nil session[:query]
     assert_nil session[:issues_index_sort]

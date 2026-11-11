@@ -26,10 +26,10 @@ class IssueRelationsController < ApplicationController
   accept_api_auth :index, :show, :create, :destroy
 
   def index
-    @relations = @issue.relations
+    @relations = @issue.relations.select {|r| r.other_issue(@issue)&.visible?}
 
     respond_to do |format|
-      format.html {head 200}
+      format.html {head :ok}
       format.api
     end
   end
@@ -38,7 +38,7 @@ class IssueRelationsController < ApplicationController
     raise Unauthorized unless @relation.visible?
 
     respond_to do |format|
-      format.html {head 200}
+      format.html {head :ok}
       format.api
     end
   end
@@ -101,6 +101,8 @@ class IssueRelationsController < ApplicationController
 
   def find_issue
     @issue = Issue.find(params[:issue_id])
+    raise Unauthorized unless @issue.visible?
+
     @project = @issue.project
   rescue ActiveRecord::RecordNotFound
     render_404

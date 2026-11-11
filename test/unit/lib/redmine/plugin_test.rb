@@ -226,6 +226,41 @@ class Redmine::PluginTest < ActiveSupport::TestCase
     assert Redmine::Plugin.migrate('foo_plugin')
   end
 
+  def test_migrate_should_not_use_stale_cached_versions
+    plugin = @klass.register :foo_plugin do
+      name 'Foo plugin'
+      version '0.0.1'
+    end
+    migrator = Redmine::Plugin::Migrator
+
+    Dir.mktmpdir do |dir|
+      {'001_foo_plugin_stale_cache_first.rb' => 'FooPluginStaleCacheFirst',
+       '002_foo_plugin_stale_cache_second.rb' => 'FooPluginStaleCacheSecond'}.each do |filename, class_name|
+        File.write(File.join(dir, filename), <<~MIGRATION)
+          class #{class_name} < ActiveRecord::Migration[#{ActiveRecord::Migration.current_version}]
+            def up; end
+
+            def down; end
+          end
+        MIGRATION
+      end
+      plugin.stubs(:migration_directory).returns(dir)
+
+      ActiveRecord::Migration.suppress_messages do
+        plugin.migrate(1)
+        assert_equal 1, migrator.current_version(plugin)
+        plugin.migrate
+        assert_equal 2, migrator.current_version(plugin)
+        plugin.migrate(0)
+        assert_equal 0, migrator.current_version(plugin)
+        plugin.migrate
+        assert_equal 2, migrator.current_version(plugin)
+      end
+    end
+  ensure
+    Redmine::Plugin::Migrator.clear_cached_versions
+  end
+
   def test_migration_context_should_override_current_version
     plugin = @klass.register :foo_plugin do
       name 'Foo plugin'
@@ -234,7 +269,7 @@ class Redmine::PluginTest < ActiveSupport::TestCase
     migration_dir = File.join(@klass.directory, 'db', 'migrate')
 
     Redmine::Plugin::Migrator.current_plugin = plugin
-    context = Redmine::Plugin::MigrationContext.new(migration_dir, ::ActiveRecord::Base.connection.schema_migration)
+    context = Redmine::Plugin::MigrationContext.new(migration_dir, ::ActiveRecord::Base.connection.pool.schema_migration)
     # current_version should be zero because Foo plugin has no migration
     assert_equal 0, context.current_version
   end

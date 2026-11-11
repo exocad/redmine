@@ -20,17 +20,6 @@
 require_relative '../test_helper'
 
 class ActivitiesControllerTest < Redmine::ControllerTest
-  fixtures :projects, :trackers, :issue_statuses, :issues,
-           :enumerations, :users, :issue_categories,
-           :projects_trackers,
-           :roles,
-           :member_roles,
-           :members,
-           :groups_users,
-           :enabled_modules,
-           :journals, :journal_details,
-           :attachments, :changesets, :documents, :messages, :news, :time_entries, :wiki_content_versions
-
   def test_project_index
     get(
       :index,
@@ -72,9 +61,35 @@ class ActivitiesControllerTest < Redmine::ControllerTest
     assert_select '#sidebar input#with_subprojects', :count => 0
   end
 
+  def test_index_should_show_day_of_week_except_for_today
+    Journal.find(1).update_column(:created_on, Time.current)
+    Journal.find(2).update_column(:created_on, 1.day.ago)
+    with_locale 'en' do
+      get(:index, :params => {:id => 1, :with_subprojects => 0})
+    end
+    assert_response :success
+
+    assert_select 'h3', :text => 'Today' do
+      assert_select 'span.day-of-week', 0
+    end
+    assert_select 'h3 span.day-of-week', :text => "(#{1.day.ago.to_date.strftime('%a')})"
+  end
+
+  def test_index_should_show_non_working_date_name
+    Journal.find(1).update_column(:created_on, Time.current)
+    NonWorkingDate.create!(:date => User.current.today, :name => 'Foo')
+    with_settings :non_working_week_days => [] do
+      get(:index, :params => {:id => 1, :with_subprojects => 0})
+    end
+    assert_response :success
+
+    assert_select 'h3.non-working-day', 1
+    assert_select 'h3.non-working-day span.non-working-date-name', :text => 'Foo'
+  end
+
   def test_project_index_with_invalid_project_id_should_respond_404
     get(:index, :params => {:id => 299})
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_previous_project_index
@@ -131,7 +146,7 @@ class ActivitiesControllerTest < Redmine::ControllerTest
         :user_id => 299
       }
     )
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_user_index_with_non_visible_user_id_should_respond_404
@@ -143,7 +158,7 @@ class ActivitiesControllerTest < Redmine::ControllerTest
       :user_id => user.id
     }
 
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_index_atom_feed

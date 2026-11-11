@@ -24,6 +24,8 @@ class Redmine::MimeTypeTest < ActiveSupport::TestCase
     to_test = {
       'test.txt' => 'text/plain',
       'test.c' => 'text/x-c',
+      'test.avif' => 'image/avif',
+      'test.bmp' => 'image/bmp',
       'TEST.JPG' => 'image/jpeg',
     }
     to_test.each do |name, expected|
@@ -79,11 +81,29 @@ class Redmine::MimeTypeTest < ActiveSupport::TestCase
 
   def test_by_type
     image_types = Redmine::MimeType.by_type('image')
+    assert_includes image_types, 'image/avif'
+    assert_includes image_types, 'image/bmp'
     assert_includes image_types, 'image/png'
     assert_includes image_types, 'image/webp'
   end
 
-  def test_should_default_to_mime_type_gem
+  def test_friendly_name_for
+    to_test = {
+      'application/vnd.oasis.opendocument.text' => 'OpenDocument Text',
+      'APPLICATION/VND.OASIS.OPENDOCUMENT.TEXT' => 'OpenDocument Text',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'Microsoft Word Document'
+    }
+    to_test.each do |type, expected|
+      assert_equal expected, Redmine::MimeType.friendly_name_for(type)
+    end
+  end
+
+  def test_friendly_name_for_with_unlisted_type
+    assert_nil Redmine::MimeType.friendly_name_for('application/pdf')
+    assert_nil Redmine::MimeType.friendly_name_for(nil)
+  end
+
+  def test_should_fall_back_to_marcel
     assert !Redmine::MimeType::EXTENSIONS.key?("zip")
     assert_equal "application/zip", Redmine::MimeType.of("file.zip")
   end

@@ -20,8 +20,6 @@
 require_relative '../test_helper'
 
 class AdminControllerTest < Redmine::ControllerTest
-  fixtures :projects, :users, :email_addresses, :roles
-
   def setup
     User.current = nil
     @request.session[:user_id] = 1 # admin
@@ -30,6 +28,7 @@ class AdminControllerTest < Redmine::ControllerTest
   def test_index
     get :index
     assert_select 'div.nodata', 0
+    assert_select 'div#admin-menu a.icon-webhook[href="/admin/webhooks"]'
   end
 
   def test_index_with_no_configuration_data
@@ -64,7 +63,7 @@ class AdminControllerTest < Redmine::ControllerTest
     )
     assert_response :success
     assert_select 'tr.project', 1
-    assert_select 'tr.project td.name', :text => p.name
+    assert_select 'tr.project td.name a', :text => p.name
   end
 
   def test_projects_with_name_filter
@@ -168,6 +167,45 @@ class AdminControllerTest < Redmine::ControllerTest
       assert_select 'td span.name', :text => 'Other'
       assert_select 'td.configure a', 0
     end
+  end
+
+  def test_webhooks
+    hook = Webhook.create!(:url => 'https://example.com/dlopper/hook', :user => User.find_by_login('dlopper'),
+                           :events => %w(issue.created), :projects => [Project.find(1)])
+    other_hook = Webhook.create!(:url => 'https://example.com/admin/hook', :user => User.find(1),
+                                 :events => %w(issue.updated), :projects => [Project.find(1)])
+
+    with_settings :webhooks_enabled => '1' do
+      get :webhooks
+    end
+    assert_response :success
+
+    assert_select "tr#webhook_#{hook.id}" do
+      assert_select 'td', :text => hook.user.name
+      assert_select 'td', :text => hook.url
+      assert_select "td.buttons a[href=?]", "/webhooks/#{hook.id}/edit?back_url=%2Fadmin%2Fwebhooks"
+    end
+    assert_select "tr#webhook_#{other_hook.id}"
+    assert_select 'div.contextual a[href=?]', '/webhooks/new?back_url=%2Fadmin%2Fwebhooks'
+  end
+
+  def test_webhooks_should_remain_accessible_without_creation_link_when_disabled
+    Webhook.create!(:url => 'https://example.com/dlopper/hook', :user => User.find_by_login('dlopper'),
+                    :events => %w(issue.created), :projects => [Project.find(1)])
+
+    with_settings :webhooks_enabled => '0' do
+      get :webhooks
+      assert_response :success
+      assert_select 'table.webhooks tr[id^=?]', 'webhook_'
+      assert_select 'div.contextual a', 0
+      assert_select 'p.warning a[href=?]', '/settings?tab=integrations'
+    end
+  end
+
+  def test_webhooks_should_be_denied_to_non_admin_users
+    @request.session[:user_id] = 2
+    get :webhooks
+    assert_response :forbidden
   end
 
   def test_info

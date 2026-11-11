@@ -20,11 +20,6 @@
 require_relative '../test_helper'
 
 class WikiControllerTest < Redmine::ControllerTest
-  fixtures :projects, :users, :email_addresses, :roles, :members, :member_roles,
-           :enabled_modules, :wikis, :wiki_pages, :wiki_contents,
-           :wiki_content_versions, :attachments,
-           :issues, :issue_statuses, :trackers, :watchers
-
   def setup
     User.current = nil
   end
@@ -142,12 +137,24 @@ class WikiControllerTest < Redmine::ControllerTest
           assert_select 'a[class*=delete]'
         end
         assert_select 'li.user-10' do
-          assert_select 'img.gravatar[title=?]', 'A Team', is_display_gravatar
+          assert_select 'a.group', :text => 'A Team'
+          assert_select 'svg'
           assert_select 'a[href="/users/10"]', false
           assert_select 'a[class*=delete]'
         end
       end
     end
+  end
+
+  def test_show_should_not_display_watchers_without_permission
+    @request.session[:user_id] = 2
+    Role.find(1).remove_permission! :view_wiki_page_watchers
+    page = Project.find(1).wiki.find_page('Another_page')
+    page.add_watcher User.find(2)
+    page.add_watcher Group.find(10)
+    get(:show, :params => {:project_id => 1, :id => 'Another_page'})
+    assert_select 'div#watchers ul', 0
+    assert_select 'h3', {text: /Watchers \(\d*\)/, count: 0}
   end
 
   def test_show_should_display_section_edit_links
@@ -179,7 +186,7 @@ class WikiControllerTest < Redmine::ControllerTest
 
   def test_show_unexistent_page_without_edit_right
     get :show, :params => {:project_id => 1, :id => 'Unexistent page'}
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_show_unexistent_page_with_edit_right
@@ -191,7 +198,7 @@ class WikiControllerTest < Redmine::ControllerTest
 
   def test_show_specific_version_of_an_unexistent_page_without_edit_right
     get :show, :params => {:project_id => 1, :id => 'Unexistent page', :version => 1}
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_show_unexistent_page_with_parent_should_preselect_parent
@@ -204,14 +211,14 @@ class WikiControllerTest < Redmine::ControllerTest
   def test_show_unexistent_version_page
     @request.session[:user_id] = 2
     get :show, :params => {:project_id => 1, :id => 'CookBook_documentation', :version => 100}
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_show_should_not_show_history_without_permission
     Role.anonymous.remove_permission! :view_wiki_edits
     get :show, :params => {:project_id => 1, :id => 'Page with sections', :version => 2}
 
-    assert_response 302
+    assert_response :found
   end
 
   def test_show_page_without_content_should_display_the_edit_form
@@ -231,6 +238,20 @@ class WikiControllerTest < Redmine::ControllerTest
     assert_select 'p.wiki-update-info' do
       assert_select 'span.badge.badge-status-locked'
     end
+  end
+
+  def test_show_should_display_revisions_count
+    # To ensure that the number of versions is correctly displayed instead of
+    # the last version number of the wiki page, make a situation where the
+    # those two numbers are different.
+    content_versions = WikiContentVersion.where(page_id: 1)
+    content_versions.first.destroy
+    assert 3, content_versions.last.version
+    assert 2, content_versions.size
+
+    get :show, :params => {:project_id => 1, :id => 'CookBook_documentation'}
+    assert_response :success
+    assert_select 'a[href=?]', '/projects/1/wiki/CookBook_documentation/history', :text => /2 revisions/
   end
 
   def test_get_new
@@ -382,11 +403,44 @@ class WikiControllerTest < Redmine::ControllerTest
     end
   end
 
+  def test_edit_section_with_common_mark_should_correctly_extract_setext_heading
+    text = <<~STR
+      A new MarkDown page
+      ===================
+      This text is the first section.
+
+      First subsection
+      ----------------
+      Here would be a first subsection
+
+      Second subsection
+      -----------------
+      Here would be a second subsection
+    STR
+
+    page = WikiPage.find_by_title('Page_with_sections')
+    page.content.text = text
+    page.content.save!
+
+    with_settings :text_formatting => 'common_mark' do
+      @request.session[:user_id] = 2
+      get :edit, :params => {:project_id => 'ecookbook', :id => 'Page_with_sections', :section => 2}
+
+      assert_response :success
+
+      section, hash = Redmine::WikiFormatting::CommonMark::Formatter.new(page.content.text).get_section(2)
+
+      assert_select 'textarea[name=?]', 'content[text]', :text => section
+      assert_select 'input[name=section][type=hidden][value="2"]'
+      assert_select 'input[name=section_hash][type=hidden][value=?]', hash
+    end
+  end
+
   def test_edit_invalid_section_should_respond_with_404
     @request.session[:user_id] = 2
     get :edit, :params => {:project_id => 'ecookbook', :id => 'Page_with_sections', :section => 10}
 
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_update_page
@@ -598,7 +652,7 @@ class WikiControllerTest < Redmine::ControllerTest
           :id => 'NoContent',
           :content => {:text => 'Some content'}
         }
-        assert_response 302
+        assert_response :found
       end
     end
     assert_equal 'Some content', page.reload.content.text
@@ -677,7 +731,7 @@ class WikiControllerTest < Redmine::ControllerTest
               :version => 3
             },
             :section => 2,
-            :section_hash => Digest::MD5.hexdigest("wrong hash")
+            :section_hash => ActiveSupport::Digest.hexdigest("wrong hash")
           }
         end
       end
@@ -780,7 +834,7 @@ class WikiControllerTest < Redmine::ControllerTest
       :project_id => 1, :id => 'CookBook_documentation',
       :version => '99'
     }
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_diff_with_invalid_version_from_should_respond_with_404
@@ -789,7 +843,7 @@ class WikiControllerTest < Redmine::ControllerTest
       :version => '99',
       :version_from => '98'
     }
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_annotate
@@ -825,7 +879,7 @@ class WikiControllerTest < Redmine::ControllerTest
       :project_id => 1, :id => 'CookBook_documentation',
       :version => '99'
     }
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_get_rename
@@ -1040,7 +1094,7 @@ class WikiControllerTest < Redmine::ControllerTest
         end
       end
     end
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_index
@@ -1092,12 +1146,63 @@ class WikiControllerTest < Redmine::ControllerTest
     assert @response.body.starts_with?('%PDF')
   end
 
+  def test_export_to_zip
+    with_settings :text_formatting => 'textile' do
+      user = User.find(2)
+      user.pref.update!(:time_zone => 'Tokyo')
+
+      @request.session[:user_id] = user.id
+      get :export, :params => {:project_id => 'ecookbook', :format => 'zip'}
+
+      assert_response :success
+      assert_equal 'application/zip', @response.media_type
+      assert_equal "attachment; filename=\"ecookbook-wiki.zip\"; filename*=UTF-8''ecookbook-wiki.zip",
+                   @response.headers['Content-Disposition']
+
+      pages = Project.find(1).wiki.pages.includes(:content).to_a.index_by(&:title)
+      zip_entries = zip_entries_from_response
+
+      assert_equal pages.keys.sort.map {|title| "#{title}.txt"}, zip_entries.keys.sort
+
+      zip_entries.each do |name, entry|
+        title = name.delete_suffix('.txt')
+        page = pages.fetch(title)
+        local_time = user.convert_time_to_user_timezone(page.updated_on)
+
+        assert_equal page.content.text, entry[:content]
+        # DOS timestamp should match the user's displayed local time.
+        assert_equal [local_time.year, local_time.month, local_time.day, local_time.hour, local_time.min],
+                     [entry[:dos_time].year, entry[:dos_time].month, entry[:dos_time].day, entry[:dos_time].hour, entry[:dos_time].min]
+        assert_equal local_time.sec / 2, entry[:dos_time].sec / 2
+        # UT extra field should store the corresponding absolute UTC time.
+        assert_equal local_time.utc.to_i, entry[:utc_time].utc.to_i
+      end
+    end
+  end
+
+  def test_export_to_zip_should_sanitize_non_portable_entry_name_characters
+    with_settings :text_formatting => 'textile' do
+      page = Project.find(1).wiki.pages.new(:title => 'Foo*')
+      page.content = WikiContent.new(:text => 'sanitized')
+      assert_save page
+
+      @request.session[:user_id] = 2
+      get :export, :params => {:project_id => 'ecookbook', :format => 'zip'}
+
+      assert_response :success
+
+      zip_entries = zip_entries_from_response
+      assert_equal 'sanitized', zip_entries['Foo_.txt'][:content]
+      assert_not_includes zip_entries.keys, 'Foo*.txt'
+    end
+  end
+
   def test_export_without_permission_should_be_denied
     @request.session[:user_id] = 2
     Role.find_by_name('Manager').remove_permission! :export_wiki_pages
     get :export, :params => {:project_id => 'ecookbook'}
 
-    assert_response 403
+    assert_response :forbidden
   end
 
   def test_date_index
@@ -1110,7 +1215,7 @@ class WikiControllerTest < Redmine::ControllerTest
 
   def test_not_found
     get :show, :params => {:project_id => 999}
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_protect_page
@@ -1237,7 +1342,7 @@ class WikiControllerTest < Redmine::ControllerTest
     # Non members cannot edit protected wiki pages
     @request.session[:user_id] = 4
     get :edit, :params => {:project_id => 1, :id => 'CookBook_documentation'}
-    assert_response 403
+    assert_response :forbidden
   end
 
   def test_edit_protected_page_by_member
@@ -1248,7 +1353,7 @@ class WikiControllerTest < Redmine::ControllerTest
 
   def test_history_of_non_existing_page_should_return_404
     get :history, :params => {:project_id => 1, :id => 'Unknown_page'}
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_add_attachment
@@ -1263,7 +1368,7 @@ class WikiControllerTest < Redmine::ControllerTest
         }
       }
     end
-    attachment = Attachment.order('id DESC').first
+    attachment = Attachment.order(id: :desc).first
     assert_equal Wiki.find(1).find_page('CookBook_documentation'), attachment.container
   end
 
@@ -1278,5 +1383,23 @@ class WikiControllerTest < Redmine::ControllerTest
     get :show, :params => {:project_id => 'ecookbook', :id => 'CookBook_documentation'}
     assert_response :success
     assert_select 'head>meta[name="robots"]', false
+  end
+
+  private
+
+  def zip_entries_from_response
+    entries = {}
+
+    Zip::InputStream.open(StringIO.new(@response.body)) do |io|
+      while (entry = io.get_next_entry)
+        entries[entry.name] = {
+          :content => io.read,
+          :dos_time => entry.instance_variable_get(:@time),
+          :utc_time => entry.extra[:universaltime]&.mtime
+        }
+      end
+    end
+
+    entries.transform_keys {|name| name.dup.force_encoding('UTF-8')}
   end
 end

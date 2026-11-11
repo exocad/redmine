@@ -66,6 +66,10 @@ module QueriesHelper
     s
   end
 
+  def render_query_filter_warnings(query)
+    safe_join(query.filter_warnings.map {|warning| content_tag('p', warning, :class => 'warning')})
+  end
+
   def query_filters_hidden_tags(query)
     tags = ''.html_safe
     query.filters.each do |field, options|
@@ -151,12 +155,11 @@ module QueriesHelper
     tags
   end
 
-  def grouped_query_results(items, query, &block)
+  def grouped_query_results(items, query, &)
     result_count_by_group = query.result_count_by_group
     previous_group, first = false, true
-    totals_by_group = query.totalable_columns.inject({}) do |h, column|
-      h[column] = query.total_by_group_for(column)
-      h
+    totals_by_group = query.totalable_columns.index_with do |column|
+      query.total_by_group_for(column)
     end
     items.each do |item|
       group_name = group_count = nil
@@ -169,7 +172,7 @@ module QueriesHelper
             group_name = format_object(group)
           end
           group_name ||= ""
-          group_count = result_count_by_group ? result_count_by_group[group] : nil
+          group_count = result_count_by_group&.[](group)
           group_totals = totals_by_group.map {|column, t| total_tag(column, t[group] || 0)}.join(" ").html_safe
         end
       end
@@ -192,6 +195,8 @@ module QueriesHelper
     value =
       if [:hours, :spent_hours, :total_spent_hours, :estimated_hours, :total_estimated_hours, :estimated_remaining_hours].include? column.name
         format_hours(value)
+      elsif column.is_a?(QueryCustomFieldColumn)
+        format_object(value, thousands_delimiter: column.custom_field.thousands_delimiter?)
       else
         format_object(value)
       end
@@ -205,9 +210,11 @@ module QueriesHelper
       if column.name.to_s == query.sort_criteria.first_key
         if query.sort_criteria.first_asc?
           css = 'sort asc icon icon-sorted-desc'
+          icon = 'angle-up'
           order = 'desc'
         else
           css = 'sort desc icon icon-sorted-asc'
+          icon = 'angle-down'
           order = 'asc'
         end
       end
@@ -223,7 +230,7 @@ module QueriesHelper
       end
       content =
         link_to(
-          column.caption,
+          icon ? sprite_icon(icon, column.caption) : column.caption,
           {:params => request.query_parameters.deep_merge(sort_param)},
           link_options
         )
@@ -272,9 +279,9 @@ module QueriesHelper
       when :hours, :estimated_hours, :total_estimated_hours, :estimated_remaining_hours
         format_hours(value)
       when :spent_hours
-        link_to_if(value > 0, format_hours(value), project_time_entries_path(item.project, :issue_id => "#{item.id}"))
+        value > 0 ? link_to(format_hours(value), project_time_entries_path(item.project, :issue_id => "#{item.id}")) : ''
       when :total_spent_hours
-        link_to_if(value > 0, format_hours(value), project_time_entries_path(item.project, :issue_id => "~#{item.id}"))
+        value > 0 ? link_to(format_hours(value), project_time_entries_path(item.project, :issue_id => "~#{item.id}")) : ''
       when :attachments
         value.to_a.map {|a| format_object(a)}.join(" ").html_safe
       when :watcher_users
@@ -305,9 +312,9 @@ module QueriesHelper
     when :watcher_users
       value.to_a.join("\n")
     else
-      format_object(value, false) do |value|
+      format_object(value, html: false) do |value|
         case value.class.name
-        when 'Float'
+        when 'Float', 'Rational'
           sprintf("%.2f", value).gsub('.', l(:general_csv_decimal_separator))
         when 'IssueRelation'
           value.to_s(object)
@@ -478,8 +485,6 @@ module QueriesHelper
     url_params =
       if controller_name == 'issues'
         {:controller => 'issues', :action => 'index', :project_id => @project}
-      elsif controller_name == 'admin' && action_name == 'projects'
-        {:admin_projects => '1'}
       else
         {}
       end
@@ -506,7 +511,9 @@ module QueriesHelper
           content_tag('li',
                       link_to(query.name,
                               url_params.merge(:query_id => query),
-                              :class => css) +
+                              :class => css,
+                              :title => query.description,
+                              :data => { :disable_with => CGI.escapeHTML(query.name) }) +
                         clear_link.html_safe)
         end.join("\n").html_safe,
         :class => 'queries'
@@ -515,7 +522,7 @@ module QueriesHelper
 
   def link_to_clear_query(params = {:set_filter => 1, :sort => '', :project_id => @project})
     link_to(
-      l(:button_clear),
+      sprite_icon('clear-query', l(:button_clear)),
       params,
       :class => 'icon-only icon-clear-query',
       :title => l(:button_clear)

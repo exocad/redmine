@@ -18,6 +18,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 module JournalsHelper
+  include Redmine::QuoteReply::Helper
+  include ReactionsHelper
 
   # Returns the attachments of a journal that are displayed as thumbnails
   def journal_thumbnail_attachments(journal)
@@ -28,36 +30,33 @@ module JournalsHelper
   def render_journal_actions(issue, journal, options={})
     links = []
     dropbown_links = []
-    indice = journal.indice || @journal.issue.visible_journals_with_index.find{|j| j.id == @journal.id}.indice
+    indice = journal.indice || journal.issue.visible_journals_with_index.find{|j| j.id == journal.id}&.indice
 
     dropbown_links << copy_object_url_link(issue_url(issue, anchor: "note-#{indice}", only_path: false))
     if journal.attachments.size > 1
-      dropbown_links << link_to(l(:label_download_all_attachments),
+      dropbown_links << link_to(sprite_icon('download', l(:label_download_all_attachments)),
                                 container_attachments_download_path(journal),
                                 :title => l(:label_download_all_attachments),
                                 :class => 'icon icon-download'
                                )
     end
 
+    links << reaction_button(journal)
+
     if journal.notes.present?
       if options[:reply_links]
-        links << link_to(l(:button_quote),
-                         quoted_issue_path(issue, :journal_id => journal, :journal_indice => indice),
-                         :remote => true,
-                         :method => 'post',
-                         :title => l(:button_quote),
-                         :class => 'icon-only icon-comment'
-                        )
+        url = quoted_issue_path(issue, :journal_id => journal, :journal_indice => indice)
+        links << quote_reply_button(url: url, icon_only: true)
       end
       if journal.editable_by?(User.current)
-        links << link_to(l(:button_edit),
+        links << link_to(sprite_icon('edit', l(:button_edit)),
                          edit_journal_path(journal),
                          :remote => true,
                          :method => 'get',
                          :title => l(:button_edit),
                          :class => 'icon-only icon-edit'
                         )
-        dropbown_links << link_to(l(:button_delete),
+        dropbown_links << link_to(sprite_icon('del', l(:button_delete)),
                                   journal_path(journal, :journal => {:notes => ""}),
                                   :remote => true,
                                   :method => 'put',
@@ -70,7 +69,8 @@ module JournalsHelper
   end
 
   def render_notes(issue, journal, options={})
-    content_tag('div', textilizable(journal, :notes), :id => "journal-#{journal.id}-notes", :class => "wiki")
+    content_tag('div', textilizable(journal, :notes),
+      id: "journal-#{journal.id}-notes", class: "wiki journal-note", data: { quote_reply_target: 'content' })
   end
 
   def render_private_notes_indicator(journal)

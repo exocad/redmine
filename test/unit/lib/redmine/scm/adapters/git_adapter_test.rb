@@ -22,14 +22,6 @@ require_relative '../../../../../test_helper'
 class GitAdapterTest < ActiveSupport::TestCase
   REPOSITORY_PATH = Rails.root.join('tmp/test/git_repository').to_s
 
-  ## Git, Mercurial and CVS path encodings are binary.
-  ## Subversion supports URL encoding for path.
-  ## Redmine Mercurial adapter and extension use URL encoding.
-  ## Git accepts only binary path in command line parameter.
-  ## So, there is no way to use binary command line parameter in JRuby.
-  JRUBY_SKIP     = (RUBY_PLATFORM == 'java')
-  JRUBY_SKIP_STR = "TODO: This test fails in JRuby"
-
   if File.directory?(REPOSITORY_PATH)
     ## Ruby uses ANSI api to fork a process on Windows.
     ## Japanese Shift_JIS and Traditional Chinese Big5 have 0x5c(backslash) problem
@@ -42,13 +34,6 @@ class GitAdapterTest < ActiveSupport::TestCase
     WINDOWS_SKIP_STR = "TODO: This test fails in Git for Windows above 1.7.10"
 
     def setup
-      adapter_class = Redmine::Scm::Adapters::GitAdapter
-      assert adapter_class
-      assert adapter_class.client_command
-      assert_equal true, adapter_class.client_available
-      assert_equal true, adapter_class.client_version_above?([1])
-      assert_equal true, adapter_class.client_version_above?([1, 0])
-
       @adapter =
         Redmine::Scm::Adapters::GitAdapter.
           new(
@@ -59,6 +44,8 @@ class GitAdapterTest < ActiveSupport::TestCase
             'ISO-8859-1'
           )
       assert @adapter
+      skip "SCM is unavailable" unless @adapter.class.client_available
+
       @char_1 = 'Ü'
       @str_felix_hex  = "Felix Sch\xC3\xA4fer".b
     end
@@ -99,12 +86,12 @@ class GitAdapterTest < ActiveSupport::TestCase
       assert_equal false, br_latin_1_path.is_default
       br_master = brs[4]
       assert_equal 'master', br_master.to_s
-      assert_equal '83ca5fd546063a3c7dc2e568ba3355661a9e2b2c', br_master.revision
+      assert_equal 'b1650eac7c505a6dab9f19858afc9ecb481eccc2', br_master.revision
       assert_equal br_master.scmid, br_master.revision
       assert_equal false, br_master.is_default
       br_master_20120212 = brs[5]
       assert_equal 'master-20120212', br_master_20120212.to_s
-      assert_equal '83ca5fd546063a3c7dc2e568ba3355661a9e2b2c', br_master_20120212.revision
+      assert_equal 'b1650eac7c505a6dab9f19858afc9ecb481eccc2', br_master_20120212.revision
       assert_equal br_master_20120212.scmid, br_master_20120212.revision
       assert_equal true, br_master_20120212.is_default
       br_latin_1 = brs[-2]
@@ -117,6 +104,20 @@ class GitAdapterTest < ActiveSupport::TestCase
       assert_equal 'fba357b886984ee71185ad2065e65fc0417d9b92', br_test.revision
       assert_equal br_test.scmid, br_test.revision
       assert_equal false, br_test.is_default
+    end
+
+    def test_branches_with_branch_name_containing_hash
+      branch_name = 'feature-0123456789abcdef0123456789abcdef01234567'
+      output = <<~OUTPUT
+        * #{branch_name} 2a682156a3b6e77a8bf9cd4590e8db757f3c6c78 Add foo.txt
+      OUTPUT
+      @adapter.stubs(:git_cmd).yields(StringIO.new(output))
+
+      brs = @adapter.branches
+      assert_equal 1, brs.length
+      assert_equal branch_name, brs[0].to_s
+      assert_equal '2a682156a3b6e77a8bf9cd4590e8db757f3c6c78', brs[0].revision
+      assert_equal true, brs[0].is_default
     end
 
     def test_default_branch
@@ -158,8 +159,8 @@ class GitAdapterTest < ActiveSupport::TestCase
       @adapter.revisions('', nil, "master", {}) do |rev|
         revs1 << rev
       end
-      assert_equal 15, revs1.length
-      assert_equal '83ca5fd546063a3c7dc2e568ba3355661a9e2b2c', revs1[0].identifier
+      assert_equal 16, revs1.length
+      assert_equal 'b1650eac7c505a6dab9f19858afc9ecb481eccc2', revs1[0].identifier
       assert_equal '7234cb2750b63f47bff735edc50a1c0a433c2518', revs1[-1].identifier
 
       revs2 = []
@@ -167,8 +168,8 @@ class GitAdapterTest < ActiveSupport::TestCase
                          {:reverse => true}) do |rev|
         revs2 << rev
       end
-      assert_equal 15, revs2.length
-      assert_equal '83ca5fd546063a3c7dc2e568ba3355661a9e2b2c', revs2[-1].identifier
+      assert_equal 16, revs2.length
+      assert_equal 'b1650eac7c505a6dab9f19858afc9ecb481eccc2', revs2[-1].identifier
       assert_equal '7234cb2750b63f47bff735edc50a1c0a433c2518', revs2[0].identifier
     end
 
@@ -180,14 +181,14 @@ class GitAdapterTest < ActiveSupport::TestCase
                          {:reverse => true}) do |rev|
         revs1 << rev
       end
-      assert_equal 8, revs1.length
+      assert_equal 9, revs1.length
       assert_equal 'fba357b886984ee71185ad2065e65fc0417d9b92', revs1[0].identifier
       assert_equal '7e61ac704deecde634b51e59daa8110435dcb3da', revs1[1].identifier
       # 4a07fe31b is not a child of 713f49446
       assert_equal '4a07fe31bffcf2888791f3e6cbc9c4545cefe3e8', revs1[2].identifier
       # Merged revision
       assert_equal '32ae898b720c2f7eec2723d5bdd558b4cb2d3ddf', revs1[3].identifier
-      assert_equal '83ca5fd546063a3c7dc2e568ba3355661a9e2b2c', revs1[-1].identifier
+      assert_equal 'b1650eac7c505a6dab9f19858afc9ecb481eccc2', revs1[-1].identifier
 
       revs2 = []
       @adapter.revisions('',
@@ -196,13 +197,13 @@ class GitAdapterTest < ActiveSupport::TestCase
                          {:reverse => true}) do |rev|
         revs2 << rev
       end
-      assert_equal 7, revs2.length
+      assert_equal 8, revs2.length
       assert_equal '7e61ac704deecde634b51e59daa8110435dcb3da', revs2[0].identifier
       # 4a07fe31b is not a child of fba357b8869
       assert_equal '4a07fe31bffcf2888791f3e6cbc9c4545cefe3e8', revs2[1].identifier
       # Merged revision
       assert_equal '32ae898b720c2f7eec2723d5bdd558b4cb2d3ddf', revs2[2].identifier
-      assert_equal '83ca5fd546063a3c7dc2e568ba3355661a9e2b2c', revs2[-1].identifier
+      assert_equal 'b1650eac7c505a6dab9f19858afc9ecb481eccc2', revs2[-1].identifier
     end
 
     def test_revisions_branch_latin_1_path_encoding_all
@@ -251,8 +252,6 @@ class GitAdapterTest < ActiveSupport::TestCase
     def test_revisions_latin_1_identifier
       if WINDOWS_PASS
         puts WINDOWS_SKIP_STR
-      elsif JRUBY_SKIP
-        puts JRUBY_SKIP_STR
       else
         revs1 = []
         @adapter.revisions(
@@ -389,7 +388,7 @@ class GitAdapterTest < ActiveSupport::TestCase
                          {:reverse => true}) do |rev|
         revs1 << rev
       end
-      assert_equal 15, revs1.length
+      assert_equal 16, revs1.length
       assert_equal "7234cb2750b63f47bff735edc50a1c0a433c2518",
                    revs1[0].identifier
       assert_nil revs1[0].parents
@@ -443,8 +442,6 @@ class GitAdapterTest < ActiveSupport::TestCase
     def test_annotate_latin_1_identifier
       if WINDOWS_PASS
         puts WINDOWS_SKIP_STR
-      elsif JRUBY_SKIP
-        puts JRUBY_SKIP_STR
       else
         annotate = @adapter.annotate('sources/watchers_controller.rb',
                                      "latin-1-branch-#{@char_1}-02")
@@ -485,8 +482,6 @@ class GitAdapterTest < ActiveSupport::TestCase
     def test_latin_1_path
       if WINDOWS_PASS
         puts WINDOWS_SKIP_STR
-      elsif JRUBY_SKIP
-        puts JRUBY_SKIP_STR
       else
         p2 = "latin-1-dir/test-#{@char_1}-2.txt"
         ['4fc55c43bf3d3dc2efb66145365ddc17639ce81e', '4fc55c43bf3'].each do |r1|
@@ -579,8 +574,6 @@ class GitAdapterTest < ActiveSupport::TestCase
     def test_entries_latin_1_dir
       if WINDOWS_PASS
         puts WINDOWS_SKIP_STR
-      elsif JRUBY_SKIP
-        puts JRUBY_SKIP_STR
       else
         entries1 = @adapter.entries("latin-1-dir/test-#{@char_1}-subdir",
                                     '1ca7f5ed')
@@ -596,8 +589,6 @@ class GitAdapterTest < ActiveSupport::TestCase
     def test_entries_latin_1_identifier
       if WINDOWS_PASS
         puts WINDOWS_SKIP_STR
-      elsif JRUBY_SKIP
-        puts JRUBY_SKIP_STR
       else
         entries1 = @adapter.entries(nil,
                                     "latin-1-branch-#{@char_1}-02")
@@ -661,8 +652,6 @@ class GitAdapterTest < ActiveSupport::TestCase
     def test_cat_latin_1_identifier
       if WINDOWS_PASS
         puts WINDOWS_SKIP_STR
-      elsif JRUBY_SKIP
-        puts JRUBY_SKIP_STR
       else
         assert @adapter.cat('sources/watchers_controller.rb',
                             "latin-1-branch-#{@char_1}-02")

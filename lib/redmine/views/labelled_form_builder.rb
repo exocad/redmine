@@ -23,7 +23,9 @@ class Redmine::Views::LabelledFormBuilder < ActionView::Helpers::FormBuilder
   include Redmine::I18n
 
   (field_helpers.map(&:to_s) - %w(radio_button hidden_field fields_for check_box label) +
-        %w(date_select)).each do |selector|
+        # Do not remove text_area; otherwise labels in plugins using text_area
+        # instead of textarea will disappear.
+        %w(date_select text_area)).each do |selector|
     src = <<-END_SRC
     def #{selector}(field, options = {})
       label_for_field(field, options) + super(field, options.except(:label)).html_safe
@@ -48,9 +50,28 @@ class Redmine::Views::LabelledFormBuilder < ActionView::Helpers::FormBuilder
   def hours_field(field, options={})
     # display the value before type cast when the entered value is not valid
     if @object.errors[field].blank?
+      # show the placeholder only when the time span format is "minutes"
+      placeholder = Setting.timespan_format == 'minutes' ? 'h:mm' : nil
       options = options.merge(:value => format_hours(@object.send field))
+                       .with_defaults(:placeholder => placeholder)
     end
     text_field field, options
+  end
+
+  # A textarea with the wiki toolbar
+  #
+  # Options:
+  # * :preview_url - URL used to preview the text (default: preview_text_path)
+  # * any other option is passed to textarea
+  def wiki_textarea(field, options = {})
+    options = options.dup
+    preview_url = options.delete(:preview_url) || @template.preview_text_path
+    label = label_for_field(field, options)
+    options = @template.wiki_textarea_options(options.except(:label))
+    field_id = options[:id] || "#{@object_name}_#{field}"
+    label + @template.wiki_toolbar(field_id, preview_url: preview_url) do
+      textarea(field, options.merge(no_label: true))
+    end
   end
 
   # Returns a label tag for the given field

@@ -21,13 +21,18 @@ require 'redmine'
 
 module Redmine
   module Configuration
-
     # Configuration default values
     @defaults = {
       'avatar_server_url' => 'https://www.gravatar.com',
       'email_delivery' => nil,
       'max_concurrent_ajax_uploads' => 2,
-      'common_mark_enable_hardbreaks' => true
+      'max_attachments_at_once' => 50,
+      'sudo_mode' => true,
+      'common_mark_enable_hardbreaks' => true,
+      'thumbnails_generation_timeout' => 10,
+      'markdownized_preview_generation_timeout' => 10,
+      'markdownized_preview_max_source_size' => 10.megabytes,
+      'markdownized_preview_max_output_size' => 100.kilobytes
     }
 
     @config = nil
@@ -84,7 +89,7 @@ module Redmine
       def with(settings)
         settings.stringify_keys!
         load unless @config
-        was = settings.keys.inject({}) {|h,v| h[v] = @config[v]; h}
+        was = settings.keys.index_with { |v| @config[v] }
         @config.merge! settings
         yield if block_given?
         @config.merge! was

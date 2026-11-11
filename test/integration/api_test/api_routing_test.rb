@@ -20,7 +20,6 @@
 require_relative '../../test_helper'
 
 class Redmine::ApiTest::ApiRoutingTest < Redmine::ApiTest::Routing
-
   def test_attachments
     should_route 'GET /attachments/1' => 'attachments#show', :id => '1'
     should_route 'PATCH /attachments/1' => 'attachments#update', :id => '1'
@@ -52,6 +51,7 @@ class Redmine::ApiTest::ApiRoutingTest < Redmine::ApiTest::Routing
 
   def test_group_users
     should_route 'POST /groups/567/users' => 'groups#add_users', :id => '567'
+    should_route 'DELETE /groups/567/users' => 'groups#remove_users', :id => '567'
     should_route 'DELETE /groups/567/users/12' => 'groups#remove_user', :id => '567', :user_id => '12'
   end
 

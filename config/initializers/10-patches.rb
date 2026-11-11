@@ -8,6 +8,7 @@ module ActiveRecord
       undef open
     end
   end
+
   class Relation ; undef open ; end
 end
 
@@ -72,8 +73,8 @@ ActionMailer::Base.add_delivery_method :tmp_file, DeliveryMethods::TmpFile
 module ActionController
   module MimeResponds
     class Collector
-      def api(&block)
-        any(:xml, :json, &block)
+      def api(&)
+        any(:xml, :json, &)
       end
     end
   end
@@ -95,12 +96,31 @@ end
 module ActionView
   LookupContext.prepend(Module.new do
     def formats=(values)
-      if (Array(values) & [:xml, :json]).any?
+      if Array(values).intersect?([:xml, :json])
         values << :api
       end
-      super(values)
+      super
     end
   end)
+  module Helpers
+    # Set a randomized name attribute on all form fields by default
+    # as a workaround to https://bugzilla.mozilla.org/show_bug.cgi?id=1279253
+    FormHelper.prepend(Module.new do
+      def form_tag_html(html_options)
+        randomized_name_attribute(html_options)
+        super
+      end
+
+      def form_tag_with_body(html_options, output)
+        randomized_name_attribute(html_options)
+        super
+      end
+
+      def randomized_name_attribute(html_options)
+        html_options['name'] ||= "#{html_options['id'] || 'form'}-#{SecureRandom.hex(4)}"
+      end
+    end)
+  end
 end
 
 module ActionController
@@ -119,19 +139,23 @@ Mime::SET << 'api'
 
 module Propshaft
   Assembly.prepend(Module.new do
-    def initialize(config)
-      super
-      if Rails.application.config.assets.redmine_detect_update && (!manifest_path.exist? || manifest_outdated?)
-        processor.process
-      end
+    def needs_precompile?
+      !config.manifest_path.exist? || manifest_outdated?
     end
 
     def manifest_outdated?
-      !!load_path.asset_files.detect{|f| f.mtime > manifest_path.mtime}
+      new_manifest = JSON.parse(load_path.manifest.to_json)
+      current_manifest =
+        begin
+          JSON.parse(config.manifest_path.read)
+        rescue JSON::ParserError
+          nil
+        end
+      current_manifest != new_manifest
     end
 
     def load_path
-      @load_path ||= Redmine::AssetLoadPath.new(config)
+      @load_path ||= Redmine::AssetLoadPath.new(config, compilers)
     end
   end)
 

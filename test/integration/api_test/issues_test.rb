@@ -20,34 +20,6 @@
 require_relative '../../test_helper'
 
 class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
-  fixtures(
-    :projects,
-    :users,
-    :user_preferences,
-    :roles,
-    :members,
-    :member_roles,
-    :issues,
-    :issue_statuses,
-    :issue_relations,
-    :versions,
-    :trackers,
-    :projects_trackers,
-    :issue_categories,
-    :enabled_modules,
-    :enumerations,
-    :attachments,
-    :workflows,
-    :custom_fields,
-    :custom_values,
-    :custom_fields_projects,
-    :custom_fields_trackers,
-    :time_entries,
-    :journals,
-    :journal_details,
-    :queries,
-    :attachments)
-
   test "GET /issues.xml should contain metadata" do
     get '/issues.xml'
     assert_select 'issues[type=array][total_count][limit="25"][offset="0"]'
@@ -105,7 +77,7 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
   test "GET /issues.xml with invalid query params" do
     get '/issues.xml', :params => {:f => ['start_date'], :op => {:start_date => '='}}
 
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     assert_equal 'application/xml', @response.media_type
     assert_select 'errors error', :text => "Start date cannot be blank"
   end
@@ -242,6 +214,8 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
 
     assert_select 'issue journals[type=array]' do
       assert_select 'journal[id="1"]' do
+        assert_select 'updated_on', :text => Issue.find(1).journals.order(:id)[0].updated_on.iso8601
+        assert_select 'updated_by[id="1"][name="Redmine Admin"]'
         assert_select 'private_notes', :text => 'false'
         assert_select 'details[type=array]' do
           assert_select 'detail[name=status_id]' do
@@ -390,6 +364,42 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
     assert_equal 1, json['issue']['children'].count {|child| child.key?('children')}
   end
 
+  def generate_issue_with_invisible_descendants
+    issue = Issue.generate_with_descendants!(:project_id => 1)
+    child = issue.children.first
+    Issue.generate!(:project => issue.project, :subject => 'Private child', :parent_issue_id => issue.id, :is_private => true)
+    Issue.generate!(:project => issue.project, :subject => 'Private grandchild', :parent_issue_id => child.id, :is_private => true)
+    Issue.generate!(:project_id => 5, :subject => 'Child in private project', :parent_issue_id => issue.id)
+    issue.reload
+  end
+
+  test "GET /issues/:id.xml with subtasks should not include invisible descendants" do
+    issue = generate_issue_with_invisible_descendants
+    get "/issues/#{issue.id}.xml?include=children"
+
+    assert_select 'issue id', :text => issue.id.to_s do
+      assert_select '~ children[type=array] > issue', 2
+      assert_select '~ children[type=array] > issue > children > issue', 1
+    end
+    assert_select 'subject', :text => 'Child1'
+    assert_select 'subject', :text => 'Child2'
+    assert_select 'subject', :text => 'Child11'
+    assert_select 'subject', :text => 'Private child', :count => 0
+    assert_select 'subject', :text => 'Private grandchild', :count => 0
+    assert_select 'subject', :text => 'Child in private project', :count => 0
+  end
+
+  test "GET /issues/:id.json with subtasks should not include invisible descendants" do
+    issue = generate_issue_with_invisible_descendants
+    get "/issues/#{issue.id}.json?include=children"
+
+    json = ActiveSupport::JSON.decode(response.body)
+    children = json['issue']['children']
+    assert_equal ['Child1', 'Child2'], children.pluck('subject')
+    assert_equal ['Child11'], children.first['children'].pluck('subject')
+    assert_nil children.last['children']
+  end
+
   test "GET /issues/:id.json with no spent time should return floats" do
     issue = Issue.generate!
     get "/issues/#{issue.id}.json"
@@ -403,6 +413,96 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
     get '/issues/1.xml'
     assert_select 'issue>is_private', :text => 'false'
     assert_select 'issue>status[is_closed=false]'
+  end
+
+  test "GET /issues/:id.xml should not include reactions by default" do
+    get '/issues/1.xml', :headers => credentials('admin')
+
+    assert_response :ok
+    assert_select 'issue>reactions', 0
+  end
+
+  test "GET /issues/:id.xml?include=reactions should include reactions" do
+    get '/issues/1.xml?include=reactions', :headers => credentials('admin')
+
+    assert_response :ok
+    assert_equal 'application/xml', response.media_type
+    assert_select 'issue>reactions[type=array]' do
+      assert_select 'reaction', 3
+      assert_select 'reaction>user[id="1"][name="Redmine Admin"]'
+      assert_select 'reaction>user[id="2"][name="John Smith"]'
+      assert_select 'reaction>user[id="3"][name="Dave Lopper"]'
+    end
+  end
+
+  test "GET /issues/:id.json?include=reactions should include reactions" do
+    get '/issues/1.json?include=reactions', :headers => credentials('admin')
+
+    assert_response :ok
+    assert_equal 'application/json', response.media_type
+    json = ActiveSupport::JSON.decode(response.body)
+    reactions = json['issue']['reactions'].sort_by {|reaction| reaction['user']['id']}
+
+    assert_equal(
+      [
+        {'user' => {'id' => 1, 'name' => 'Redmine Admin'}},
+        {'user' => {'id' => 2, 'name' => 'John Smith'}},
+        {'user' => {'id' => 3, 'name' => 'Dave Lopper'}}
+      ],
+      reactions
+    )
+  end
+
+  test "GET /issues/:id.json?include=reactions should return an empty array when there are no reactions" do
+    get '/issues/2.json?include=reactions', :headers => credentials('admin')
+
+    assert_response :ok
+    json = ActiveSupport::JSON.decode(response.body)
+
+    assert_equal [], json['issue']['reactions']
+  end
+
+  test "GET /issues/:id.xml?include=journals,reactions should include journal reactions" do
+    get '/issues/1.xml?include=journals,reactions', :headers => credentials('admin')
+
+    assert_response :ok
+    assert_select 'issue journals[type=array]' do
+      assert_select 'journal[id="1"]>reactions[type=array]' do
+        assert_select 'reaction', 1
+        assert_select 'reaction>user[id="2"][name="John Smith"]'
+      end
+    end
+  end
+
+  test "GET /issues/:id.xml?include=reactions should not include reactions when reactions are disabled" do
+    with_settings :reactions_enabled => '0' do
+      get '/issues/1.xml?include=reactions', :headers => credentials('admin')
+    end
+
+    assert_response :ok
+    assert_select 'issue>reactions', 0
+  end
+
+  test "GET /issues/:id.xml?include=reactions should not disclose hidden reaction users" do
+    user = User.generate! do |u|
+      u.password = 'secret123'
+      u.password_confirmation = 'secret123'
+    end
+    role = Role.generate!(
+      :users_visibility => 'members_of_visible_projects',
+      :permissions => [:view_issues]
+    )
+    User.add_to_project(user, projects(:projects_001), role)
+
+    get '/issues/1.xml?include=reactions', :headers => credentials(user.login, 'secret123')
+
+    assert_response :ok
+    assert_select 'issue>reactions[type=array]' do
+      assert_select 'reaction', 2
+      assert_select 'user[id="1"]', 0
+      assert_select 'reaction>user[id="2"][name="John Smith"]'
+      assert_select 'reaction>user[id="3"][name="Dave Lopper"]'
+    end
   end
 
   test "GET /issues/:id.xml?include=watchers should include watchers" do
@@ -432,6 +532,30 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
     assert_select 'issue changesets[type=array]' do
       assert_select 'changeset', 0
     end
+  end
+
+  test "GET /issues/:id.json?include=changesets authenticated via OAuth should not include changesets without view_changesets scope" do
+    Issue.find(1).changesets << Changeset.generate!(:comments => 'oauth changeset')
+
+    get '/issues/1.json?include=changesets', :headers => oauth_credentials('jsmith', 'view_issues')
+
+    assert_response :success
+    assert_equal [], response_data['issue']['changesets']
+  end
+
+  test "GET /issues/:id.json?include=changesets authenticated via OAuth should include changesets with view_changesets scope" do
+    Issue.find(1).changesets << Changeset.generate!(:comments => 'oauth changeset')
+
+    get '/issues/1.json?include=changesets', :headers => oauth_credentials('jsmith', 'view_issues view_changesets')
+
+    assert_response :success
+    assert_equal ['oauth changeset'], response_data['issue']['changesets'].pluck('comments')
+  end
+
+  test "GET /issues/:id.json authenticated via OAuth with an empty scope should be denied" do
+    get '/issues/1.json', :headers => oauth_credentials('jsmith', '')
+
+    assert_response :forbidden
   end
 
   test "GET /issues/:id.xml?include=allowed_statuses should include available statuses" do
@@ -571,7 +695,7 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
         :params => payload,
         :headers => {"CONTENT_TYPE" => 'application/xml'}.merge(credentials('jsmith')))
     end
-    issue = Issue.order('id DESC').first
+    issue = Issue.order(id: :desc).first
     assert_equal 1, issue.project_id
     assert_equal 2, issue.tracker_id
     assert_equal 3, issue.status_id
@@ -596,7 +720,7 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
         :headers => credentials('jsmith'))
       assert_response :created
     end
-    issue = Issue.order('id desc').first
+    issue = Issue.order(id: :desc).first
     assert_equal 2, issue.watchers.size
     assert_equal [1, 3], issue.watcher_user_ids.sort
   end
@@ -631,7 +755,7 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
         :headers => {"CONTENT_TYPE" => 'application/json'}.merge(credentials('jsmith')))
     end
 
-    issue = Issue.order('id DESC').first
+    issue = Issue.order(id: :desc).first
     assert_equal 1, issue.project_id
     assert_equal 2, issue.tracker_id
     assert_equal 3, issue.status_id
@@ -647,6 +771,27 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
         :headers => credentials('jsmith'))
       assert_response :created
     end
+  end
+
+  test "POST /issues.json with copy_from authenticated via OAuth should not copy an issue without view_issues scope" do
+    assert_no_difference('Issue.count') do
+      post(
+        '/issues.json',
+        :params => {:copy_from => 4, :issue => {:project_id => 2}},
+        :headers => oauth_credentials('jsmith', 'add_issues copy_issues'))
+    end
+    assert_response :not_found
+  end
+
+  test "POST /issues.json with copy_from authenticated via OAuth should copy an issue with view_issues scope" do
+    assert_difference('Issue.count') do
+      post(
+        '/issues.json',
+        :params => {:copy_from => 4, :issue => {:project_id => 2}},
+        :headers => oauth_credentials('jsmith', 'add_issues copy_issues view_issues'))
+    end
+    assert_response :created
+    assert_equal Issue.find(4).description, response_data['issue']['description']
   end
 
   test "POST /issues.json without tracker_id should accept custom fields" do
@@ -674,7 +819,7 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
         :headers => {"CONTENT_TYPE" => 'application/json'}.merge(credentials('jsmith')))
     end
     assert_response :created
-    issue = Issue.order('id DESC').first
+    issue = Issue.order(id: :desc).first
     assert_equal ["V1", "V3"], issue.custom_field_value(field).sort
   end
 
@@ -707,6 +852,59 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
     assert_equal "", issue.custom_field_value(field)
   end
 
+  test "POST /issues.json with omitted date custom field should set date offset default" do
+    User.current = User.find_by_login('jsmith')
+    field =
+      IssueCustomField.generate!(
+        :field_format => 'date',
+        :default_value_mode => 'date_offset',
+        :default_value => '5',
+        :trackers => Tracker.all,
+        :is_for_all => true
+      )
+    issue = new_record(Issue) do
+      post(
+        '/issues.json',
+        :params => {
+          :issue => {
+            :project_id => 1,
+            :tracker_id => 1,
+            :subject => 'API date default',
+            :custom_field_values => {}
+          }
+        },
+        :headers => credentials('jsmith'))
+    end
+
+    assert_equal (User.current.today + 5).to_s, issue.custom_field_value(field)
+  end
+
+  test "POST /issues.json with date custom field set to blank should not set date offset default" do
+    field =
+      IssueCustomField.generate!(
+        :field_format => 'date',
+        :default_value_mode => 'date_offset',
+        :default_value => '5',
+        :trackers => Tracker.all,
+        :is_for_all => true
+      )
+    issue = new_record(Issue) do
+      post(
+        '/issues.json',
+        :params => {
+          :issue => {
+            :project_id => 1,
+            :tracker_id => 1,
+            :subject => 'API blank date default',
+            :custom_field_values => {field.id.to_s => ''}
+          }
+        },
+        :headers => credentials('jsmith'))
+    end
+
+    assert_equal "", issue.custom_field_value(field)
+  end
+
   test "POST /issues.json with failure should return errors" do
     assert_no_difference('Issue.count') do
       post(
@@ -723,7 +921,7 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
       '/issues.json',
       :params => {:issue => {:project_id => 999, :subject => "API"}},
       :headers => credentials('jsmith'))
-    assert_response 422
+    assert_response :unprocessable_content
   end
 
   test "POST /issues.json with invalid project_id and any assigned_to_id should respond with 422" do
@@ -737,7 +935,7 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
         }
       },
       :headers => credentials('jsmith'))
-    assert_response 422
+    assert_response :unprocessable_content
   end
 
   test "POST /issues.json with invalid project_id and any fixed_version_id should respond with 422" do
@@ -751,7 +949,19 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
         }
       },
       :headers => credentials('jsmith'))
-    assert_response 422
+    assert_response :unprocessable_content
+  end
+
+  test "POST /issues.json should use the tracker private_by_default setting" do
+    Tracker.find(1).update! :private_by_default => true
+
+    issue = new_record(Issue) do
+      post(
+        '/issues.json',
+        :params => {:issue => {:project_id => 1, :tracker_id => 1, :subject => 'API'}},
+        :headers => credentials('jsmith'))
+    end
+    assert issue.is_private?
   end
 
   test "PUT /issues/:id.xml" do
@@ -883,7 +1093,7 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
       '/issues/6.xml',
       :params => {:issue => {:subject => ''}},
       :headers => credentials('jsmith'))
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     assert_select 'errors error', :text => "Subject cannot be blank"
   end
 
@@ -893,8 +1103,26 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
       '/issues/6.xml',
       :params => {:issue => {:assigned_to_id => user.id}},
       :headers => credentials('jsmith'))
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     assert_select 'errors error', :text => "Assignee is invalid"
+  end
+
+  test "PUT /issues/:id.xml with empty assignee should unassign the issue" do
+    put(
+      '/issues/2.xml',
+      :params => '<issue><assigned_to_id/></issue>',
+      :headers => {'CONTENT_TYPE' => 'application/xml'}.merge(credentials('jsmith')))
+    assert_response :no_content
+    assert_nil Issue.find(2).assigned_to_id
+  end
+
+  test "PUT /issues/:id.json with null assignee should unassign the issue" do
+    put(
+      '/issues/2.json',
+      :params => {:issue => {:assigned_to_id => nil}}.to_json,
+      :headers => {'CONTENT_TYPE' => 'application/json'}.merge(credentials('jsmith')))
+    assert_response :no_content
+    assert_nil Issue.find(2).assigned_to_id
   end
 
   test "PUT /issues/:id.json" do
@@ -913,12 +1141,33 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
     assert_equal "A new note", journal.notes
   end
 
+  test "PUT /issues/:id.json authenticated via OAuth should not update attributes without edit_issues scope" do
+    put(
+      '/issues/6.json',
+      :params => {:issue => {:subject => 'API update', :notes => 'A new note'}},
+      :headers => oauth_credentials('jsmith', 'view_issues add_issue_notes'))
+
+    assert_response :no_content
+    assert_not_equal 'API update', Issue.find(6).subject
+    assert_equal 'A new note', Journal.last.notes
+  end
+
+  test "PUT /issues/:id.json authenticated via OAuth should not change the tracker without add_issues scope" do
+    put(
+      '/issues/1.json',
+      :params => {:issue => {:tracker_id => 2}},
+      :headers => oauth_credentials('jsmith', 'view_issues edit_issues'))
+
+    assert_response :no_content
+    assert_equal 1, Issue.find(1).tracker_id
+  end
+
   test "PUT /issues/:id.json with failed update" do
     put(
       '/issues/6.json',
       :params => {:issue => {:subject => ''}},
       :headers => credentials('jsmith'))
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     json = ActiveSupport::JSON.decode(response.body)
     assert json['errors'].include?("Subject cannot be blank")
   end
@@ -952,7 +1201,7 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
       assert_response :no_content
       assert_equal '', response.body
     end
-    watcher = Watcher.order('id desc').first
+    watcher = Watcher.order(id: :desc).first
     assert_equal Issue.find(1), watcher.watchable
     assert_equal User.find(3), watcher.user
   end
@@ -986,7 +1235,7 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
         :headers => credentials('jsmith'))
       assert_response :created
     end
-    issue = Issue.order('id DESC').first
+    issue = Issue.order(id: :desc).first
     assert_equal 1, issue.attachments.count
     assert_equal attachment, issue.attachments.first
 
@@ -1040,7 +1289,7 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
         :headers => {"CONTENT_TYPE" => 'application/xml'}.merge(credentials('jsmith')))
       assert_response :created
     end
-    issue = Issue.order('id DESC').first
+    issue = Issue.order(id: :desc).first
     assert_equal 2, issue.attachments.count
   end
 
@@ -1067,7 +1316,7 @@ class Redmine::ApiTest::IssuesTest < Redmine::ApiTest::Base
         :headers => {"CONTENT_TYPE" => 'application/json'}.merge(credentials('jsmith')))
       assert_response :created
     end
-    issue = Issue.order('id DESC').first
+    issue = Issue.order(id: :desc).first
     assert_equal 2, issue.attachments.count
   end
 

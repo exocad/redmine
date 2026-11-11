@@ -23,13 +23,10 @@ class WatchersHelperTest < Redmine::HelperTest
   include WatchersHelper
   include AvatarsHelper
   include ERB::Util
-  include Rails.application.routes.url_helpers
-
-  fixtures :users, :issues
 
   test '#watcher_link with a non-watched object' do
     expected = link_to(
-      "Watch",
+      sprite_icon("watch", "Watch"),
       "/watchers/watch?object_id=1&object_type=issue",
       :remote => true, :method => 'post', :class => "issue-1-watcher icon icon-fav-off"
     )
@@ -38,7 +35,7 @@ class WatchersHelperTest < Redmine::HelperTest
 
   test '#watcher_link with a single object array' do
     expected = link_to(
-      "Watch",
+      sprite_icon("watch", "Watch"),
       "/watchers/watch?object_id=1&object_type=issue",
       :remote => true, :method => 'post', :class => "issue-1-watcher icon icon-fav-off"
     )
@@ -47,7 +44,7 @@ class WatchersHelperTest < Redmine::HelperTest
 
   test '#watcher_link with a multiple objects array' do
     expected = link_to(
-      "Watch",
+      sprite_icon("watch", "Watch"),
       "/watchers/watch?object_id%5B%5D=1&object_id%5B%5D=3&object_type=issue",
       :remote => true, :method => 'post', :class => "issue-bulk-watcher icon icon-fav-off"
     )
@@ -62,7 +59,7 @@ class WatchersHelperTest < Redmine::HelperTest
     Watcher.create!(:watchable => Issue.find(1), :user => User.find(1))
 
     expected = link_to(
-      "Unwatch",
+      sprite_icon("unwatch", "Unwatch"),
       "/watchers/watch?object_id=1&object_type=issue",
       :remote => true, :method => 'delete', :class => "issue-1-watcher icon icon-fav"
     )
@@ -70,6 +67,7 @@ class WatchersHelperTest < Redmine::HelperTest
   end
 
   def test_watchers_list_should_be_sorted_by_user_name
+    User.current = User.find(1)
     issue = Issue.find(1)
     [1, 2, 3].shuffle.each do |user_id|
       Watcher.create!(:watchable => issue, :user => User.find(user_id))
@@ -82,6 +80,8 @@ class WatchersHelperTest < Redmine::HelperTest
         assert_select 'li:nth-of-type(1)>a[href=?]', '/users/3', text: 'Dave Lopper'
         assert_select 'li:nth-of-type(2)>a[href=?]', '/users/2', text: 'John Smith'
         assert_select 'li:nth-of-type(3)>a[href=?]', '/users/1', text: 'Redmine Admin'
+        assert_select 'a.delete[title=?]', 'Remove', 3
+        assert_select 'a.delete.icon-link-break', 3
       end
     end
 
@@ -92,6 +92,8 @@ class WatchersHelperTest < Redmine::HelperTest
         assert_select 'li:nth-of-type(1)>a[href=?]', '/users/1', text: 'Admin Redmine'
         assert_select 'li:nth-of-type(2)>a[href=?]', '/users/3', text: 'Lopper Dave'
         assert_select 'li:nth-of-type(3)>a[href=?]', '/users/2', text: 'Smith John'
+        assert_select 'a.delete[title=?]', 'Remove', 3
+        assert_select 'a.delete.icon-link-break', 3
       end
     end
   end

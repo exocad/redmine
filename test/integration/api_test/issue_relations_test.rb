@@ -20,15 +20,6 @@
 require_relative '../../test_helper'
 
 class Redmine::ApiTest::IssueRelationsTest < Redmine::ApiTest::Base
-  fixtures :projects, :trackers, :issue_statuses, :issues,
-           :enumerations, :users, :issue_categories,
-           :projects_trackers,
-           :roles,
-           :member_roles,
-           :members,
-           :enabled_modules,
-           :issue_relations
-
   test "GET /issues/:issue_id/relations.xml should return issue relations" do
     get '/issues/9/relations.xml', :headers => credentials('jsmith')
 
@@ -36,6 +27,25 @@ class Redmine::ApiTest::IssueRelationsTest < Redmine::ApiTest::Base
     assert_equal 'application/xml', @response.media_type
 
     assert_select 'relations[type=array] relation id', :text => '1'
+  end
+
+  test "GET /issues/:issue_id/relations.json should not return relations to invisible issues" do
+    issue = Issue.find(1)
+    hidden_issue = Issue.generate!(:project_id => 1, :is_private => true)
+
+    visible_relation = IssueRelation.create!(:issue_from => issue, :issue_to => Issue.find(2), :relation_type => 'relates')
+    hidden_relation1 = IssueRelation.create!(:issue_from => issue, :issue_to => hidden_issue, :relation_type => 'relates')
+    hidden_relation2 = IssueRelation.create!(:issue_from => hidden_issue, :issue_to => issue, :relation_type => 'duplicates')
+
+    get "/issues/#{issue.id}/relations.json", :headers => credentials('dlopper', 'foo')
+
+    assert_response :success
+    assert_equal 'application/json', @response.media_type
+
+    json = ActiveSupport::JSON.decode(response.body)
+    assert_includes json['relations'].pluck('id'), visible_relation.id
+    assert_not_includes json['relations'].pluck('id'), hidden_relation1.id
+    assert_not_includes json['relations'].pluck('id'), hidden_relation2.id
   end
 
   test "POST /issues/:issue_id/relations.xml should create the relation" do
@@ -47,7 +57,7 @@ class Redmine::ApiTest::IssueRelationsTest < Redmine::ApiTest::Base
       )
     end
 
-    relation = IssueRelation.order('id DESC').first
+    relation = IssueRelation.order(id: :desc).first
     assert_equal 2, relation.issue_from_id
     assert_equal 7, relation.issue_to_id
     assert_equal 'relates', relation.relation_type
@@ -67,7 +77,7 @@ class Redmine::ApiTest::IssueRelationsTest < Redmine::ApiTest::Base
       )
     end
 
-    relation = IssueRelation.order('id DESC').first
+    relation = IssueRelation.order(id: :desc).first
     assert_equal 2, relation.issue_from_id
     assert_equal 7, relation.issue_to_id
     assert_equal 'relates', relation.relation_type
@@ -87,7 +97,7 @@ class Redmine::ApiTest::IssueRelationsTest < Redmine::ApiTest::Base
       )
     end
 
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     assert_select 'errors error', :text => /Relation type is not included in the list/
   end
 

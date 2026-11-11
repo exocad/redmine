@@ -20,8 +20,6 @@
 require_relative '../test_helper'
 
 class WorkflowsControllerTest < Redmine::ControllerTest
-  fixtures :roles, :trackers, :workflows, :users, :issue_statuses, :custom_fields
-
   def setup
     User.current = nil
     @request.session[:user_id] = 1 # admin
@@ -158,7 +156,7 @@ class WorkflowsControllerTest < Redmine::ControllerTest
         '3' => {'1' => {'always' => '1'}, '2' => {'always' => '1'}}
       }
     }
-    assert_response 302
+    assert_response :found
 
     assert_equal 3, WorkflowTransition.where(:tracker_id => 1, :role_id => 2).count
     assert          WorkflowTransition.where(:role_id => 2, :tracker_id => 1, :old_status_id => 3, :new_status_id => 2).exists?
@@ -175,7 +173,7 @@ class WorkflowsControllerTest < Redmine::ControllerTest
         '0' => {'1' => {'always' => '1'}, '2' => {'always' => '1'}}
       }
     }
-    assert_response 302
+    assert_response :found
 
     assert WorkflowTransition.where(:role_id => 2, :tracker_id => 1, :old_status_id => 0, :new_status_id => 1).any?
     assert WorkflowTransition.where(:role_id => 2, :tracker_id => 1, :old_status_id => 0, :new_status_id => 2).any?
@@ -195,7 +193,7 @@ class WorkflowsControllerTest < Redmine::ControllerTest
                 '4' => {'always' => '0', 'author' => '1', 'assignee' => '1'}}
       }
     }
-    assert_response 302
+    assert_response :found
 
     assert_equal 4, WorkflowTransition.where(:tracker_id => 1, :role_id => 2).count
 
@@ -211,6 +209,45 @@ class WorkflowsControllerTest < Redmine::ControllerTest
     w = WorkflowTransition.where(:role_id => 2, :tracker_id => 1, :old_status_id => 3, :new_status_id => 4).first
     assert w.author
     assert w.assignee
+  end
+
+  def test_post_edit_with_large_number_of_statuses
+    # This test ensures that workflows with many statuses can be saved.
+    # Without setting `ENV['RACK_QUERY_PARSER_PARAMS_LIMIT']`, this raises
+    # ActionController::BadRequest exception due to exceeding the default
+    # query parameter limit of 4096.
+    WorkflowTransition.delete_all
+
+    num_statuses = 40
+    transitions_data = {}
+
+    # Allowed statuses for a new issue (status_id = 0)
+    transitions_data['0'] = {}
+    (1..num_statuses).each do |status_id|
+      transitions_data['0'][status_id.to_s] = {'always' => '1'}
+    end
+
+    # Status transitions between statuses
+    (1..num_statuses).each do |status_id_from| # rubocop:disable Style/CombinableLoops
+      transitions_data[status_id_from.to_s] = {}
+      (1..num_statuses).each do |status_id_to|
+        # skip self-transitions
+        next if status_id_from == status_id_to
+
+        transitions_data[status_id_from.to_s][status_id_to.to_s] = {
+          'always' => '1', 'author' => '1', 'assignee' => '1'
+        }
+      end
+    end
+
+    assert_nothing_raised do
+      patch :update, :params => {
+        :role_id => 2,
+        :tracker_id => 1,
+        :transitions => transitions_data
+      }
+    end
+    assert_response :found
   end
 
   def test_get_permissions
@@ -371,7 +408,7 @@ class WorkflowsControllerTest < Redmine::ControllerTest
         '3' => {'assigned_to_id' => '',  'fixed_version_id' => '', 'due_date' => ''}
       }
     }
-    assert_response 302
+    assert_response :found
 
     workflows = WorkflowPermission.all
     assert_equal 3, workflows.size
@@ -409,7 +446,7 @@ class WorkflowsControllerTest < Redmine::ControllerTest
       :source_tracker_id => '1', :source_role_id => '2',
       :target_tracker_ids => ['3'], :target_role_ids => ['1']
     }
-    assert_response 302
+    assert_response :found
     assert_equal source_transitions, status_transitions(:tracker_id => 3, :role_id => 1)
   end
 
@@ -420,7 +457,7 @@ class WorkflowsControllerTest < Redmine::ControllerTest
       :source_tracker_id => '1', :source_role_id => '2',
       :target_tracker_ids => ['2', '3'], :target_role_ids => ['1', '3']
     }
-    assert_response 302
+    assert_response :found
     assert_equal source_transitions, status_transitions(:tracker_id => 2, :role_id => 1)
     assert_equal source_transitions, status_transitions(:tracker_id => 3, :role_id => 1)
     assert_equal source_transitions, status_transitions(:tracker_id => 2, :role_id => 3)
@@ -435,7 +472,7 @@ class WorkflowsControllerTest < Redmine::ControllerTest
       :source_tracker_id => 'any', :source_role_id => '2',
       :target_tracker_ids => ['2', '3'], :target_role_ids => ['1', '3']
     }
-    assert_response 302
+    assert_response :found
     assert_equal source_t2, status_transitions(:tracker_id => 2, :role_id => 1)
     assert_equal source_t3, status_transitions(:tracker_id => 3, :role_id => 1)
     assert_equal source_t2, status_transitions(:tracker_id => 2, :role_id => 3)
@@ -448,7 +485,7 @@ class WorkflowsControllerTest < Redmine::ControllerTest
         :source_tracker_id => '', :source_role_id => '2',
         :target_tracker_ids => ['2', '3'], :target_role_ids => ['1', '3']
       }
-      assert_response 200
+      assert_response :ok
       assert_select 'div.flash.error', :text => 'Please select a source tracker or role'
     end
   end
@@ -459,7 +496,7 @@ class WorkflowsControllerTest < Redmine::ControllerTest
         :source_tracker_id => '1', :source_role_id => '2',
         :target_tracker_ids => ['2', '3']
       }
-      assert_response 200
+      assert_response :ok
       assert_select 'div.flash.error', :text => 'Please select target tracker(s) and role(s)'
     end
   end
@@ -468,7 +505,7 @@ class WorkflowsControllerTest < Redmine::ControllerTest
   def status_transitions(conditions)
     WorkflowTransition.
       where(conditions).
-      order('tracker_id, role_id, old_status_id, new_status_id').
+      order(:tracker_id, :role_id, :old_status_id, :new_status_id).
       collect {|w| [w.old_status, w.new_status_id]}
   end
 end

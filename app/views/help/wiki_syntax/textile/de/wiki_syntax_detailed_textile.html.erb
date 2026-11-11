@@ -27,6 +27,7 @@
         </ul>
         <li><a href='#12'>Makros</a></li>
         <li><a href='#13'>Hervorgehobener Programmcode</a></li>
+        <li><a href='#15'>Mermaid diagrams</a></li>
     </ul>
 
     <h2><a name="2" class="wiki-page"></a>Links</h2>
@@ -172,18 +173,18 @@
         <p>URLs (beginnend mit: www, http, https, ftp, ftps, sftp und sftps) und E-Mail-Adressen werden automatisch in anklickbare Links umgewandelt:</p>
 
 <pre>
-http://www.redmine.org, someone@foo.bar
+https://www.redmine.org, someone@example.com
 </pre>
 
-        <p>zeigt: <a class="external" href="http://www.redmine.org">http://www.redmine.org</a>, <a href="mailto:someone@foo.bar" class="email">someone@foo.bar</a></p>
+        <p>zeigt: <a class="external" href="https://www.redmine.org">https://www.redmine.org</a>, <a href="mailto:someone@example.com" class="email">someone@example.com</a></p>
 
         <p>Wenn Sie anstelle der URL einen bestimmten Text anzeigen möchten, können Sie die Standard-Textil-Syntax verwenden:</p>
 
 <pre>
-"Redmine Webseite":http://www.redmine.org
+"Redmine Webseite":https://www.redmine.org
 </pre>
 
-        <p>zeigt: <a href="http://www.redmine.org" class="external">Redmine Webseite</a></p>
+        <p>zeigt: <a href="https://www.redmine.org" class="external">Redmine Webseite</a></p>
 
 
     <h2><a name="5" class="wiki-page"></a>Textformatierung</h2>
@@ -315,12 +316,21 @@ Es kann durch Klicken auf einen Link erweitert werden.
 {{issue(123, project=true)}}                -- Andromeda – Fehler #123: Makrofähigkeiten verbessern
 {{issue(123, tracker=false)}}               -- #123: Makrofunktionen verbessern
 {{issue(123, subject=false, project=true)}} -- Andromeda - Fehler #123</pre></dd>
+
+      <dt><code>recent_pages</code></dt>
+      <dd><p>Displays a list of recently updated wiki pages. With no argument, it displays pages that have been updated within the last 7 days. Examples:</p>
+        <pre>{{recent_pages}}            -- displays pages updated within the last 7 days
+{{recent_pages(days=3)}}    -- displays pages updated within the last 3 days
+{{recent_pages(limit=5)}}   -- limits the maximum number of pages to display to 5
+{{recent_pages(time=true)}} -- displays pages updated within the last 7 days with updated time
+{{recent_pages(project=identifier)}} -- displays pages updated within the last 7 days from a specific project
+{{recent_pages(include_subprojects=true)}} -- includes pages from subprojects</pre></dd>
     </dl>
     </p>
 
     <h2><a name="13" class="wiki-page"></a>Code-Hervorhebung</h2>
 
-    <p>Die standardmäßige Code-Hervorhebung basiert auf <a href="http://rouge.jneen.net/" class="external">Rouge</a>, einem reinen Ruby-Code-Highlighter. Rouge unterstützt viele häufig verwendete Sprachen wie <strong>c</strong>, <strong>cpp</strong> (c++), <strong>csharp</strong> (c#, cs), <strong>css</strong>, <strong>diff</strong> (patch, udiff), <strong>go</strong> (golang), <strong>groovy</strong>, <strong>html</strong>, <strong>java</strong>, <strong>javascript</strong> (js), <strong>kotlin</strong>, <strong>objective_c</strong> (objc), <strong>perl</strong> (pl), <strong>php</strong>, <strong>python</strong> (py), <strong>r</strong>, <strong>ruby</strong> (rb), <strong>sass</strong>, <strong>scala</strong>, <strong>shell</strong> (bash, zsh, ksh, sh), <strong>sql</strong>, <strong>swift</strong>, <strong>xml</strong> und <strong>yaml</strong> (yml) - die Namen in Klammern sind Aliase. Bitte beachten Sie die <a href="<%= help_code_highlighting_path %>" target="_blank">Liste der Sprachen, die vom Redmine-Code-Highlighter unterstützt werden</a>.</p>
+    <p>Die standardmäßige Code-Hervorhebung basiert auf <a href="https://rouge.jneen.net/" class="external">Rouge</a>, einem reinen Ruby-Code-Highlighter. Rouge unterstützt viele häufig verwendete Sprachen wie <strong>c</strong>, <strong>cpp</strong> (c++), <strong>csharp</strong> (c#, cs), <strong>css</strong>, <strong>diff</strong> (patch, udiff), <strong>go</strong> (golang), <strong>groovy</strong>, <strong>html</strong>, <strong>java</strong>, <strong>javascript</strong> (js), <strong>kotlin</strong>, <strong>objective_c</strong> (objc), <strong>perl</strong> (pl), <strong>php</strong>, <strong>python</strong> (py), <strong>r</strong>, <strong>ruby</strong> (rb), <strong>sass</strong>, <strong>scala</strong>, <strong>shell</strong> (bash, zsh, ksh, sh), <strong>sql</strong>, <strong>swift</strong>, <strong>xml</strong> und <strong>yaml</strong> (yml) - die Namen in Klammern sind Aliase. Bitte beachten Sie die <a href="<%= help_code_highlighting_path %>" target="_blank">Liste der Sprachen, die vom Redmine-Code-Highlighter unterstützt werden</a>.</p>
 
     <p>Sie können Code an jeder Stelle hervorheben, die Wiki-Formatierung mit dieser Syntax unterstützt (beachten Sie, dass beim Sprachnamen oder Alias ​​die Groß-/Kleinschreibung nicht beachtet wird):</p>
 
@@ -343,5 +353,36 @@ Es kann durch Klicken auf einen Link erweitert werden.
   <span class="k">end</span>
 <span class="k">end</span>
 </code></pre>
+
+    <h2><a name="15" class="wiki-page"></a>Mermaid diagrams</h2>
+
+    <p>Code blocks written in the <strong>mermaid</strong> language are rendered as diagrams, such as flowcharts, sequence diagrams and Gantt charts, by <a href="https://mermaid.js.org/" class="external">Mermaid.js</a>. Please refer to the <a href="https://mermaid.js.org/intro/" class="external">Mermaid documentation</a> for the available diagrams and their syntax.<% if Redmine::Mermaid.installed_version %> Please note that the documentation describes the latest version of Mermaid.js, and some of the syntax described there may not be supported by the installed version, <%= Redmine::Mermaid.installed_version %>.<% end %></p>
+
+    <p>Mermaid.js is not bundled with Redmine, and diagrams are rendered only if the administrator has installed it. Otherwise, the code is displayed as a plain code block.</p>
+
+    <p>You can draw a diagram at any place that supports wiki formatting using this syntax:</p>
+
+<pre>
+&lt;pre&gt;&lt;code class="mermaid"&gt;
+  Place your diagram definition here.
+&lt;/code&gt;&lt;/pre&gt;
+</pre>
+
+    <p>Example:</p>
+
+<pre>
+&lt;pre&gt;&lt;code class="mermaid"&gt;
+flowchart LR
+  A[New issue] --&gt; B{Reproducible?}
+  B --&gt;|Yes| C[Fix]
+  B --&gt;|No| D[Close]
+&lt;/code&gt;&lt;/pre&gt;
+</pre>
+
+    <p>yields</p>
+
+<%= image_tag("help/mermaid_flowchart_decision.png", width: 635, alt: "Flowchart: a new issue is fixed if it is reproducible, and closed otherwise") %>
+
+    <p>A rendered diagram can be downloaded as a PNG image.</p>
 </body>
 </html>

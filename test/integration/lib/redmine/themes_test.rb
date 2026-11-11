@@ -20,7 +20,6 @@
 require_relative '../../../test_helper'
 
 class ThemesTest < Redmine::IntegrationTest
-
   def setup
     Redmine::Themes.rescan
     @theme = Redmine::Themes.theme('classic')
@@ -35,7 +34,7 @@ class ThemesTest < Redmine::IntegrationTest
     get '/'
 
     assert_response :success
-    assert_select "link[rel=stylesheet]:match('href', ?)", %r{/assets/themes/#{@theme.dir}/application-\w+\.css}
+    assert_select "link[rel=stylesheet]:match('href', ?)", %r{/assets/themes/#{@theme.dir}/application-[0-9a-f]+.css}
   end
 
   def test_without_theme_js
@@ -63,7 +62,7 @@ class ThemesTest < Redmine::IntegrationTest
     get '/'
 
     assert_response :success
-    assert_select "link[rel='shortcut icon']:match('href',?)", %r{/assets/favicon-\w+\.ico}
+    assert_select "link[rel='shortcut icon']:match('href',?)", %r{/assets/favicon-[0-9a-f]+.ico}
   end
 
   def test_use_theme_favicon_if_theme_provides_one
@@ -73,6 +72,19 @@ class ThemesTest < Redmine::IntegrationTest
 
     assert_response :success
     assert_select 'link[rel="shortcut icon"][href^=?]', "/assets/themes/#{@theme.dir}/a.ico"
+  ensure
+    @theme.favicons.delete 'a.ico'
+  end
+
+  def test_use_custom_favicon_over_theme_favicon
+    @theme.favicons.unshift('a.ico')
+    favicon = {'content_type' => 'image/png', 'data' => 'AA==', 'digest' => '0' * 8}
+    with_settings :favicon => favicon do
+      get '/'
+
+      assert_response :success
+      assert_select 'link[rel="shortcut icon"][type="image/png"][href=?]', "/favicons/#{'0' * 8}"
+    end
   ensure
     @theme.favicons.delete 'a.ico'
   end
@@ -96,10 +108,31 @@ class ThemesTest < Redmine::IntegrationTest
     get '/'
 
     assert_response :success
-    assert_select "link[rel=stylesheet]:match('href', ?)", %r{/foo/assets/themes/#{@theme.dir}/application-\w+\.css}
+    assert_select "link[rel=stylesheet]:match('href', ?)", %r{/foo/assets/themes/#{@theme.dir}/application-[0-9a-f]+.css}
     assert_select "script[src^=?]", "/foo/assets/themes/#{@theme.dir}/theme.js"
     assert_select 'link[rel="shortcut icon"][href^=?]', "/foo/assets/themes/#{@theme.dir}/a.ico"
   ensure
     Redmine::Utils.relative_url_root = ''
+  end
+
+  def test_body_css_class_with_spaces_in_theme_name
+    @theme.instance_variable_set(:@name, 'Foo bar baz')
+    get '/'
+
+    assert_response :success
+    assert_select 'body[class~="theme-Foo_bar_baz"]'
+  end
+
+  def test_old_theme_compatibility
+    @theme = Redmine::Themes::Theme.new(Rails.root.join('test/fixtures/themes/foo_theme'))
+    Rails.application.config.assets.redmine_extension_paths << @theme.asset_paths
+    Setting.ui_theme = @theme.id
+    Rails.application.assets.load_path.clear_cache
+
+    asset = Rails.application.assets.load_path.find('themes/foo_theme/application.css')
+    get "/assets/#{asset.digested_path}"
+
+    assert_response :success
+    assert_match %r{url\("/assets/application-\w+\.css"\)}, response.body
   end
 end

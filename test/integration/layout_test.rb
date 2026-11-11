@@ -20,14 +20,6 @@
 require_relative '../test_helper'
 
 class LayoutTest < Redmine::IntegrationTest
-  fixtures :projects, :trackers, :issue_statuses, :issues,
-           :enumerations, :users, :issue_categories,
-           :projects_trackers,
-           :roles,
-           :member_roles,
-           :members,
-           :enabled_modules
-
   test "browsing to a missing page should render the base layout" do
     get "/users/100000000"
 
@@ -38,7 +30,7 @@ class LayoutTest < Redmine::IntegrationTest
   end
 
   test "browsing to an unauthorized page should render the base layout" do
-    log_user('jsmith','jsmith')
+    log_user('jsmith', 'jsmith')
 
     get "/admin"
     assert_response :forbidden
@@ -56,7 +48,7 @@ class LayoutTest < Redmine::IntegrationTest
   def test_top_menu_and_search_visible_when_login_not_required
     with_settings :login_required => '0' do
       get '/'
-      assert_select "#top-menu > ul"
+      assert_select "#top-menu .top-menu__links > ul"
       assert_select "#quick-search"
     end
   end
@@ -65,8 +57,14 @@ class LayoutTest < Redmine::IntegrationTest
     Role.anonymous.add_permission! :add_issues
 
     get '/projects/ecookbook/issues/new'
-    assert_select "head script:match('src',?)", %r{/assets/jstoolbar/jstoolbar-\w+.js}
-    assert_include "var userHlLanguages = #{UserPreference::DEFAULT_TOOLBAR_LANGUAGE_OPTIONS.to_json};", response.body
+    assert_select "head script:match('src',?)", %r{/assets/jstoolbar/}, 0
+    assert_select "head link[rel=stylesheet]:match('href',?)", %r{/assets/jstoolbar-[0-9a-f]+.css}
+    assert_include "var wikiImageMimeTypes = #{Redmine::MimeType.by_type('image').to_json};", response.body
+    assert_select 'div.jstBlock:has(textarea#issue_description)' do
+      UserPreference::DEFAULT_TOOLBAR_LANGUAGE_OPTIONS.each do |lang|
+        assert_select 'template[data-wiki-toolbar-menu=precode]', :html => /data-wiki-toolbar-lang-param="#{lang}"/
+      end
+    end
   end
 
   def test_calendar_header_tags

@@ -4,10 +4,24 @@
  * This code is released under the GNU General Public License.
  */
 
+function getMaxAttachmentsAtOnce(inputEl) {
+  var max = $(inputEl).data('max-number-of-files');
+  // Fall back to the limit hard-coded in Redmine 7.0 and earlier, for file
+  // inputs that are not rendered by attachments/_form.html.erb (e.g. by plugins)
+  if (max == null) {
+    max = ($(inputEl).attr('multiple') == 'multiple' ? 10 : 1);
+  }
+  return max;
+}
+
 function addFile(inputEl, file, eagerUpload) {
-  var attachmentsFields = $(inputEl).closest('.attachments_form').find('.attachments_fields');
-  var addAttachment = $(inputEl).closest('.attachments_form').find('.add_attachment');
-  var maxFiles = ($(inputEl).attr('multiple') == 'multiple' ? 10 : 1);
+  var attachmentsForm = $(inputEl).closest('.attachments_form')
+  var attachmentsFields = attachmentsForm.find('.attachments_fields');
+  var attachmentsIcons = attachmentsForm.find('.attachments_icons');
+  var addAttachment = attachmentsForm.find('.add_attachment');
+  var maxFiles = getMaxAttachmentsAtOnce(inputEl);
+  var delIcon = attachmentsIcons.find('svg.svg-del').clone();
+  var attachmentIcon = attachmentsIcons.find('svg.svg-attachment').clone();
 
   if (attachmentsFields.children().length < maxFiles) {
     var attachmentId = addFile.nextAttachmentId++;
@@ -16,11 +30,13 @@ function addFile(inputEl, file, eagerUpload) {
     if (!param) {param = 'attachments'};
 
     fileSpan.append(
+        attachmentIcon,
         $('<input>', { type: 'text', 'class': 'icon icon-attachment filename readonly', name: param +'[' + attachmentId + '][filename]', readonly: 'readonly'} ).val(file.name),
         $('<input>', { type: 'text', 'class': 'description', name: param + '[' + attachmentId + '][description]', maxlength: 255, placeholder: $(inputEl).data('description-placeholder') } ).toggle(!eagerUpload),
         $('<input>', { type: 'hidden', 'class': 'token', name: param + '[' + attachmentId + '][token]'} ),
-        $('<a>&nbsp</a>').attr({ href: "#", 'class': 'icon-only icon-del remove-upload' }).click(removeFile).toggle(!eagerUpload)
+        $('<a>', { href: "#", 'class': 'icon-only icon-del remove-upload' }).append(delIcon).click(removeFile).toggle(!eagerUpload)
     ).appendTo(attachmentsFields);
+
 
     if ($(inputEl).data('description') == 0) {
       fileSpan.find('input.description').remove();
@@ -39,10 +55,13 @@ function addFile(inputEl, file, eagerUpload) {
 addFile.nextAttachmentId = 1;
 
 function ajaxUpload(file, attachmentId, fileSpan, inputEl) {
+  let attachmentIcon = $(fileSpan).find('svg.svg-attachment');
 
   function onLoadstart(e) {
     fileSpan.removeClass('ajax-waiting');
     fileSpan.addClass('ajax-loading');
+    attachmentIcon.addClass('svg-loader');
+    updateSVGIcon(attachmentIcon[0], 'loader')
     $('input:submit', $(this).parents('form')).attr('disabled', 'disabled');
   }
 
@@ -63,13 +82,17 @@ function ajaxUpload(file, attachmentId, fileSpan, inputEl) {
       .done(function(result) {
         addInlineAttachmentMarkup(file);
         progressSpan.progressbar( 'value', 100 ).remove();
-        fileSpan.find('input.description, a').css('display', 'inline-block');
+        fileSpan.find('input.description, a').css('display', 'inline-flex');
+        updateSVGIcon(attachmentIcon[0], 'file');
       })
       .fail(function(result) {
-        progressSpan.text(result.statusText);
+        $('<span>').insertAfter(progressSpan).text(result.statusText);
+        progressSpan.remove();
+        updateSVGIcon(attachmentIcon[0], 'warning');
       }).always(function() {
         ajaxUpload.uploading--;
         fileSpan.removeClass('ajax-loading');
+        attachmentIcon.removeClass('svg-loader');
         var form = fileSpan.parents('form');
         if (form.queue('upload').length == 0 && ajaxUpload.uploading == 0) {
           $('input:submit', form).removeAttr('disabled');
@@ -81,6 +104,7 @@ function ajaxUpload(file, attachmentId, fileSpan, inputEl) {
   var progressSpan = $('<div>').insertAfter(fileSpan.find('input.filename'));
   progressSpan.progressbar();
   fileSpan.addClass('ajax-waiting');
+  updateSVGIcon(attachmentIcon[0], 'hourglass');
 
   var maxSyncUpload = $(inputEl).data('max-concurrent-uploads');
 
@@ -108,7 +132,6 @@ function uploadBlob(blob, uploadUrl, attachmentId, options) {
   uploadUrl = uploadUrl + '?attachment_id=' + attachmentId;
   if (blob instanceof window.Blob) {
     uploadUrl += '&filename=' + encodeURIComponent(blob.name);
-    uploadUrl += '&content_type=' + encodeURIComponent(blob.type);
   }
 
   return $.ajax(uploadUrl, {
@@ -172,7 +195,7 @@ function uploadAndAttachFiles(files, inputEl) {
     $.each(files, function() {addFile(inputEl, this, true);});
   }
 
-  if (filesLength > ($(inputEl).attr('multiple') == 'multiple' ? 10 : 1)) {
+  if (filesLength > getMaxAttachmentsAtOnce(inputEl)) {
     window.alert($(inputEl).data('max-number-of-files-message'));
   }
   return sizeExceeded;
@@ -229,15 +252,60 @@ function setupFileDrop() {
   }
 }
 
+function getImageWidth(file) {
+  return new Promise((resolve, reject) => {
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          resolve(img.width);
+        };
+        img.onerror = reject;
+        img.src = event.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    } else {
+      resolve(0);
+    }
+  });
+}
+
+async function getInlineAttachmentMarkup(file) {
+  const sanitizedFilename = file.name.replace(/[\/\?\%\*\:\|\"\'<>\n\r]+/g, '_');
+  const inlineFilename = encodeURIComponent(sanitizedFilename)
+    .replace(/[!()]/g, function(match) { return "%" + match.charCodeAt(0).toString(16) });
+
+  const isFromClipboard = /^clipboard-\d{14}-[a-z0-9]{5}\.\w+$/.test(file.name);
+  let imageDisplayWidth;
+  if (isFromClipboard) {
+    const imageWidth = await getImageWidth(file).catch(() => 0);
+    imageDisplayWidth = Math.round(imageWidth / window.devicePixelRatio);
+  }
+  const hasValidWidth = isFromClipboard && imageDisplayWidth > 0;
+
+  switch (document.body.getAttribute('data-text-formatting')) {
+    case 'textile':
+      return hasValidWidth
+        ? `!{width: ${imageDisplayWidth}px}.${inlineFilename}!`
+        : `!${inlineFilename}!`;
+    case 'common_mark':
+      return hasValidWidth
+        ? `<img style="width: ${imageDisplayWidth}px;" src="${inlineFilename}"><br>`
+        : `![](${inlineFilename})`;
+    default:
+      // Text formatting is "none" or unknown
+      return '';
+  }
+}
+
 function addInlineAttachmentMarkup(file) {
   // insert uploaded image inline if dropped area is currently focused textarea
   if($(handleFileDropEvent.target).hasClass('wiki-edit') && $.inArray(file.type, window.wikiImageMimeTypes) > -1) {
     var $textarea = $(handleFileDropEvent.target);
     var cursorPosition = $textarea.prop('selectionStart');
     var description = $textarea.val();
-    var sanitizedFilename = file.name.replace(/[\/\?\%\*\:\|\"\'<>\n\r]+/, '_');
-    var inlineFilename = encodeURIComponent(sanitizedFilename)
-      .replace(/[!()]/g, function(match) { return "%" + match.charCodeAt(0).toString(16) });
     var newLineBefore = true;
     var newLineAfter = true;
     if(cursorPosition === 0 || description.substr(cursorPosition-1,1).match(/\r|\n/)) {
@@ -247,27 +315,23 @@ function addInlineAttachmentMarkup(file) {
       newLineAfter = false;
     }
 
-    $textarea.val(
-      description.substring(0, cursorPosition)
-      + (newLineBefore ? '\n' : '')
-      + inlineFilename
-      + (newLineAfter ? '\n' : '')
-      + description.substring(cursorPosition, description.length)
-    );
+    getInlineAttachmentMarkup(file)
+      .then(imageMarkup => {
+        $textarea.val(
+          description.substring(0, cursorPosition)
+          + (newLineBefore ? '\n' : '')
+          + imageMarkup
+          + (newLineAfter ? '\n' : '')
+          + description.substring(cursorPosition, description.length)
+        );
 
-    $textarea.prop({
-      'selectionStart': cursorPosition + newLineBefore,
-      'selectionEnd': cursorPosition + inlineFilename.length + newLineBefore
-    });
-    $textarea.parents('.jstBlock')
-      .find('.jstb_img').click();
-
-    // move cursor into next line
-    cursorPosition = $textarea.prop('selectionStart');
-    $textarea.prop({
-      'selectionStart': cursorPosition + 1,
-      'selectionEnd': cursorPosition + 1
-    });
+        // Move cursor after the inserted markup
+        var newCursorPosition = cursorPosition + (newLineBefore ? 1 : 0) + imageMarkup.length;
+        $textarea.prop({
+          'selectionStart': newCursorPosition + 1,
+          'selectionEnd': newCursorPosition + 1
+        });
+      });
 
   }
 }
@@ -289,13 +353,17 @@ function copyImageFromClipboard(e) {
         + ('0'+date.getDate()).slice(-2)
         + ('0'+date.getHours()).slice(-2)
         + ('0'+date.getMinutes()).slice(-2)
+        + ('0'+date.getSeconds()).slice(-2)
         + '-' + randomKey(5).toLocaleLowerCase()
         + '.' + file.name.split('.').pop();
 
       // get input file in the closest form
       var inputEl = $(this).closest("form").find('input:file.filedrop');
       handleFileDropEvent.target = e.target;
-      addFile(inputEl, new File([file], filename, { type: file.type }), true);
+      if (addFile(inputEl, new File([file], filename, { type: file.type }), true) == null) {
+        window.alert(inputEl.data('max-number-of-files-message'));
+        break;
+      }
     }
   }
 }

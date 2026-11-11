@@ -22,6 +22,7 @@ class AdminController < ApplicationController
   self.main_menu = false
   menu_item :projects, :only => :projects
   menu_item :plugins, :only => :plugins
+  menu_item :webhooks, :only => :webhooks
   menu_item :info, :only => :info
 
   before_action :require_admin
@@ -36,19 +37,20 @@ class AdminController < ApplicationController
   end
 
   def projects
-    retrieve_query(ProjectQuery, false, :defaults => @default_columns_names)
-    @query.admin_projects = 1
-    scope = @query.results_scope
-
-    @entry_count = scope.count
+    retrieve_query(ProjectAdminQuery, false, :defaults => @default_columns_names)
+    @entry_count = @query.result_count
     @entry_pages = Paginator.new @entry_count, per_page_option, params['page']
-    @projects = scope.limit(@entry_pages.per_page).offset(@entry_pages.offset).to_a
+    @projects = @query.results_scope(:limit => @entry_pages.per_page, :offset => @entry_pages.offset).to_a
 
     render :action => "projects", :layout => false if request.xhr?
   end
 
   def plugins
     @plugins = Redmine::Plugin.all
+  end
+
+  def webhooks
+    @webhooks = Webhook.eager_load(:user).preload(:projects).order(*User.fields_for_order_statement, :url)
   end
 
   # Loads the default configuration
@@ -79,10 +81,12 @@ class AdminController < ApplicationController
     @checklist = [
       [:text_default_administrator_account_changed, User.default_admin_account_changed?],
       [:text_file_repository_writable, File.writable?(Attachment.storage_path)],
-      [:text_all_migrations_have_been_run, !ActiveRecord::Base.connection.migration_context.needs_migration?],
+      [:text_all_migrations_have_been_run, !ActiveRecord::Base.connection.pool.migration_context.needs_migration?],
       [:text_minimagick_available,     Object.const_defined?(:MiniMagick)],
       [:text_convert_available,        Redmine::Thumbnail.convert_available?],
-      [:text_gs_available,             Redmine::Thumbnail.gs_available?]
+      [:text_gs_available,             Redmine::Thumbnail.gs_available?],
+      [:text_pandoc_available, Redmine::Markdownizer.available?],
+      [:text_mermaid_available, Redmine::Mermaid.available?]
     ]
     @checklist << [:text_default_active_job_queue_changed, Rails.application.config.active_job.queue_adapter != :async] if Rails.env.production?
   end

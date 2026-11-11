@@ -20,16 +20,6 @@
 require_relative '../test_helper'
 
 class GanttsControllerTest < Redmine::ControllerTest
-  fixtures :projects, :trackers, :issue_statuses, :issues,
-           :enumerations, :users, :issue_categories,
-           :projects_trackers,
-           :roles,
-           :member_roles,
-           :members,
-           :enabled_modules,
-           :versions,
-           :email_addresses
-
   def test_gantt_should_work
     i2 = Issue.find(2)
     i2.update_attribute(:due_date, 1.month.from_now)
@@ -66,9 +56,9 @@ class GanttsControllerTest < Redmine::ControllerTest
     end
 
     # Assert context menu on issues subject and gantt bar
-    assert_select 'div[class=?]', 'issue-subject hascontextmenu'
+    assert_select 'div.gantt-column[data-gantt-column=subjects] div.gantt-row[data-gantt-row-type=issue].hascontextmenu'
     assert_select 'div.tooltip.hascontextmenu' do
-      assert_select 'img[class="gravatar"]'
+      assert_select 'img.gravatar.avatar.active'
     end
     assert_select "form[data-cm-url=?]", '/issues/context_menu'
 
@@ -118,6 +108,28 @@ class GanttsControllerTest < Redmine::ControllerTest
     assert_response :success
   end
 
+  def test_gantt_should_warn_when_truncated
+    with_settings :gantt_items_limit => '1' do
+      get(:show, :params => {:project_id => 1})
+    end
+
+    assert_response :success
+    assert_select 'p.warning', :text => I18n.t(:notice_gantt_chart_truncated, :max => 1)
+  end
+
+  def test_show_should_run_custom_query
+    query = IssueQuery.create!(:name => 'Gantt Query', :description => 'Description for Gantt Query', :visibility => IssueQuery::VISIBILITY_PUBLIC)
+    get(
+      :show,
+      :params => {
+        :query_id => query.id
+      }
+    )
+    assert_response :success
+    assert_select 'h2', :text => query.name
+    assert_select '#sidebar a.query.selected[title=?]', query.description, :text => query.name
+  end
+
   def test_gantt_should_work_cross_project
     get :show
     assert_response :success
@@ -134,6 +146,17 @@ class GanttsControllerTest < Redmine::ControllerTest
     assert_select 'a', :text => /Private child of eCookbook/, :count => 0
   end
 
+  def test_gantt_should_mark_non_working_dates
+    NonWorkingDate.create!(:date => '2016-12-29')
+
+    get :show, :params => {:year => '2016', :month => '12', :months => '1', :zoom => '4'}
+    assert_response :success
+
+    # 9 week-end days and 1 non-working date, in both the day number and the day name rows
+    assert_select 'div.gantt-period-non-working', 20
+    assert_select 'div.gantt-period-non-working', :text => '29'
+  end
+
   def test_gantt_should_display_relations
     IssueRelation.delete_all
     issue1 = Issue.generate!(:start_date => 1.day.from_now.to_date, :due_date => 3.day.from_now.to_date)
@@ -143,8 +166,8 @@ class GanttsControllerTest < Redmine::ControllerTest
     get :show
     assert_response :success
 
-    assert_select 'div.task_todo[id=?][data-rels*=?]', "task-todo-issue-#{issue1.id}", issue2.id.to_s
-    assert_select 'div.task_todo[id=?]:not([data-rels])', "task-todo-issue-#{issue2.id}"
+    assert_select 'div.gantt-task-todo[data-gantt-issue-id=?][data-gantt-relations*=?]', issue1.id.to_s, issue2.id.to_s
+    assert_select 'div.gantt-task-todo[data-gantt-issue-id=?]:not([data-gantt-relations])', issue2.id.to_s
   end
 
   def test_gantt_should_export_to_pdf
@@ -166,6 +189,21 @@ class GanttsControllerTest < Redmine::ControllerTest
     assert_response :success
     assert_equal 'application/pdf', @response.media_type
     assert @response.body.starts_with?('%PDF')
+  end
+
+  def test_gantt_without_export_issues_permission_should_hide_export_links_and_deny_export_requests
+    @request.session[:user_id] = 2
+    Role.find_by_name('Manager').remove_permission! :export_issues
+
+    get :show, :params => {:project_id => 1}
+    assert_response :success
+    assert_select 'p.other-formats', 0
+
+    get :show, :params => {:project_id => 1, :format => 'pdf'}
+    assert_response :forbidden
+
+    get :show, :params => {:project_id => 1, :format => 'png'}
+    assert_response :forbidden
   end
 
   if Object.const_defined?(:MiniMagick) && convert_installed?
@@ -196,7 +234,7 @@ class GanttsControllerTest < Redmine::ControllerTest
         }
       )
       assert_response :success
-      assert_select 'div.gantt_hdr>a', :text => /^[\d-]+$/, :count => 40
+      assert_select 'div.gantt-header-row[data-gantt-period=month] .gantt-period>a', :text => /^[\d-]+$/, :count => 40
 
       # Displays 6 months (the default value for `months`) if `months` exceeds
       # gant_months_limit
@@ -209,7 +247,180 @@ class GanttsControllerTest < Redmine::ControllerTest
         }
       )
       assert_response :success
-      assert_select 'div.gantt_hdr>a', :text => /^[\d-]+$/, :count => 6
+      assert_select 'div.gantt-header-row[data-gantt-period=month] .gantt-period>a', :text => /^[\d-]+$/, :count => 6
     end
+  end
+
+  test 'renders project tree with child issues and bars' do
+    prepare_stable_gantt_data
+
+    @request.session[:user_id] = 2
+
+    project = projects(:projects_001)
+
+    get(:show, params: { project_id: project.id })
+    assert_response :success
+
+    # eCookbook
+    assert_subject_row('project-1', row: '0', text: project.name)
+    assert_chart_row('div.gantt-task-todo', row: '0', style_substring: 'inset-inline-start:0px;width:140px')
+
+    assert_issue_row(3, 'Bug #3', row: '1')
+    assert_chart_row('div.gantt-task-todo', row: '1', style_substring: 'inset-inline-start:0px;width:40px')
+
+    assert_issue_row(7, 'Bug #7', row: '2')
+    assert_chart_row('div.gantt-task-todo', row: '2', style_substring: 'inset-inline-start:16px;width:44px')
+
+    assert_issue_row(1, 'Bug #1', row: '3')
+    assert_chart_row('div.gantt-task-todo', row: '3', style_substring: 'inset-inline-start:52px;width:48px')
+
+    # Version 1.0
+    assert_subject_row('version-2-project-1', row: '4', text: '1.0')
+    assert_chart_row('div.gantt-task-todo', row: '4', style_substring: 'inset-inline-start:48px;width:92px')
+
+    assert_issue_row(2, 'Feature request #2', row: '5')
+    assert_chart_row('div.gantt-task-todo', row: '5', style_substring: 'inset-inline-start:48px;width:92px')
+
+    # Private child of eCookbook
+    assert_subject_row(
+      'project-5',
+      row: '6',
+      text: projects(:projects_005).name
+    )
+    assert_chart_row('div.gantt-task-todo', row: '6', style_substring: 'inset-inline-start:56px;width:8px')
+
+    assert_issue_row(6, 'Bug #6', row: '7')
+    assert_chart_row('div.gantt-task-todo', row: '7', style_substring: 'inset-inline-start:56px;width:8px')
+
+    assert_issue_row(9, 'Bug #9', row: '8')
+    assert_chart_row('div.gantt-task-todo', row: '8', style_substring: 'inset-inline-start:56px;width:8px')
+
+    assert_issue_row(10, 'Bug #10', row: '9')
+    assert_chart_row('div.gantt-task-todo', row: '9', style_substring: 'inset-inline-start:56px;width:8px')
+    assert_select 'div.gantt-task-todo[data-gantt-issue-id=?][data-gantt-relations*=?]', '10', '9'
+
+    # eCookbook Subproject1
+    assert_subject_row(
+      'project-3',
+      row: '10',
+      text: projects(:projects_003).name
+    )
+    assert_issue_row(5, 'Bug #5', row: '11')
+    assert_issue_row(13, 'Bug #13', row: '12')
+    assert_issue_row(14, 'Bug #14', row: '13')
+  end
+
+  test 'renders chart with selected start month and year' do
+    prepare_stable_gantt_data
+
+    @request.session[:user_id] = 2
+
+    project = projects(:projects_005)
+
+    selected_start = User.current.today.prev_month.beginning_of_month
+    get(
+      :show,
+      params: {
+        project_id: project.id,
+        month: selected_start.month,
+        year: selected_start.year
+      }
+    )
+    assert_response :success
+
+    assert_select 'select#month option[selected=selected][value=?]', selected_start.month.to_s
+    assert_select 'select#year option[selected=selected][value=?]', selected_start.year.to_s
+
+    6.times do |offset|
+      m = selected_start.since(offset.month)
+      assert_select 'div.gantt-header-row[data-gantt-period=month] .gantt-period > a', text: "#{m.year}-#{m.month}"
+    end
+
+    # eCookbook
+    assert_subject_row('project-1', row: '0', text: projects(:projects_001).name)
+    assert_chart_row('div.gantt-task-todo', row: '0', style_substring: 'inset-inline-start:0px;width:260px')
+
+    # Private child of eCookbook
+    assert_subject_row(
+      'project-5',
+      row: '1',
+      text: project.name
+    )
+    assert_chart_row('div.gantt-task-todo', row: '1', style_substring: 'inset-inline-start:176px;width:8px')
+
+    # Bug #6
+    assert_issue_row(6, 'Bug #6', row: '2')
+    assert_chart_row('div.gantt-task-todo', row: '2', style_substring: 'inset-inline-start:176px;width:8px')
+
+    # Bug #9
+    assert_issue_row(9, 'Bug #9', row: '3')
+    assert_chart_row('div.gantt-task-todo', row: '3', style_substring: 'inset-inline-start:176px;width:8px')
+
+    # Bug #10
+    assert_issue_row(10, 'Bug #10', row: '4')
+    assert_chart_row('div.gantt-task-todo', row: '4', style_substring: 'inset-inline-start:176px;width:8px')
+
+    assert_select 'div.gantt-task-todo[data-gantt-issue-id=?][data-gantt-relations*=?]', '10', '9'
+  end
+
+  test 'shows six months starting from current month' do
+    prepare_stable_gantt_data
+
+    @request.session[:user_id] = 2
+
+    project = projects(:projects_001)
+
+    get :show, params: { project_id: project.id }
+    assert_response :success
+
+    start_of_month = User.current.today.beginning_of_month
+    6.times do |offset|
+      m = start_of_month.since(offset.months)
+
+      assert_select 'div.gantt-header-row[data-gantt-period=month] .gantt-period > a', text: "#{m.year}-#{m.month}"
+    end
+
+    assert_select 'input#months[value=?]', '6'
+    assert_select 'select#month option[selected=selected][value=?]', User.current.today.month.to_s
+    assert_select 'select#year option[selected=selected][value=?]', User.current.today.year.to_s
+    assert_select 'input#zoom[value=?]', '2'
+  end
+
+  private
+
+  def assert_subject_row(row_key, row:, text:)
+    selector = "div.gantt-column[data-gantt-column=subjects] form > div.gantt-row:nth-of-type(#{row.to_i + 1})[data-gantt-row-key=?]"
+    assert_select selector, row_key do
+      assert_select 'a', text: text
+    end
+  end
+
+  def assert_issue_row(issue_id, link_text, row:)
+    selector = "div.gantt-column[data-gantt-column=subjects] form > div.gantt-row:nth-of-type(#{row.to_i + 1})[data-gantt-row-key=?]"
+    assert_select selector, "issue-#{issue_id}" do
+      assert_select 'a.issue', text: link_text
+    end
+  end
+
+  def assert_chart_row(selector, row:, style_substring:)
+    style_substring = "--gantt-task-start:#{style_substring.delete_prefix('inset-inline-start:').sub(';width:', ';--gantt-task-width:')}"
+    matcher = "div.gantt-timeline form > div.gantt-row:nth-of-type(#{row.to_i + 1}) #{selector}[style*=?]"
+    assert_select matcher, style_substring, minimum: 1
+  end
+
+  # Freezes today and resets the start and due dates of issues and versions in the eCookbook project and its descendants to fixed values
+  # so the Gantt layout uses deterministic dates, bar positions stay stable across runs, and the tests remain easy to execute.
+  def prepare_stable_gantt_data
+    issues(:issues_003).update!(start_date: Date.new(2025, 9, 30), due_date: Date.new(2025, 10, 10))
+    issues(:issues_007).update!(start_date: Date.new(2025, 10, 5), due_date: Date.new(2025, 10, 15))
+    issues(:issues_001).update!(start_date: Date.new(2025, 10, 14), due_date: Date.new(2025, 10, 25))
+    issues(:issues_002).update!(start_date: Date.new(2025, 10, 13), due_date: nil)
+    issues(:issues_006).update!(start_date: Date.new(2025, 10, 15), due_date: Date.new(2025, 10, 16))
+    issues(:issues_009).update!(start_date: Date.new(2025, 10, 15), due_date: Date.new(2025, 10, 16))
+    issues(:issues_010).update!(start_date: Date.new(2025, 10, 15), due_date: Date.new(2025, 10, 16))
+
+    Version.find(2).update!(effective_date: Date.new(2025, 11, 4))
+
+    travel_to Date.new(2025, 10, 15)
   end
 end

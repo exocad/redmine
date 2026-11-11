@@ -17,15 +17,58 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-require 'digest/md5'
-
 module Redmine
   module WikiFormatting
     module Textile
-      class Formatter < RedCloth3
-        include ActionView::Helpers::TagHelper
-        include Redmine::WikiFormatting::LinksHelper
+      SCRUBBERS = [
+        Redmine::WikiFormatting::CopypreScrubber.new,
+        SyntaxHighlightScrubber.new,
+        Redmine::WikiFormatting::TablesortScrubber.new
+      ]
+
+      SANITIZER = SanitizationFilter.new
+
+      class Formatter
         include Redmine::WikiFormatting::SectionHelper
+
+        extend Forwardable
+        def_delegators :@filter, :extract_sections, :rip_offtags
+
+        def initialize(text, options = {})
+          @filter = Filter.new(text)
+          @options = options
+        end
+
+        def to_html(*rules)
+          html = @filter.to_html(rules)
+          fragment = Loofah.html5_fragment(html)
+          SANITIZER.call(fragment)
+
+          scrubbers = SCRUBBERS + post_processor_scrubbers
+          scrubber = Loofah::Scrubber.new do |node|
+            scrubbers.each do |s|
+              result = s.scrub(node)
+              break result if result == Loofah::Scrubber::STOP
+              break if node.parent.nil?
+            end
+          end
+
+          fragment.scrub!(scrubber)
+          fragment.to_s
+        end
+
+        private
+
+        def post_processor_scrubbers
+          [
+            Redmine::WikiFormatting::InlineAttachmentsScrubber.new(@options),
+            Redmine::WikiFormatting::HiresImagesScrubber.new
+          ]
+        end
+      end
+
+      class Filter < RedCloth3
+        include Redmine::WikiFormatting::LinksHelper
 
         alias :inline_auto_link :auto_link!
         alias :inline_auto_mailto :auto_mailto!
@@ -43,7 +86,7 @@ module Redmine
 
         def to_html(*rules)
           @toc = []
-          super(*RULES).to_s
+          super(*RULES)
         end
 
         def extract_sections(index)
@@ -89,7 +132,7 @@ module Redmine
             end
           end
           sections = [before.strip, s.strip, after.strip]
-          sections.each {|section| smooth_offtags_without_code_highlighting section}
+          sections.each {|section| smooth_offtags section}
           sections
         end
 
@@ -97,34 +140,8 @@ module Redmine
 
         # Patch for RedCloth.  Fixed in RedCloth r128 but _why hasn't released it yet.
         # <a href="http://code.whytheluckystiff.net/redcloth/changeset/128">http://code.whytheluckystiff.net/redcloth/changeset/128</a>
-        def hard_break( text )
-          text.gsub!( /(.)\n(?!\n|\Z| *([#*=]+(\s|$)|[{|]))/, "\\1<br />" ) if hard_breaks
-        end
-
-        alias :smooth_offtags_without_code_highlighting :smooth_offtags
-        # Patch to add code highlighting support to RedCloth
-        def smooth_offtags( text )
-          unless @pre_list.empty?
-            ## replace <pre> content
-            text.gsub!(/<redpre#(\d+)>/) do
-              content = @pre_list[$1.to_i]
-              # This regex must match any data produced by RedCloth3#rip_offtags
-              if content =~ /<code\s+class=(?:"([^"]+)"|'([^']+)')>\s?(.*)/m
-                language = $1 || $2
-                text = $3
-                # original language for extension development
-                langattr = " data-language=\"#{CGI.escapeHTML language}\"" if language.present?
-                if Redmine::SyntaxHighlighting.language_supported?(language)
-                  text.gsub!("x%x%", '&')
-                  content = "<code class=\"#{CGI.escapeHTML language} syntaxhl\"#{langattr}>" +
-                    Redmine::SyntaxHighlighting.highlight_by_language(text, language)
-                else
-                  content = "<code#{langattr}>#{ERB::Util.h(text)}"
-                end
-              end
-              content
-            end
-          end
+        def hard_break(text)
+          text.gsub!(/(.)\n(?!\n|\Z| *([#*=]+(\s|$)|[{|]))/, "\\1<br />") if hard_breaks
         end
       end
     end

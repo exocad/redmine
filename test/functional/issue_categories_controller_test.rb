@@ -20,9 +20,6 @@
 require_relative '../test_helper'
 
 class IssueCategoriesControllerTest < Redmine::ControllerTest
-  fixtures :projects, :users, :members, :member_roles, :roles, :enabled_modules, :issue_categories,
-           :issues
-
   def setup
     User.current = nil
     @request.session[:user_id] = 2
@@ -96,7 +93,7 @@ class IssueCategoriesControllerTest < Redmine::ControllerTest
         :xhr => true
       )
     end
-    category = IssueCategory.order('id DESC').first
+    category = IssueCategory.order(id: :desc).first
     assert_equal 'New category', category.name
 
     assert_response :success
@@ -170,7 +167,7 @@ class IssueCategoriesControllerTest < Redmine::ControllerTest
         }
       }
     )
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_destroy_category_not_in_use

@@ -73,7 +73,7 @@ ta-IN:
   number:
     format:
       separator: "."
-      delimiter: " "
+      delimiter: ","
       precision: 3
 
     currency:
@@ -99,8 +99,9 @@ ta-IN:
 # Used in array.to_sentence.
   support:
     array:
-      sentence_connector: "மற்றும்"
-      skip_last_comma: false
+      last_word_connector: ", மற்றும் "
+      two_words_connector: " மற்றும் "
+      words_connector: ", "
 
   activerecord:
     errors:
@@ -193,7 +194,7 @@ ta-IN:
   error_no_tracker_in_project: 'இந்த திட்டத்துடன் எந்த தடமும் இணைக்கப்படவில்லை. இந்த திட்டத்தின் அமைப்பை சரி பார்க்கவும்..'
   error_no_default_issue_status: 'இயல்புநிலை சிக்கல் நிலை எதுவும் வரையறுக்கப்படவில்லை. உங்கள் உள் அமைப்பை சரி பார்க்கவும் ("நிர்வாகம் -> வெளியீட்டு நிலைகள்" என்பதற்குச் செல்லவும்).'
   error_can_not_delete_custom_field: தனிப்பயன் புலத்தை நீக்க முடியவில்லை
-  error_can_not_delete_tracker: "இந்த தடத்தில் சிக்கல்கள் உள்ளன, அவற்றை நீக்க முடியாது."
+  error_can_not_delete_tracker_html: "இந்த தடத்தில் சிக்கல்கள் உள்ளன, அவற்றை நீக்க முடியாது.<p>The following projects have issues with this tracker:<br>%{projects}</p>"
   error_can_not_remove_role: "இந்த பாத்திரங்கள் பயன்பாட்டில் உள்ளது மற்றும் நீக்க முடியாது."
   error_can_not_reopen_issue_on_closed_version: 'மூடிய பதிப்பிற்கு ஒதுக்கப்பட்ட சிக்கலை மீண்டும் திறக்க முடியாது'
   error_can_not_archive_project: இந்த திட்டத்தை காப்பகப்படுத்த முடியாது
@@ -505,7 +506,6 @@ ta-IN:
   label_activity: செயல்பாடு
   label_user_activity: "%{value}'கள் செயல்பாடு"
   label_new: புதியது
-  label_logged_as: உள்நுழைந்துள்ளீர்
   label_environment: சுற்றுச்சூழல்
   label_authentication: அங்கீகார
   label_auth_source: அங்கீகார முறை
@@ -552,7 +552,6 @@ ta-IN:
   label_confirmation: உறுதிப்படுத்தல்
   label_export_to: 'இல் கிடைக்கிறது:'
   label_read: படி...
-  label_public_projects: பொது திட்டங்கள்
   label_open_issues: திறந்த
   label_open_issues_plural: திறந்த
   label_closed_issues: மூடப்பட்டது
@@ -581,8 +580,6 @@ ta-IN:
   label_months_from: முதல் மாதங்கள்
   label_gantt: காண்ட்
   label_internal: உள்
-  label_last_changes: "கடைசி %{count} மாற்றங்கள்"
-  label_change_view_all: எல்லா மாற்றங்களையும் காண்க
   label_comment: கருத்து
   label_comment_plural: கருத்துரைகள்
   label_x_comments:
@@ -613,7 +610,6 @@ ta-IN:
   label_this_month: இந்த மாதம்
   label_last_month: கடந்த மாதம்
   label_this_year: இந்த வருடம்
-  label_date_range: தேதி வரம்பு
   label_less_than_ago: சில நாட்களுக்கு முன்பு
   label_more_than_ago: நாட்களுக்கு முன்பு
   label_ago: நாட்களுக்கு முன்பு
@@ -622,7 +618,6 @@ ta-IN:
   label_day_plural: நாட்கள்
   label_repository: களஞ்சியம்
   label_repository_plural: களஞ்சியங்கள்
-  label_browse: புரட்டு
   label_branch: கிளை
   label_tag: குறிச்சொல்
   label_revision: திருத்தம்
@@ -653,7 +648,6 @@ ta-IN:
   label_wiki_page_plural: விக்கி பக்கங்கள்
   label_index_by_title: தலைப்பு மூலம் அட்டவணை
   label_index_by_date: தேதி மூலம் அட்டவணை
-  label_current_version: நடப்பு வடிவம்
   label_preview: முன்னோட்டம்
   label_feed_plural: ஊட்டங்கள்
   label_changes_details: அனைத்து மாற்றங்களின் விவரங்கள்
@@ -677,7 +671,6 @@ ta-IN:
   label_applied_status: பயன்பாட்டு நிலை
   label_loading: ஏற்றுகிறது...
   label_relation_new: புதிய உறவு
-  label_relation_delete: உறவை நீக்கு
   label_relates_to: தொடர்புடைய
   label_duplicates: என்பது நகல்
   label_duplicated_by: நகல் உள்ளது
@@ -704,8 +697,6 @@ ta-IN:
   label_year: ஆண்டு
   label_month: மாதம்
   label_week: வாரம்
-  label_date_from: இருந்து
-  label_date_to: வரை
   label_language_based: பயனரின் மொழியின் அடிப்படையில்
   label_sort_by: "மூலம் வரிசைப்படுத்து %{value}"
   label_send_test_email: சோதனை மின்னஞ்சலை அனுப்பவும்
@@ -742,7 +733,6 @@ ta-IN:
   label_ldap_authentication: LDAP அங்கீகாரம்
   label_downloads_abbr: D/L
   label_optional_description: விருப்ப விளக்கம்
-  label_add_another_file: மற்றொரு கோப்பைச் சேர்க்கவும்
   label_preferences: விருப்பத்தேர்வுகள்
   label_chronological_order: காலவரிசைப்படி
   label_reverse_chronological_order: தலைகீழ் காலவரிசைப்படி
@@ -871,10 +861,8 @@ ta-IN:
   text_status_changed_by_changeset: "மாற்றங்கள் பயன்படுத்தப்பட்டது %{value}."
   text_time_logged_by_changeset: "மாற்றங்கள்பயன்படுத்தப்பட்டது %{value}."
   text_issues_destroy_confirmation: 'தேர்ந்தெடுக்கப்பட்ட சிக்கலை (s) நீக்க விரும்புகிறீர்களா?'
-  text_select_project_modules: 'இந்த திட்டத்தை இயக்க தொகுதிகள் தேர்ந்தெடுக்கவும்:'
   text_default_administrator_account_changed: இயல்புநிலை நிர்வாகி கணக்கு மாற்றப்பட்டது
   text_file_repository_writable: இணைப்புகள் அடைவு எழுதக்கூடியது
-  text_plugin_assets_writable: செருகுநிரல் சொத்து அடைவு எழுதக்கூடியது
   text_minimagick_available: மினிமேஜிக் கிடைக்கிறது (optional)
   text_destroy_time_entries_question: "%{hours} நீங்கள் நீக்கவிருக்கும் சிக்கல்களில் மணிநேரம் அறிவிக்கப்பட்டது. நீங்கள் என்ன செய்ய விரும்புகிறீர்கள்?"
   text_destroy_time_entries: அறிவிக்கப்பட்ட நேரங்களை நீக்கு
@@ -957,14 +945,12 @@ ta-IN:
   text_git_repository_note: களஞ்சியம் வெற்று மற்றும் உள்ளூர் (e.g. /gitrepo, c:\gitrepo)
   description_query_sort_criteria_direction: வரிசை திசை
   description_project_scope: தேடல் நோக்கம்
-  description_filter: வடிகட்டி
   description_user_mail_notification: அஞ்சல் அறிவிப்பு அமைப்புகள்
   description_message_content: செய்தி உள்ளடக்கம்
   description_available_columns: கிடைக்கும் நெடுவரிசைகள்
   description_issue_category_reassign: வெளியீட்டு வகையைத் தேர்வுசெய்க
   description_search: தேடல் புலம்
   description_notes: குறிப்புகள்
-  description_choose_project: திட்டங்கள்
   description_query_sort_criteria_attribute: பண்புக்கூறு வரிசைப்படுத்து
   description_wiki_subpages_reassign: புதிய மேல் பக்கத்தைத் தேர்வுசெய்க
   description_selected_columns: தேர்ந்தெடுக்கப்பட்ட நெடுவரிசைகள்
@@ -1247,8 +1233,6 @@ ta-IN:
   error_token_expired: இந்த கடவுச்சொல் மீட்பு இணைப்பு காலாவதியானது, தயவுசெய்து மீண்டும் முயற்சிக்கவும்.
   error_spent_on_future_date: எதிர்கால தேதியில் நேரத்தை பதிவு செய்ய முடியாது
   setting_timelog_accept_future_dates: எதிர்கால தேதிகளில் நேர பதிவுகளை ஏற்றுக்கொள்ளுங்கள்
-  label_delete_link_to_subtask: உறவை நீக்கு
-  error_not_allowed_to_log_time_for_other_users: பிற பயனர்களுக்கான நேரத்தை பதிவு செய்ய உங்களுக்கு அனுமதி இல்லை
   permission_log_time_for_other_users: பதிவு மற்ற பயனர்களுக்காக நேரத்தை செலவிட்டது
   label_tomorrow:  நாளை
   label_next_week: அடுத்த வாரம்
@@ -1443,3 +1427,154 @@ ta-IN:
   text_default_active_job_queue_changed: Default queue adapter which is well suited
     only for dev/test changed
   label_option_auto_lang: auto
+  label_issue_attachment_added: Attachment added
+  field_estimated_remaining_hours: Estimated remaining time
+  field_last_activity_date: Last activity
+  setting_issue_done_ratio_interval: Done ratio options interval
+  setting_copy_attachments_on_issue_copy: Copy attachments on copy
+  field_thousands_delimiter: Thousands delimiter
+  label_involved_principals: Author / Recent participants
+  label_attachment_summary:
+    zero: "%{filename}"
+    one: "%{filename} and 1 file"
+    other: "%{filename} and %{count} files"
+  setting_wiki_tablesort_enabled: JavaScript based table sorting in wiki content
+  label_progressbar: Progress bar
+  error_spent_on_closed_issue: Cannot log time on a closed issue
+  setting_timelog_accept_closed_issues: Accept time logs on closed issues
+  setting_related_issues_default_columns: Related and sub issues list defaults
+  setting_display_related_issues_table_headers: Show table headers
+  error_can_not_remove_role_reason_members_html: "<p>The following projects have members
+    with this role:<br>%{projects}</p>"
+  setting_reactions_enabled: Enable reactions
+  reaction_text_x_other_users:
+    one: 1 other
+    other: "%{count} others"
+  text_setting_gravatar_default_initials_html: Users' initials are sent to <a href="%{url}">%{url}</a>
+    to generate their avatars.
+  permission_view_project: View projects
+  permission_search_project: Search projects
+  permission_view_members: View project members
+  label_oauth_permission_admin: Administrate this Redmine
+  label_oauth_admin_access: Administration
+  label_oauth_application_plural: Applications
+  label_oauth_authorized_application_plural: Authorized applications
+  text_oauth_admin_permission: Full administrative access. When authorized by an Administrator,
+    this application will be able to read and write all data and impersonate other users.
+  text_oauth_admin_permission_info: This application requests full administrative access.
+    If you are an Administrator (or become one in the future), it will be able to read
+    and write all data and impersonate other users on your behalf. If you want to avoid
+    this, authorize it as a user without Administrator privileges instead.
+  text_oauth_copy_secret_now: Copy the secret to a safe place now, it will not be shown
+    again.
+  text_oauth_implicit_permissions: View your name, login and primary email address
+  text_oauth_info_scopes: Select the scopes this application may request. The application
+    will not be allowed to do more than what is selected here. It will also always be
+    limited by the roles and project memberships of the user who authorized it.
+  label_position: Position
+  label_message: Message
+  twofa_already_setup: Two-factor authentication already set up
+  permission_use_webhooks: Use webhooks
+  label_webhook_plural: Webhooks
+  label_webhook_new: New webhook
+  label_webhook_edit: Edit webhook
+  label_webhook_events: Events
+  webhook_url_info: Redmine will send a POST request to this URL whenever one of the
+    selected events occurs in one of the selected projects.
+  webhook_secret_info_html: If provided, Redmine will use this to create a hash signature
+    that is sent with each delivery as the value of the X-Redmine-Signature-256 header.
+  setting_webhooks_enabled: Enable webhooks
+  label_integrations: Integrations
+  label_alert_note: Note
+  label_alert_tip: Tip
+  label_alert_warning: Warning
+  label_alert_caution: Caution
+  label_alert_important: Important
+  field_ratio_interval: Ratio interval
+  webhook_event_created: "%{object_name} created"
+  webhook_event_updated: "%{object_name} updated"
+  webhook_event_deleted: "%{object_name} deleted"
+  label_auto_watch_on_issue_assigned_to_me: Issues assigned to me
+  label_relation_remove: Remove relation
+  label_subtask_remove: Remove subtask
+  button_remove: Remove
+  label_open_in_full_view: Open in full view
+  text_pandoc_available: Pandoc available (optional)
+  label_user_mail_option_only_my_watches: Only for things I watch
+  label_last_used_on: 'Last used: %{value} ago'
+  label_never_used: Never used
+  setting_assignee_dropdown_display_format: Assignee drop-down display format
+  label_assignee_dropdown_display_format_users_then_groups: Users then groups
+  label_assignee_dropdown_display_format_groups_then_users: Groups then users
+  label_enable_default_issue_due_date_offset: Enable default due date for new issues
+  label_days_relative_to_today: days relative to today
+  label_wiki_toolbar_strong: வலுவான
+  label_wiki_toolbar_italic: சாய்வு
+  label_wiki_toolbar_underline: அடிக்கோடிட்டு
+  label_wiki_toolbar_deleted: நீக்கப்பட்டது
+  label_wiki_toolbar_code: இன்லைன் குறியீடு
+  label_wiki_toolbar_heading_1: தலைப்பு 1
+  label_wiki_toolbar_heading_2: தலைப்பு 2
+  label_wiki_toolbar_heading_3: தலைப்பு 3
+  label_wiki_toolbar_unordered_list: வரிசைப்படுத்தப்படாத பட்டியல்
+  label_wiki_toolbar_ordered_list: வரிசைப்படுத்தப்பட்ட பட்டியல்
+  label_wiki_toolbar_task_list: Task list
+  label_wiki_toolbar_quote: மேற்கோள்
+  label_wiki_toolbar_unquote: மேற்கோளை அகற்று
+  label_wiki_toolbar_table: அட்டவணை
+  label_wiki_toolbar_preformatted_text: முன்பே வடிவமைக்கப்பட்ட உரை
+  label_wiki_toolbar_preformatted_code: சிறப்பம்சமாக குறியீடு
+  label_wiki_toolbar_wiki_link: விக்கி பக்கத்துடன் இணைக்கவும்
+  label_wiki_toolbar_image: படம்
+  label_wiki_toolbar_help: Help
+  label_assignee_dropdown_display_format_users_by_group: Users by group
+  button_remove_from_group: Remove from group
+  button_add_to_group: Add to group
+  setting_default_issue_due_date_offset: Default due date for new issues
+  field_private_by_default: Private by default
+  field_default_value_mode: Default value mode
+  label_absolute: Absolute
+  label_relative: Relative
+  error_issue_status_in_use_by_issues: This status is used by some issues
+  error_issue_status_default_for_trackers: This status is used as the default status by some trackers
+  text_users_remove_from_group_confirmation: Are you sure you want to remove the selected user(s) from the group %{group}?
+  webhook_secret_keep_info: The secret of another user is not displayed. Leave this
+    field blank to keep it unchanged.
+  webhook_disabled_info_html: Webhooks are disabled, so none of the webhooks below is
+    triggered. They are still listed here so that they can be reviewed or removed. Webhooks
+    can be enabled in the %{link} settings.
+  permission_export_issues: Export issues
+  permission_export_time_entries: Export time entries
+  label_users_and_groups: Users and groups
+  mail_subject_test_email: Redmine test
+  mail_body_test_email: This is a test email sent by Redmine.
+  text_mermaid_available: Mermaid.js available (optional)
+  label_member_view_all: View all members
+  field_date: Date
+  label_non_working_date_plural: Non-working dates
+  label_non_working_date_new: New non-working date
+  text_non_working_dates_html: 'You can add non-working dates such as holidays: <a href="%{non_working_dates_path}">Manage
+    non-working dates</a>'
+  text_non_working_dates_export_all_years: Non-working dates of all years will be exported.
+  label_import_non_working_dates: Import non-working dates
+  field_avatar: Avatar
+  setting_avatar_enabled: Allow users to set their avatar
+  button_change_avatar: Change avatar
+  text_avatar_uploaded: The uploaded image is currently used as the avatar.
+  text_avatar_from_server_html: The image from <a href="%{url}">%{url}</a> associated
+    with the user's email address is currently used as the avatar. It can be changed
+    on that site. If no image is registered there, a default avatar is shown.
+  text_avatar_initials: The image generated from the user's name is currently used as
+    the avatar.
+  text_avatar_upload_instead: You can upload an image to use instead.
+  text_avatar_upload_disabled: Uploading an avatar image to Redmine has been disabled
+    by the administrator.
+  text_setting_avatar_enabled_imagemagick_unavailable: ImageMagick is not available,
+    so users cannot set their avatar.
+  text_setting_gravatar_enabled_fallback: If enabled, Gravatar is used for users who
+    have not set their avatar in Redmine.
+  label_show_more: Show more
+  setting_favicon: Custom favicon
+  text_setting_favicon_format: PNG or ICO, up to %{max_size}
+  notice_search_tokens_truncated: 'A maximum of %{max} search terms can be used. Only
+    the following terms were used: %{tokens}'

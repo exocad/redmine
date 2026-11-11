@@ -22,7 +22,7 @@ default:
   #      address: "localhost"
   #      port: 25
   #
-  # ==== SMTP server at example.com using LOGIN authentication and checking HELO for foo.com
+  # ==== SMTP server at example.com using LOGIN authentication and checking HELO for example.com
   #
   #  email_delivery:
   #    delivery_method: :smtp
@@ -30,7 +30,7 @@ default:
   #      address: "example.com"
   #      port: 25
   #      authentication: :login
-  #      domain: 'foo.com'
+  #      domain: 'example.com'
   #      user_name: 'myaccount'
   #      password: 'password'
   #
@@ -86,12 +86,7 @@ default:
   # Configuration of SCM executable command.
   #
   # Absolute path (e.g. /usr/local/bin/hg) or command name (e.g. hg.exe, bzr.exe)
-  # On Windows + CRuby, *.cmd, *.bat (e.g. hg.cmd, bzr.bat) does not work.
-  #
-  # On Windows + JRuby 1.6.2, path which contains spaces does not work.
-  # For example, "C:\Program Files\TortoiseHg\hg.exe".
-  # If you want to this feature, you need to install to the path which does not contains spaces.
-  # For example, "C:\TortoiseHg\hg.exe".
+  # On Windows, *.cmd, *.bat (e.g. hg.cmd, bzr.bat) does not work.
   #
   # Examples:
   # scm_subversion_command: svn                                       # (default: svn)
@@ -111,9 +106,12 @@ default:
   # You can configure a regular expression for each SCM that will be used to
   # validate the path of new repositories (eg. path entered by users with the
   # "Manage repositories" permission and path returned by reposman.rb).
-  # The regexp will be wrapped with \A \z, so it must match the whole path.
-  # And the regexp is case sensitive.
   #
+  # Only repository types with a configured regular expression can be created
+  # or used in Redmine.
+  #
+  # The regexp will be wrapped with \A \z, so it must match the whole path.
+  # The regexp is case sensitive.
   # You can match the project identifier by using %project% in the regexp.
   #
   # You can also set a custom hint message for each SCM that will be displayed
@@ -164,8 +162,8 @@ default:
 
   # Requires users to re-enter their password for sensitive actions (editing
   # of account data, project memberships, application settings, user, group,
-  # role, auth source management and project deletion). Disabled by default.
-  # Timeout is set in minutes.
+  # role, auth source management and project deletion). Enabled by default,
+  # set to false to disable. Timeout is set in minutes.
   #
   #sudo_mode: true
   #sudo_mode_timeout: 15
@@ -177,6 +175,10 @@ default:
   # Absolute path (e.g. /usr/bin/gs, c:/ghostscript/gswin64c.exe) to
   # the `gs` binary. Used to generate attachment thumbnails of PDF files.
   #gs_command:
+
+  # Timeout when generating thumbnails using the `convert` or `gs` command.
+  # Timeout is set in seconds.
+  #thumbnails_generation_timeout: 10
 
   # Configuration of MiniMagick font.
   #
@@ -201,6 +203,10 @@ default:
   # Maximum number of simultaneous AJAX uploads
   #max_concurrent_ajax_uploads: 2
 
+  # Maximum number of files that can be attached at once with the
+  # attachment form
+  #max_attachments_at_once: 50
+
   # URL of the avatar server
   #
   # By default, Redmine uses Gravatar as the avatar server for displaying
@@ -219,6 +225,44 @@ default:
   # true: treats regular line break (\n) as hardbreaks
   # false: switches to default common mark where two or more spaces are required
   # common_mark_enable_hardbreaks: true
+
+  # Webhooks
+  #
+  # An optional list of hosts and/or IP addresses and/or IP networks which
+  # should NOT be valid as webhook targets. You can add your internal IPs and
+  # hostnames here to avoid possible SSRF attacks.
+  # webhook_blocklist:
+  #   - 10.0.0.0/8
+  #   - 172.16.0.0/12
+  #   - 192.168.0.0/16
+  #   - fc00::/7
+  #   - example.org
+  #   - "*.example.com"
+
+  # Preview for Office documents (Microsoft Office / LibreOffice / RTF)
+  #
+  # Redmine uses Pandoc to convert supported Microsoft Office, LibreOffice and
+  # Rich Text Format attachments to Markdown for preview. The settings below named
+  # `markdownized_preview_*` control that Markdown-based preview generation.
+  #
+  # Absolute path (e.g. /usr/local/bin/pandoc) to the Pandoc command
+  # used to convert supported attachments to Markdown for preview.
+  #pandoc_command:
+  #
+  # Timeout when generating Markdown previews using the Pandoc command.
+  # Timeout is set in seconds.
+  # Default: 10
+  #markdownized_preview_generation_timeout: 10
+  #
+  # Maximum source file size in bytes for Markdown preview generation.
+  # Files larger than this limit are skipped.
+  # Default: 10485760 (10 megabytes)
+  #markdownized_preview_max_source_size: 10485760
+  #
+  # Maximum output size in bytes saved after Markdown conversion.
+  # Larger output is truncated to this limit.
+  # Default: 102400 (100 kilobytes)
+  #markdownized_preview_max_output_size: 102400
 
 # specific configuration options for production environment
 # that overrides the default ones

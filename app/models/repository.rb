@@ -64,17 +64,15 @@ class Repository < ApplicationRecord
     :if => lambda {|repository, user| repository.new_record?})
 
   def repo_create_validation
-    unless Setting.enabled_scm.include?(self.class.name.demodulize)
-      errors.add(:type, :invalid)
-    end
+    errors.add(:type, :invalid) unless adapter_enabled?
   end
 
-  def self.human_attribute_name(attribute_key_name, *args)
+  def self.human_attribute_name(attribute_key_name, *)
     attr_name = attribute_key_name.to_s
     if attr_name == "log_encoding"
       attr_name = "commit_logs_encoding"
     end
-    super(attr_name, *args)
+    super(attr_name, *)
   end
 
   # Removes leading and trailing whitespace
@@ -133,11 +131,7 @@ class Repository < ApplicationRecord
   end
 
   def identifier_param
-    if identifier.present?
-      identifier
-    else
-      id.to_s
-    end
+    (identifier.presence || id.to_s)
   end
 
   def <=>(repository)
@@ -265,6 +259,34 @@ class Repository < ApplicationRecord
     @latest_changeset ||= changesets.first
   end
 
+  def previous_changeset(changeset)
+    changesets.
+      reorder(nil).
+      where(
+        [
+          "(#{Changeset.table_name}.committed_on < ? OR " \
+          "(#{Changeset.table_name}.committed_on = ? AND #{Changeset.table_name}.id < ?))",
+          changeset.committed_on, changeset.committed_on, changeset.id
+        ]
+      ).
+      order(committed_on: :desc, id: :desc).
+      first
+  end
+
+  def next_changeset(changeset)
+    changesets.
+      reorder(nil).
+      where(
+        [
+          "(#{Changeset.table_name}.committed_on > ? OR " \
+          "(#{Changeset.table_name}.committed_on = ? AND #{Changeset.table_name}.id > ?))",
+          changeset.committed_on, changeset.committed_on, changeset.id
+        ]
+      ).
+      order(committed_on: :asc, id: :asc).
+      first
+  end
+
   # Returns the latest changesets for +path+
   # Default behaviour is to search in cached changesets
   def latest_changesets(path, rev, limit=10)
@@ -338,7 +360,7 @@ class Repository < ApplicationRecord
 
   def repo_log_encoding
     encoding = log_encoding.to_s.strip
-    encoding.blank? ? 'UTF-8' : encoding
+    (encoding.presence || 'UTF-8')
   end
 
   # Fetches new changesets for all repositories of active projects
@@ -348,7 +370,7 @@ class Repository < ApplicationRecord
     Project.active.has_module(:repository).all.each do |project|
       project.repositories.each do |repository|
         begin
-          repository.fetch_changesets
+          repository.fetch_changesets if repository.adapter_enabled?
         rescue Redmine::Scm::Adapters::CommandFailed => e
           logger.error "scm: error during fetching changesets: #{e.message}"
         end
@@ -365,12 +387,8 @@ class Repository < ApplicationRecord
     'Abstract'
   end
 
-  def self.available_scm
-    subclasses.collect {|klass| [klass.scm_name, klass.name]}
-  end
-
-  def self.factory(klass_name, *args)
-    repository_class(klass_name).new(*args) rescue nil
+  def self.factory(klass_name, *)
+    repository_class(klass_name).new(*) rescue nil
   end
 
   def self.repository_class(class_name)
@@ -404,14 +422,23 @@ class Repository < ApplicationRecord
     ret
   end
 
-  def self.scm_available
+  def self.scm_client_available
     ret = false
     begin
       ret = self.scm_adapter_class.client_available if self.scm_adapter_class
     rescue => e
-      logger.error "scm: error during get scm available: #{e.message}"
+      logger.error "scm: error during get scm client available: #{e.message}"
     end
     ret
+  end
+
+  def self.scm_available
+    scm_client_available && scm_path_regexp.present?
+  end
+
+  def self.scm_path_regexp
+    # Uses name.demodulize, not scm_name, which each adapter overrides as its display label.
+    Redmine::Configuration["scm_#{name.demodulize.downcase}_path_regexp"]
   end
 
   def set_as_default?
@@ -434,9 +461,8 @@ class Repository < ApplicationRecord
     changes = Change.joins(:changeset).where("#{Changeset.table_name}.repository_id = ?", id).
                 select("committer, user_id, count(*) as count").group("committer, user_id")
     user_ids = changesets.filter_map(&:user_id).uniq
-    authors_names = User.where(:id => user_ids).inject({}) do |memo, user|
-      memo[user.id] = user.to_s
-      memo
+    authors_names = User.where(:id => user_ids).to_h do |user|
+      [user.id, user.to_s]
     end
     (commits + changes).inject({}) do |hash, element|
       mapped_name = element.committer
@@ -469,12 +495,16 @@ class Repository < ApplicationRecord
     scm.valid_name?(name)
   end
 
+  def adapter_enabled?
+    Setting.enabled_scm.include?(self.class.name.demodulize)
+  end
+
   protected
 
   # Validates repository url based against an optional regular expression
   # that can be set in the Redmine configuration file.
   def validate_repository_path(attribute=:url)
-    regexp = Redmine::Configuration["scm_#{scm_name.to_s.downcase}_path_regexp"]
+    regexp = self.class.scm_path_regexp
     if changes[attribute] && regexp.present?
       regexp = regexp.to_s.strip.gsub('%project%') {Regexp.escape(project.try(:identifier).to_s)}
       unless Regexp.new("\\A#{regexp}\\z").match?(send(attribute).to_s)

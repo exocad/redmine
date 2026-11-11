@@ -89,6 +89,7 @@ class CustomField < ApplicationRecord
     'position',
     'searchable',
     'default_value',
+    'default_value_mode',
     'editable',
     'visible',
     'multiple',
@@ -98,9 +99,13 @@ class CustomField < ApplicationRecord
     'text_formatting',
     'edit_tag_style',
     'user_role',
+    'possible_principals',
     'version_status',
     'extensions_allowed',
-    'full_width_layout')
+    'full_width_layout',
+    'thousands_delimiter',
+    'ratio_interval'
+  )
 
   def copy_from(arg, options={})
     return if arg.blank?
@@ -124,6 +129,16 @@ class CustomField < ApplicationRecord
 
   def format
     @format ||= Redmine::FieldFormat.find(field_format)
+  end
+
+  def default_value
+    if field_format == 'date' && default_value_mode == 'date_offset' && self[:default_value].present?
+      (User.current.today + Integer(self[:default_value], 10)).to_s
+    else
+      self[:default_value]
+    end
+  rescue ArgumentError
+    self[:default_value]
   end
 
   def field_format=(arg)
@@ -155,11 +170,22 @@ class CustomField < ApplicationRecord
       end
     end
 
-    if default_value.present?
-      validate_field_value(default_value).each do |message|
+    if field_format == 'date' && default_value_mode == 'date_offset'
+      validate_date_default_value_offset
+    elsif self[:default_value].present? && errors[:regexp].blank?
+      validate_field_value(self[:default_value]).each do |message|
         errors.add :default_value, message
       end
     end
+  end
+
+  def validate_date_default_value_offset
+    value = self[:default_value].to_s.strip
+    return if value.blank?
+
+    Integer(value, 10)
+  rescue ArgumentError
+    errors.add :default_value, :not_a_number
   end
 
   def possible_custom_value_options(custom_value)
@@ -223,6 +249,10 @@ class CustomField < ApplicationRecord
 
   def full_text_formatting?
     text_formatting == 'full'
+  end
+
+  def thousands_delimiter?
+    thousands_delimiter == '1'
   end
 
   # Returns a ORDER BY clause that can used to sort customized
@@ -295,7 +325,7 @@ class CustomField < ApplicationRecord
 
     unless errs.any?
       if value.is_a?(Array)
-        if !multiple?
+        unless multiple?
           errs << ::I18n.t('activerecord.errors.messages.invalid')
         end
         if is_required? && value.detect(&:present?).nil?
@@ -329,12 +359,12 @@ class CustomField < ApplicationRecord
     args.include?(field_format)
   end
 
-  def self.human_attribute_name(attribute_key_name, *args)
+  def self.human_attribute_name(attribute_key_name, *)
     attr_name = attribute_key_name.to_s
     if attr_name == 'url_pattern'
       attr_name = "url"
     end
-    super(attr_name, *args)
+    super(attr_name, *)
   end
 
   def css_classes

@@ -22,6 +22,7 @@ module Redmine
     def self.prepare
       ApplicationRecord.include Redmine::Acts::Positioned
       ApplicationRecord.include Redmine::Acts::Mentionable
+      ApplicationRecord.include Redmine::Acts::Webhookable
       ApplicationRecord.include Redmine::I18n
 
       Scm::Base.add "Subversion"
@@ -49,12 +50,16 @@ module Redmine
         map.permission :manage_public_queries, {:queries => [:new, :create, :edit, :update, :destroy]}, :require => :member
         map.permission :save_queries, {:queries => [:new, :create, :edit, :update, :destroy]}, :require => :loggedin
 
+        # Webhooks
+        map.permission :use_webhooks, {}, :require => :member
+
         map.project_module :issue_tracking do |map|
           # Issues
           map.permission :view_issues, {:issues => [:index, :show, :issue_tab],
                                         :auto_complete => [:issues],
                                         :context_menus => [:issues],
                                         :versions => [:index, :show, :status_by],
+                                        :issue_categories => [:index, :show],
                                         :journals => [:index, :diff],
                                         :queries => :index,
                                         :reports => [:issue_report, :issue_report_details]},
@@ -77,6 +82,7 @@ module Redmine
           map.permission :view_issue_watchers, {}, :read => true
           map.permission :add_issue_watchers, {:watchers => [:new, :create, :append, :autocomplete_for_user, :autocomplete_for_mention]}
           map.permission :delete_issue_watchers, {:watchers => :destroy}
+          map.permission :export_issues, {}, :read => true
           map.permission :import_issues, {}
           # Issue categories
           map.permission :manage_categories, {:projects => :settings, :issue_categories => [:index, :show, :new, :create, :edit, :update, :destroy]}, :require => :member
@@ -95,6 +101,7 @@ module Redmine
                          {:projects => :settings, :project_enumerations => [:update, :destroy]},
                          :require => :member
           map.permission :log_time_for_other_users, :require => :member
+          map.permission :export_time_entries, {}, :read => true
           map.permission :import_time_entries, {}
         end
 
@@ -176,6 +183,10 @@ module Redmine
         menu.push :login, :signin_path, :if => Proc.new {!User.current.logged?}
         menu.push :register, :register_path,
                   :if => Proc.new {!User.current.logged? && Setting.self_registration?}
+        menu.push :my_profile, {:controller => 'users', :action => 'show', :id => 'current'},
+                  :if => Proc.new {User.current.logged?},
+                  :caption => :label_profile,
+                  :first => true
         menu.push :my_account, {:controller => 'my', :action => 'account'},
                   :if => Proc.new {User.current.logged?}
         menu.push :logout, :signout_path, :html => {:method => 'post'},
@@ -242,38 +253,60 @@ module Redmine
       MenuManager.map :admin_menu do |menu|
         menu.push :projects, {:controller => 'admin', :action => 'projects'},
                   :caption => :label_project_plural,
+                  :icon => 'projects',
                   :html => {:class => 'icon icon-projects'}
         menu.push :users, {:controller => 'users'}, :caption => :label_user_plural,
+                  :icon => 'user',
                   :html => {:class => 'icon icon-user'}
         menu.push :groups, {:controller => 'groups'}, :caption => :label_group_plural,
+                  :icon => 'group',
                   :html => {:class => 'icon icon-group'}
         menu.push :roles, {:controller => 'roles'},
                   :caption => :label_role_and_permissions,
+                  :icon => 'roles',
                   :html => {:class => 'icon icon-roles'}
         menu.push :trackers, {:controller => 'trackers'},
                   :caption => :label_tracker_plural,
+                  :icon => 'issue',
                   :html => {:class => 'icon icon-issue'}
         menu.push :issue_statuses, {:controller => 'issue_statuses'},
                   :caption => :label_issue_status_plural,
+                  :icon => 'issue-edit',
                   :html => {:class => 'icon icon-issue-edit'}
         menu.push :workflows, {:controller => 'workflows', :action => 'edit'},
                   :caption => :label_workflow,
+                  :icon => 'workflows',
                   :html => {:class => 'icon icon-workflows'}
         menu.push :custom_fields, {:controller => 'custom_fields'},
                   :caption => :label_custom_field_plural,
+                  :icon => 'custom-fields',
                   :html => {:class => 'icon icon-custom-fields'}
         menu.push :enumerations, {:controller => 'enumerations'},
+                  :icon => 'list',
                   :html => {:class => 'icon icon-list'}
         menu.push :settings, {:controller => 'settings'},
+                  :icon => 'settings',
                   :html => {:class => 'icon icon-settings'}
         menu.push :ldap_authentication,
                   {:controller => 'auth_sources', :action => 'index'},
+                  :icon => 'server-authentication',
                   :html => {:class => 'icon icon-server-authentication'}
+        menu.push :applications, {:controller => 'oauth2_applications', :action => 'index'},
+                  :if => Proc.new { Setting.rest_api_enabled? },
+                  :caption => :'doorkeeper.layouts.admin.nav.applications',
+                  :icon => 'apps',
+                  :html => {:class => 'icon icon-applications'}
+        menu.push :webhooks, {:controller => 'admin', :action => 'webhooks'},
+                  :caption => :label_webhook_plural,
+                  :icon => 'webhook',
+                  :html => {:class => 'icon icon-webhook'}
         menu.push :plugins, {:controller => 'admin', :action => 'plugins'},
                   :last => true,
+                  :icon => 'plugins',
                   :html => {:class => 'icon icon-plugins'}
         menu.push :info, {:controller => 'admin', :action => 'info'},
                   :caption => :label_information_plural,
+                  :icon => 'help',
                   :last => true,
                   :html => {:class => 'icon icon-help'}
       end
@@ -367,7 +400,11 @@ module Redmine
         menu.push :repository,
                   {:controller => 'repositories', :action => 'show',
                    :repository_id => nil, :path => nil, :rev => nil},
-                  :if => Proc.new {|p| p.repositories.exists?}
+                  :if => Proc.new { |p|
+                    repository_types = p.repositories.pluck(:type)
+                    enabled_types = Setting.enabled_scm.map { |name| "Repository::#{name}" }
+                    repository_types.intersect?(enabled_types)
+                  }
         menu.push :settings, {:controller => 'projects', :action => 'settings'},
                   :last => true
       end
@@ -395,10 +432,7 @@ module Redmine
 
       WikiFormatting.map do |format|
         format.register :textile
-        format.register :markdown, label: 'Markdown (deprecated)' if Object.const_defined?(:Redcarpet)
-        if Object.const_defined?(:CommonMarker)
-          format.register :common_mark, label: 'CommonMark Markdown (GitHub Flavored)'
-        end
+        format.register :common_mark, label: 'CommonMark Markdown (GitHub Flavored)'
       end
 
       ActionView::Template.register_template_handler :rsb, Views::ApiTemplateHandler

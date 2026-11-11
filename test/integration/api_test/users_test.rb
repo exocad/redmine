@@ -20,10 +20,8 @@
 require_relative '../../test_helper'
 
 class Redmine::ApiTest::UsersTest < Redmine::ApiTest::Base
-  fixtures :users, :groups_users, :email_addresses, :members, :member_roles, :roles, :projects
-
   test "GET /users.xml should return users" do
-    users = User.active.order('login')
+    users = User.active.order(:login)
     users.last.update(twofa_scheme: 'totp')
     Redmine::Configuration.with 'avatar_server_url' => 'https://gravatar.com' do
       with_settings :gravatar_enabled => '1', :gravatar_default => 'mm' do
@@ -42,7 +40,7 @@ class Redmine::ApiTest::UsersTest < Redmine::ApiTest::Base
 
           # No one has changed password.
           assert_select user_element, 'passwd_changed_on', :text => ''
-          assert_select user_element, 'avatar_url', :text => %r|\Ahttps://gravatar.com/avatar/\h{32}\?default=mm|
+          assert_select user_element, 'avatar_url', :text => %r|\Ahttps://gravatar.com/avatar/\h{64}\?default=mm|
 
           if user == users.last
             assert_select user_element, 'twofa_scheme', :text => 'totp'
@@ -55,7 +53,7 @@ class Redmine::ApiTest::UsersTest < Redmine::ApiTest::Base
   end
 
   test "GET /users.json should return users" do
-    users = User.active.order('login')
+    users = User.active.order(:login)
     users.last.update(twofa_scheme: 'totp')
     get '/users.json', :headers => credentials('admin')
 
@@ -64,7 +62,7 @@ class Redmine::ApiTest::UsersTest < Redmine::ApiTest::Base
     json = ActiveSupport::JSON.decode(response.body)
     assert json.key?('users')
 
-    users = User.active.order('login')
+    users = User.active.order(:login)
     assert_equal users.size, json['users'].size
 
     json['users'].zip(users) do |user_json, user|
@@ -167,7 +165,18 @@ class Redmine::ApiTest::UsersTest < Redmine::ApiTest::Base
     assert_select 'user id', :text => '2'
     assert_select 'user updated_on', :text => Time.zone.parse('2006-07-19T20:42:15Z').iso8601
     assert_select 'user passwd_changed_on', :text => ''
-    assert_select 'user avatar_url', :text => %r|\Ahttps://gravatar.com/avatar/\h{32}\?default=robohash|
+    assert_select 'user avatar_url', :text => %r|\Ahttps://gravatar.com/avatar/\h{64}\?default=robohash|
+  end
+
+  test "GET /users/:id.xml should return the URL of the uploaded avatar" do
+    Redmine::Thumbnail.stubs(:convert_available?).returns(true)
+    User.find(2).update_column(:avatar_id, 16)
+    with_settings :gravatar_enabled => '1' do
+      get '/users/2.xml'
+    end
+
+    assert_response :success
+    assert_select 'user avatar_url', :text => "http://www.example.com/users/2/avatar/#{User.find(2).avatar_key}"
   end
 
   test "GET /users/:id.xml should not return avatar_url when not set email address" do
@@ -261,7 +270,7 @@ class Redmine::ApiTest::UsersTest < Redmine::ApiTest::Base
   test "GET /users/current.xml should require authentication" do
     get '/users/current.xml'
 
-    assert_response 401
+    assert_response :unauthorized
   end
 
   test "GET /users/current.xml should return current user" do
@@ -345,7 +354,7 @@ class Redmine::ApiTest::UsersTest < Redmine::ApiTest::Base
         :headers => credentials('admin'))
     end
 
-    user = User.order('id DESC').first
+    user = User.order(id: :desc).first
     assert_equal 'foo', user.login
     assert_equal 'Firstname', user.firstname
     assert_equal 'Lastname', user.lastname
@@ -372,7 +381,7 @@ class Redmine::ApiTest::UsersTest < Redmine::ApiTest::Base
         :headers => credentials('admin'))
     end
 
-    user = User.order('id DESC').first
+    user = User.order(id: :desc).first
     assert user.hashed_password.present?
   end
 
@@ -390,7 +399,7 @@ class Redmine::ApiTest::UsersTest < Redmine::ApiTest::Base
         :headers => credentials('admin'))
     end
 
-    user = User.order('id DESC').first
+    user = User.order(id: :desc).first
     assert_equal 'foo', user.login
     assert_equal 'Firstname', user.firstname
     assert_equal 'Lastname', user.lastname
@@ -417,7 +426,7 @@ class Redmine::ApiTest::UsersTest < Redmine::ApiTest::Base
         :headers => credentials('admin'))
     end
 
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     assert_equal 'application/xml', @response.media_type
     assert_select 'errors error', :text => "First name cannot be blank"
   end
@@ -434,7 +443,7 @@ class Redmine::ApiTest::UsersTest < Redmine::ApiTest::Base
         :headers => credentials('admin'))
     end
 
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     assert_equal 'application/json', @response.media_type
     json = ActiveSupport::JSON.decode(response.body)
     assert_kind_of Hash, json
@@ -490,6 +499,19 @@ class Redmine::ApiTest::UsersTest < Redmine::ApiTest::Base
     assert_equal '', @response.body
   end
 
+  test "PUT /users/:id.json by an admin changing their own mail should not generate a session token" do
+    Token.create!(:user_id => 1, :action => 'session')
+
+    put(
+      '/users/1.json',
+      :params => {:user => {:mail => 'newadmin@somenet.foo'}},
+      :headers => credentials('admin'))
+    assert_response :no_content
+
+    assert_equal 'newadmin@somenet.foo', User.find(1).mail
+    assert_empty Token.where(:user_id => 1, :action => 'session')
+  end
+
   test "PUT /users/:id.xml with invalid parameters" do
     assert_no_difference('User.count') do
       put(
@@ -503,7 +525,7 @@ class Redmine::ApiTest::UsersTest < Redmine::ApiTest::Base
         :headers => credentials('admin'))
     end
 
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     assert_equal 'application/xml', @response.media_type
     assert_select 'errors error', :text => "First name cannot be blank"
   end
@@ -521,7 +543,7 @@ class Redmine::ApiTest::UsersTest < Redmine::ApiTest::Base
         :headers => credentials('admin'))
     end
 
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     assert_equal 'application/json', @response.media_type
     json = ActiveSupport::JSON.decode(response.body)
     assert_kind_of Hash, json

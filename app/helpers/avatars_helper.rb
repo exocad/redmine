@@ -34,48 +34,142 @@ module AvatarsHelper
     avatar(user, options).to_s.html_safe
   end
 
+  # Returns the full URL of the avatar image of +user+ for the API, or nil
+  def avatar_image_url(user)
+    if local_avatar?(user)
+      user_avatar_url(user, user.avatar_key)
+    elsif user.mail && Setting.gravatar_enabled?
+      gravatar_url(user.mail, {rating: nil, size: nil, default: Setting.gravatar_default})
+    end
+  end
+
   # Returns the avatar image tag for the given +user+ if avatars are enabled
   # +user+ can be a User or a string that will be scanned for an email address (eg. 'joe <joe@foo.bar>')
   def avatar(user, options = {})
-    if Setting.gravatar_enabled?
-      options[:default] = Setting.gravatar_default
-      options[:class] = GravatarHelper::DEFAULT_OPTIONS[:class] + " " + options[:class] if options[:class]
-      email = nil
-      if user.respond_to?(:mail)
-        email = user.mail
-        options[:title] = user.name unless options[:title]
-      elsif user.to_s =~ %r{<(.+?)>}
-        email = $1
-      end
-      if email.present?
-        gravatar(email.to_s.downcase, options) rescue nil
-      elsif user.is_a?(AnonymousUser)
-        anonymous_avatar(options)
-      elsif user.is_a?(Group)
-        group_avatar(options)
-      else
-        nil
-      end
+    # "avatar" class should be added to all avatars
+    options[:class] = ['avatar', options[:class]].compact.join(' ')
+    # Add the status of the user as a class (e.g. "active", "locked")
+    options[:class] += " #{User::LABEL_BY_STATUS[user.status]}" if user.is_a?(User)
+
+    if user.is_a?(AnonymousUser)
+      anonymous_avatar(options)
+    elsif user.is_a?(Group)
+      group_avatar(options)
+    elsif local_avatar?(user)
+      local_avatar_tag(user, options)
+    elsif Setting.gravatar_enabled?
+      gravatar_avatar_tag(user, options)
+    elsif user.respond_to?(:initials)
+      initials_avatar_tag(user, options)
     else
       ''
     end
   end
 
-  # Returns a link to edit user's avatar if avatars are enabled
-  def avatar_edit_link(user, options={})
-    if Setting.gravatar_enabled?
-      url = Redmine::Configuration['avatar_server_url']
-      link_to avatar(user, {:title => l(:button_edit)}.merge(options)), url, :target => '_blank'
+  # Returns true if the avatar set in Redmine is displayed for +user+
+  def local_avatar?(user)
+    user.is_a?(User) && user.avatar_id && User.avatar_available?
+  end
+
+  # Returns the path to the page to change the avatar of +user+, or nil if
+  # the current user cannot change it
+  def avatar_edit_path(user)
+    if user == User.current
+      my_avatar_path
+    elsif User.current.admin? && user.logged?
+      edit_user_avatar_path(user)
     end
   end
 
-  private
+  # Returns the avatar of +user+ linked to the page to change it if the
+  # current user can change it
+  def avatar_edit_link(user, options={})
+    if (path = avatar_edit_path(user))
+      link_to avatar(user, {:title => l(:button_change_avatar)}.merge(options)), path
+    else
+      avatar(user, options)
+    end
+  end
+
+  # Returns a text that explains where the avatar of +user+ comes from
+  def avatar_source_info(user)
+    return l(:text_avatar_uploaded) if local_avatar?(user)
+
+    source =
+      if Setting.gravatar_enabled?
+        t(:text_avatar_from_server_html, :url => Redmine::Configuration['avatar_server_url'])
+      else
+        l(:text_avatar_initials)
+      end
+    upload = User.avatar_available? ? l(:text_avatar_upload_instead) : l(:text_avatar_upload_disabled)
+    safe_join([source, upload], ' ')
+  end
 
   def anonymous_avatar(options={})
+    options[:class] = ['anonymous-avatar', options[:class]].compact.join(' ')
     image_tag 'anonymous.png', GravatarHelper::DEFAULT_OPTIONS.except(:default, :rating, :ssl).merge(options)
   end
 
   def group_avatar(options={})
-    image_tag 'group.png', GravatarHelper::DEFAULT_OPTIONS.except(:default, :rating, :ssl).merge(options)
+    options[:class] = ['group-avatar', options[:class]].compact.join(' ')
+    image_tag 'group.svg', GravatarHelper::DEFAULT_OPTIONS.except(:default, :rating, :ssl).merge(options)
+  end
+
+  private
+
+  def local_avatar_tag(user, options)
+    size = (options.delete(:size) || GravatarHelper::DEFAULT_OPTIONS[:size]).to_i
+    options[:title] ||= user.name
+    options[:srcset] = "#{user_avatar_path(user, user.avatar_key, :size => size * 2)} 2x"
+    image_tag(
+      user_avatar_path(user, user.avatar_key, :size => size),
+      GravatarHelper::DEFAULT_OPTIONS.slice(:alt).merge(options).merge(:width => size, :height => size))
+  end
+
+  def gravatar_avatar_tag(user, options)
+    options[:default] = Setting.gravatar_default
+    if options[:default].blank? && user.respond_to?(:initials) && user.initials.present?
+      # Gravatar responds with 404 if no avatar is registered for the email,
+      # then the image is replaced with the initials avatar on the client side
+      options[:default] = '404'
+      options[:data] = (options[:data] || {}).merge(
+        controller: 'initials-avatar-fallback',
+        action: 'error->initials-avatar-fallback#replace',
+        initials_avatar_fallback_initials_value: user.initials,
+        initials_avatar_fallback_class_value: initials_avatar_css_class(user, options)
+      )
+    end
+    options[:class] = [GravatarHelper::DEFAULT_OPTIONS[:class], options[:class]].compact.join(' ')
+
+    email = extract_email_from_user(user)
+
+    if user.respond_to?(:mail)
+      options[:title] ||= user.name
+      options[:initials] = user.initials if options[:default] == "initials" && user.initials.present?
+    end
+
+    if email.present?
+      gravatar(email.to_s.downcase, options) rescue nil
+    end
+  end
+
+  def initials_avatar_tag(user, options)
+    css_class = initials_avatar_css_class(user, options)
+
+    content_tag('span', user.initials, role: 'img', class: css_class, title: options[:title])
+  end
+
+  def initials_avatar_css_class(user, options)
+    size = (options[:size] || GravatarHelper::DEFAULT_OPTIONS[:size]).to_i
+
+    ["avatar-color-#{user.id % 16}", "s#{size}", options[:class]].compact.join(' ')
+  end
+
+  def extract_email_from_user(user)
+    if user.respond_to?(:mail)
+      user.mail
+    elsif user.to_s =~ %r{<(.+?)>}
+      $1
+    end
   end
 end

@@ -21,29 +21,65 @@ require_relative '../test_helper'
 
 class AvatarsHelperTest < Redmine::HelperTest
   include ERB::Util
-  include Rails.application.routes.url_helpers
   include AvatarsHelper
-
-  fixtures :users, :email_addresses
 
   def setup
     Setting.gravatar_enabled = '1'
   end
 
   def test_avatar_with_user
-    assert_include Digest::MD5.hexdigest('jsmith@somenet.foo'), avatar(User.find_by_mail('jsmith@somenet.foo'))
+    assert_include Digest::SHA256.hexdigest('jsmith@somenet.foo'), avatar(User.find_by_mail('jsmith@somenet.foo'))
+  end
+
+  def test_avatar_with_user_having_local_avatar
+    Redmine::Thumbnail.stubs(:convert_available?).returns(true)
+    user = User.find(2)
+    user.avatar_id = 16
+
+    avatar_tag = avatar(user, :size => 24)
+    assert_include "src=\"/users/2/avatar/#{user.avatar_key}/24\"", avatar_tag
+    assert_include "srcset=\"/users/2/avatar/#{user.avatar_key}/48 2x\"", avatar_tag
+    assert_include 'width="24" height="24"', avatar_tag
+  end
+
+  def test_avatar_should_ignore_local_avatar_without_imagemagick
+    Redmine::Thumbnail.stubs(:convert_available?).returns(false)
+    user = User.find(2)
+    user.avatar_id = 16
+
+    assert_include Digest::SHA256.hexdigest('jsmith@somenet.foo'), avatar(user)
+  end
+
+  def test_avatar_source_info
+    Redmine::Thumbnail.stubs(:convert_available?).returns(true)
+    user = User.find(2)
+    assert_include 'a default avatar is shown. You can upload an image to use instead.', avatar_source_info(user)
+    with_settings :gravatar_enabled => '0' do
+      assert_include 'generated from the user', avatar_source_info(user)
+    end
+    user.avatar_id = 16
+    assert_equal 'The uploaded image is currently used as the avatar.', avatar_source_info(user)
+    with_settings :avatar_enabled => '0' do
+      assert_include 'Uploading an avatar image to Redmine has been disabled by the administrator.', avatar_source_info(user)
+    end
   end
 
   def test_avatar_with_email_string
-    assert_include Digest::MD5.hexdigest('jsmith@somenet.foo'), avatar('jsmith <jsmith@somenet.foo>')
+    assert_include Digest::SHA256.hexdigest('jsmith@somenet.foo'), avatar('jsmith <jsmith@somenet.foo>')
   end
 
   def test_avatar_with_anonymous_user
-    assert_match %r{src="/assets/anonymous(-\w+)?.png"}, avatar(User.anonymous)
+    avatar_tag = avatar(User.anonymous)
+
+    assert_match %r{src="/assets/anonymous(-\w+)?.png"}, avatar_tag
+    assert_match 'class="anonymous-avatar avatar anon"', avatar_tag
   end
 
   def test_avatar_with_group
-    assert_match %r{src="/assets/group(-\w+)?.png"}, avatar(Group.first)
+    avatar_tag = avatar(Group.first)
+
+    assert_match %r{src="/assets/group(-\w+)?.svg"}, avatar_tag
+    assert_match 'class="group-avatar avatar"', avatar_tag
   end
 
   def test_avatar_with_invalid_arg_should_return_nil
@@ -57,6 +93,7 @@ class AvatarsHelperTest < Redmine::HelperTest
 
   def test_avatar_with_size_option
     assert_include 'size=24', avatar('jsmith <jsmith@somenet.foo>', :size => 24)
+    assert_include 'width="24" height="24"', avatar('jsmith <jsmith@somenet.foo>', :size => 24)
     assert_include 'width="24" height="24"', avatar(User.anonymous, :size => 24)
   end
 
@@ -66,15 +103,43 @@ class AvatarsHelperTest < Redmine::HelperTest
   end
 
   def test_avatar_css_class
-    # The default class of the img tag should be gravatar
-    assert_include 'class="gravatar"', avatar('jsmith <jsmith@somenet.foo>')
-    assert_include 'class="gravatar picture"', avatar('jsmith <jsmith@somenet.foo>', :class => 'picture')
+    # The default classes of the img tag should be gravatar and avatar
+    assert_include 'class="gravatar avatar"', avatar('jsmith <jsmith@somenet.foo>')
+    assert_include 'class="gravatar avatar picture"', avatar('jsmith <jsmith@somenet.foo>', :class => 'picture')
   end
 
-  def test_avatar_disabled
-    with_settings :gravatar_enabled => '0' do
-      assert_equal '', avatar(User.find_by_mail('jsmith@somenet.foo'))
+  def test_avatar_with_initials
+    with_settings :gravatar_default => 'initials' do
+      assert_include 'initials="RA"', avatar(User.find(1))
     end
+  end
+
+  def test_avatar_should_reject_initials_if_default_is_not_initials
+    with_settings :gravatar_default => 'identicon' do
+      assert_not_include 'initials="RA"', avatar(User.find(1))
+    end
+  end
+
+  def test_avatar_without_default_should_fall_back_to_initials_avatar
+    with_settings :gravatar_default => '' do
+      avatar_tag = avatar(User.find_by_mail('jsmith@somenet.foo'))
+
+      assert_include 'default=404', avatar_tag
+      assert_select_in avatar_tag, 'img[data-controller="initials-avatar-fallback"]' \
+                                   '[data-initials-avatar-fallback-initials-value="JS"]' \
+                                   '[data-initials-avatar-fallback-class-value="avatar-color-2 s24 avatar active"]'
+    end
+  end
+
+  def test_avatar_disabled_should_display_user_initials
+    with_settings :gravatar_enabled => '0' do
+      assert_equal "<span role=\"img\" class=\"avatar-color-8 s24 avatar active\">UM</span>", avatar(User.find_by_mail('miscuser8@foo.bar'))
+    end
+  end
+
+  def test_avatar_should_have_user_status_class
+    assert_select_in avatar(User.find(1)), '.avatar.active'
+    assert_select_in avatar(User.find(5)), '.avatar.locked'
   end
 
   def test_avatar_server_url

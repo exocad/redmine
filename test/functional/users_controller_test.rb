@@ -22,13 +22,6 @@ require_relative '../test_helper'
 class UsersControllerTest < Redmine::ControllerTest
   include Redmine::I18n
 
-  fixtures :users, :user_preferences, :email_addresses, :projects, :members, :member_roles, :roles,
-           :custom_fields, :custom_values, :groups_users,
-           :auth_sources,
-           :enabled_modules,
-           :issues, :issue_statuses,
-           :trackers
-
   def setup
     User.current = nil
     @request.session[:user_id] = 1 # admin
@@ -40,14 +33,28 @@ class UsersControllerTest < Redmine::ControllerTest
     active = User.active.first
     locked = User.where(status: User::STATUS_LOCKED).first
     assert_select 'table.users'
-    assert_select "tr#user-#{active.id}"
+    assert_select "tr.user.active#user-#{active.id}"
     assert_select "tr#user-#{locked.id}", 0
+  end
+
+  def test_index_default_columns_should_show_lastname_before_firstname_when_user_format_requires_it
+    with_settings user_format: 'lastname_firstname' do
+      get :index
+      assert_response :success
+
+      lastname_header = @response.body.match(/<th[^>]*class="[^"]*\blastname\b[^"]*"[^>]*>/)
+      firstname_header = @response.body.match(/<th[^>]*class="[^"]*\bfirstname\b[^"]*"[^>]*>/)
+
+      assert_not_nil lastname_header
+      assert_not_nil firstname_header
+      assert_operator lastname_header.begin(0), :<, firstname_header.begin(0)
+    end
   end
 
   def test_index_with_status_filter
     get :index, params: { set_filter: 1, f: ['status'], op: {status: '='}, v: {status: [3]} }
     assert_response :success
-    assert_select "tr.user", User.where(status: 3).count
+    assert_select "tr.user.locked", User.where(status: 3).count
   end
 
   def test_index_with_firstname_filter
@@ -187,6 +194,15 @@ class UsersControllerTest < Redmine::ControllerTest
     assert_response :success
 
     assert_select 'tr#user-1', 1
+  end
+
+  def test_index_with_query
+    query = UserQuery.create!(:name => 'My User Query', :description => 'Description for My User Query', :visibility => UserQuery::VISIBILITY_PUBLIC)
+    get :index, :params => { :query_id => query.id }
+    assert_response :success
+
+    assert_select 'h2', :text => query.name
+    assert_select '#sidebar a.query.selected[title=?]', query.description, :text => query.name
   end
 
   def test_index_csv
@@ -335,13 +351,13 @@ class UsersControllerTest < Redmine::ControllerTest
   def test_show_inactive
     @request.session[:user_id] = nil
     get :show, :params => {:id => 5}
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_show_inactive_by_admin
     @request.session[:user_id] = 1
     get :show, :params => {:id => 5}
-    assert_response 200
+    assert_response :ok
     assert_select 'h2', :text => /Dave2 Lopper2/
   end
 
@@ -351,7 +367,7 @@ class UsersControllerTest < Redmine::ControllerTest
 
     @request.session[:user_id] = nil
     get :show, :params => {:id => user.id}
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_show_displays_memberships_based_on_project_visibility
@@ -378,7 +394,7 @@ class UsersControllerTest < Redmine::ControllerTest
   def test_show_current_should_require_authentication
     @request.session[:user_id] = nil
     get :show, :params => {:id => 'current'}
-    assert_response 302
+    assert_response :found
   end
 
   def test_show_current
@@ -386,6 +402,7 @@ class UsersControllerTest < Redmine::ControllerTest
     get :show, :params => {:id => 'current'}
     assert_response :success
     assert_select 'h2', :text => /John Smith/
+    assert_select 'h2 a[href="/my/avatar"] .avatar'
   end
 
   def test_show_issues_counts
@@ -436,8 +453,19 @@ class UsersControllerTest < Redmine::ControllerTest
   def test_new
     get :new
     assert_response :success
+    assert_includes @response.headers['Cache-Control'], 'no-store'
+
     assert_select 'input[name=?]', 'user[login]'
     assert_select 'label[for=?]>span.required', 'user_password', 1
+  end
+
+  def test_new_should_show_lastname_before_firstname_when_user_format_requires_it
+    with_settings :user_format => 'lastname_firstname' do
+      get :new
+      assert_response :success
+
+      assert_operator @response.body.index('id="user_lastname"'), :<, @response.body.index('id="user_firstname"')
+    end
   end
 
   def test_create
@@ -458,7 +486,7 @@ class UsersControllerTest < Redmine::ControllerTest
       end
     end
 
-    user = User.order('id DESC').first
+    user = User.order(id: :desc).first
     assert_redirected_to :controller => 'users', :action => 'edit', :id => user.id
 
     assert_equal 'John', user.firstname
@@ -496,7 +524,7 @@ class UsersControllerTest < Redmine::ControllerTest
         }
       }
     end
-    user = User.order('id DESC').first
+    user = User.order(id: :desc).first
     assert_equal 'jdoe', user.login
     assert_equal true, user.pref.hide_mail
     assert_equal 'Paris', user.pref.time_zone
@@ -522,7 +550,7 @@ class UsersControllerTest < Redmine::ControllerTest
         :send_information => 1
       }
     end
-    user = User.order('id DESC').first
+    user = User.order(id: :desc).first
     assert_equal 'randompass', user.login
 
     mail = ActionMailer::Base.deliveries.last
@@ -552,6 +580,8 @@ class UsersControllerTest < Redmine::ControllerTest
       post :create, :params => {:user => {:login => 'foo'}}
     end
     assert_response :success
+    assert_includes @response.headers['Cache-Control'], 'no-store'
+
     assert_select_error /Email cannot be blank/
   end
 
@@ -638,9 +668,13 @@ class UsersControllerTest < Redmine::ControllerTest
     end
 
     assert_response :success
+    assert_includes @response.headers['Cache-Control'], 'no-store'
+
     assert_select 'h2>a+img.gravatar'
     assert_select 'input[name=?][value=?]', 'user[login]', 'jsmith'
     assert_select 'label[for=?]>span.required', 'user_password', 0
+    assert_select 'input[type=password][name=?][autocomplete=new-password]', 'user[password]'
+    assert_select 'input[type=password][name=?][autocomplete=new-password]', 'user[password_confirmation]'
   end
 
   def test_edit_registered_user
@@ -656,7 +690,7 @@ class UsersControllerTest < Redmine::ControllerTest
 
     get :edit, :params => {:id => 6}
 
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_edit_user_with_full_text_formatting_custom_field_should_not_fail
@@ -693,6 +727,8 @@ class UsersControllerTest < Redmine::ControllerTest
       }
     end
     assert_response :success
+    assert_includes @response.headers['Cache-Control'], 'no-store'
+
     assert_select_error /First name cannot be blank/
   end
 
@@ -857,7 +893,7 @@ class UsersControllerTest < Redmine::ControllerTest
       :id => 2,
       :user => {:status => 3}
     }
-    assert_response 302
+    assert_response :found
     user = User.find(2)
     assert_equal 3, user.status
     assert_equal '1', user.pref[:no_self_notified]
@@ -953,7 +989,6 @@ class UsersControllerTest < Redmine::ControllerTest
     ActionMailer::Base.deliveries.clear
     delete :destroy, :params => {:id => 1, :confirm => User.find(1).login}
     assert_nil ActionMailer::Base.deliveries.last
-
   end
 
   def test_update_unlock_admin_should_send_security_notification
@@ -997,7 +1032,7 @@ class UsersControllerTest < Redmine::ControllerTest
   def test_update_should_be_denied_for_anonymous
     assert User.find(6).anonymous?
     put :update, :params => {:id => 6}
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_update_with_blank_email_should_not_raise_exception
@@ -1051,7 +1086,7 @@ class UsersControllerTest < Redmine::ControllerTest
     assert_no_difference 'User.count' do
       delete :destroy, :params => {:id => 2, :confirm => User.find(2).login}
     end
-    assert_response 403
+    assert_response :forbidden
   end
 
   def test_destroy_should_be_denied_for_anonymous
@@ -1059,7 +1094,7 @@ class UsersControllerTest < Redmine::ControllerTest
     assert_no_difference 'User.count' do
       delete :destroy, :params => {:id => 6, :confirm => User.find(6).login}
     end
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_destroy_should_redirect_to_back_url_param
@@ -1105,7 +1140,7 @@ class UsersControllerTest < Redmine::ControllerTest
       assert_no_difference 'User.count' do
         delete :destroy, params: {id: user.id}
       end
-      assert_response 422
+      assert_response :unprocessable_content
     end
   end
 
@@ -1116,7 +1151,7 @@ class UsersControllerTest < Redmine::ControllerTest
       assert_no_difference 'User.count' do
         delete :destroy, params: {id: user.id}
       end
-      assert_response 422
+      assert_response :unprocessable_content
     end
   end
 
@@ -1134,14 +1169,6 @@ class UsersControllerTest < Redmine::ControllerTest
     end
     assert_redirected_to '/users'
     assert_nil User.find_by_id(2)
-  end
-
-  def test_bulk_destroy_with_lock_param_should_lock_instead
-    assert_no_difference 'User.count' do
-      delete :bulk_destroy, :params => {:ids => [2], :lock => 'lock'}
-    end
-    assert_redirected_to '/users'
-    assert User.find_by_id(2).locked?
   end
 
   def test_bulk_destroy_should_require_confirmation
@@ -1166,7 +1193,7 @@ class UsersControllerTest < Redmine::ControllerTest
     assert_no_difference 'User.count' do
       delete :bulk_destroy, :params => {:ids => [2], :confirm => 'Yes'}
     end
-    assert_response 403
+    assert_response :forbidden
   end
 
   def test_bulk_destroy_should_be_denied_for_anonymous
@@ -1174,6 +1201,104 @@ class UsersControllerTest < Redmine::ControllerTest
     assert_no_difference 'User.count' do
       delete :bulk_destroy, :params => {:ids => [6], :confirm => "Yes"}
     end
-    assert_response 404
+    assert_response :not_found
+  end
+
+  def test_bulk_lock
+    assert_difference 'User.status(User::STATUS_LOCKED).count', 1 do
+      delete :bulk_lock, :params => {:ids => [2]}
+    end
+    assert_redirected_to '/users'
+    assert User.find_by_id(2).locked?
+  end
+
+  def test_bulk_unlock
+    [8, 9].each do |id|
+      user = User.find(id)
+      user.status = User::STATUS_LOCKED
+      user.save!
+    end
+
+    assert_difference 'User.status(User::STATUS_LOCKED).count', -2 do
+      post :bulk_unlock, :params => {:ids => [8, 9]}
+    end
+
+    assert_redirected_to '/users'
+    assert User.find_by_id(8).active?
+    assert User.find_by_id(9).active?
+  end
+
+  def test_bulk_lock_should_destroy_autologin_and_session_tokens
+    autologin_token = Token.create!(:user_id => 2, :action => 'autologin')
+    session_token = Token.create!(:user_id => 2, :action => 'session')
+
+    post :bulk_lock, :params => {:ids => [2]}
+    assert_nil Token.find_by_id(autologin_token.id)
+    assert_nil Token.find_by_id(session_token.id)
+  end
+
+  def test_bulk_lock_should_send_security_notification_for_admins
+    user = User.find(2)
+    user.admin = true
+    user.save!
+
+    ActionMailer::Base.deliveries.clear
+    post :bulk_lock, :params => {:ids => [2]}
+
+    assert_not_nil (mail = ActionMailer::Base.deliveries.last)
+    assert_mail_body_match(
+      I18n.t(
+        :mail_body_security_notification_remove,
+        field: I18n.t(:field_admin),
+        value: 'jsmith'
+      ),
+      mail
+    )
+  end
+
+  def test_bulk_unlock_should_send_security_notification_for_admins
+    user = User.find(2)
+    user.admin = true
+    user.status = User::STATUS_LOCKED
+    user.save!
+
+    ActionMailer::Base.deliveries.clear
+    post :bulk_unlock, :params => {:ids => [2]}
+
+    assert_not_nil (mail = ActionMailer::Base.deliveries.last)
+    assert_mail_body_match(
+      I18n.t(
+        :mail_body_security_notification_add,
+        field: I18n.t(:field_admin),
+        value: 'jsmith'
+      ),
+      mail
+    )
+  end
+
+  def test_bulk_lock_should_not_lock_current_user
+    assert_difference 'User.status(User::STATUS_LOCKED).count', 1 do
+      delete :bulk_lock, :params => {:ids => [2, 1]}
+    end
+    assert_redirected_to '/users'
+    assert_not User.find_by_id(1).locked?
+    assert User.find_by_id(2).locked?
+  end
+
+  def test_bulk_lock_should_be_denied_for_non_admin_users
+    @request.session[:user_id] = 3
+
+    assert_no_difference 'User.status(User::STATUS_LOCKED).count' do
+      delete :bulk_lock, :params => {:ids => [2]}
+    end
+    assert_response :forbidden
+  end
+
+  def test_bulk_lock_should_be_denied_for_anonymous
+    assert User.find(6).anonymous?
+    assert_no_difference 'User.status(User::STATUS_LOCKED).count' do
+      delete :bulk_lock, :params => {:ids => [6]}
+    end
+    assert_response :not_found
   end
 end

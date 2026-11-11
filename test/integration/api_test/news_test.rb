@@ -20,17 +20,6 @@
 require_relative '../../test_helper'
 
 class Redmine::ApiTest::NewsTest < Redmine::ApiTest::Base
-  fixtures :projects, :trackers, :issue_statuses, :issues,
-           :enumerations, :users, :issue_categories,
-           :projects_trackers,
-           :roles,
-           :member_roles,
-           :members,
-           :enabled_modules,
-           :news,
-           :comments,
-           :attachments
-
   test "GET /news.xml should return news" do
     get '/news.xml'
 
@@ -73,7 +62,7 @@ class Redmine::ApiTest::NewsTest < Redmine::ApiTest::Base
       assert_select "author[id=2][name=\"John Smith\"]"
       assert_select 'title', 'eCookbook first release !'
       assert_select 'summary', 'First version was released...'
-      assert_select 'description', "eCookbook 1.0 has been released.\n\nVisit http://ecookbook.somenet.foo/"
+      assert_select 'description', 'eCookbook 1.0 has been released. Visit http://ecookbook.somenet.foo/'
       assert_select 'created_on', News.find(1).created_on.iso8601
     end
   end
@@ -84,6 +73,17 @@ class Redmine::ApiTest::NewsTest < Redmine::ApiTest::Base
     assert_equal 'application/json', response.media_type
     json = ActiveSupport::JSON.decode(response.body)
     assert_equal 1, json['news']['id']
+  end
+
+  test "GET /news/:id.xml?include=reactions should include reactions" do
+    get "/news/1.xml?include=reactions", :headers => credentials('admin')
+
+    assert_response :success
+    assert_equal 'application/xml', response.media_type
+    assert_select 'news>reactions[type=array]' do
+      assert_select 'reaction', 1
+      assert_select 'reaction>user[id="1"][name="Redmine Admin"]'
+    end
   end
 
   test "GET /news/:id.xml with attachments" do
@@ -112,6 +112,19 @@ class Redmine::ApiTest::NewsTest < Redmine::ApiTest::Base
       assert_select 'comment[id=2]' do
         assert_select 'author[id=2][name="John Smith"]'
         assert_select 'content', :text => 'This is an other comment'
+      end
+    end
+  end
+
+  test "GET /news/:id.xml?include=comments,reactions should include comment reactions" do
+    get "/news/1.xml?include=comments,reactions", :headers => credentials('admin')
+
+    assert_response :success
+    assert_equal 'application/xml', response.media_type
+    assert_select 'news comments[type=array]' do
+      assert_select 'comment[id="1"]>reactions[type=array]' do
+        assert_select 'reaction', 1
+        assert_select 'reaction>user[id="2"][name="John Smith"]'
       end
     end
   end
@@ -310,7 +323,7 @@ class Redmine::ApiTest::NewsTest < Redmine::ApiTest::Base
       '/news/1.xml',
       :params => {:news => {:title => ''}},
       :headers => credentials('jsmith'))
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     assert_select 'errors error', :text => "Title cannot be blank"
   end
 
@@ -319,7 +332,7 @@ class Redmine::ApiTest::NewsTest < Redmine::ApiTest::Base
       '/news/1.json',
       :params => {:news => {:title => ''}},
       :headers => credentials('jsmith'))
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     json = ActiveSupport::JSON.decode(response.body)
     assert json['errors'].include?("Title cannot be blank")
   end

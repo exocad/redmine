@@ -20,8 +20,6 @@
 require_relative '../test_helper'
 
 class IssueCategoryTest < ActiveSupport::TestCase
-  fixtures :issue_categories, :issues, :users, :groups_users
-
   def setup
     User.current = nil
     @category = IssueCategory.find(1)
@@ -29,13 +27,13 @@ class IssueCategoryTest < ActiveSupport::TestCase
 
   def test_create
     assert IssueCategory.new(:project_id => 2, :name => 'New category').save
-    category = IssueCategory.order('id DESC').first
+    category = IssueCategory.order(id: :desc).first
     assert_equal 'New category', category.name
   end
 
   def test_create_with_group_assignment
     assert IssueCategory.new(:project_id => 2, :name => 'Group assignment', :assigned_to_id => 11).save
-    category = IssueCategory.order('id DESC').first
+    category = IssueCategory.order(id: :desc).first
     assert_kind_of Group, category.assigned_to
     assert_equal Group.find(11), category.assigned_to
   end

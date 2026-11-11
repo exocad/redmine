@@ -20,28 +20,6 @@
 require_relative '../test_helper'
 
 class ProjectTest < ActiveSupport::TestCase
-  fixtures :projects, :trackers, :issue_statuses, :issues,
-           :journals, :journal_details,
-           :enumerations, :users, :issue_categories,
-           :projects_trackers,
-           :custom_fields,
-           :custom_fields_projects,
-           :custom_fields_trackers,
-           :custom_values,
-           :roles,
-           :member_roles,
-           :members,
-           :enabled_modules,
-           :versions,
-           :wikis, :wiki_pages, :wiki_contents, :wiki_content_versions,
-           :groups_users,
-           :boards, :messages,
-           :repositories,
-           :news, :comments,
-           :documents,
-           :workflows,
-           :attachments
-
   def setup
     @ecookbook = Project.find(1)
     @ecookbook_sub1 = Project.find(3)
@@ -118,6 +96,8 @@ class ProjectTest < ActiveSupport::TestCase
                "ab-12" => true,
                "ab_12" => true,
                "12" => false,
+               "autocomplete" => false,
+               'bulk_destroy' => false,
                "new" => false}
 
     to_test.each do |identifier, valid|
@@ -534,6 +514,8 @@ class ProjectTest < ActiveSupport::TestCase
     WorkflowTransition.create(:role_id => 1, :tracker_id => 1, :old_status_id => 1, :new_status_id => 4)
     WorkflowTransition.create(:role_id => 1, :tracker_id => 1, :old_status_id => 2, :new_status_id => 3)
     WorkflowTransition.create(:role_id => 1, :tracker_id => 2, :old_status_id => 1, :new_status_id => 3)
+    WorkflowTransition.create(:role_id => 1, :tracker_id => 1, :old_status_id => 5, :new_status_id => 5)
+    WorkflowTransition.create(:role_id => 1, :tracker_id => 2, :old_status_id => 5, :new_status_id => 5)
 
     assert_kind_of IssueStatus, project.rolled_up_statuses.first
     assert_equal IssueStatus.find(1), project.rolled_up_statuses.first
@@ -1109,6 +1091,12 @@ class ProjectTest < ActiveSupport::TestCase
     end
   end
 
+  def test_allowed_to_condition_should_not_query_members_for_user_without_memberships
+    condition = Project.allowed_to_condition(User.anonymous, :view_issues)
+
+    assert_not_includes condition, Member.table_name
+  end
+
   def test_safe_attributes_should_include_only_custom_fields_visible_to_user
     cf1 = ProjectCustomField.create!(:name => 'Visible field',
                                    :field_format => 'string',
@@ -1160,5 +1148,93 @@ class ProjectTest < ActiveSupport::TestCase
     project.update_column :name, 'Eco_kbook'
     r = Project.like('eco_k')
     assert_include project, r
+  end
+
+  def test_last_activity_date
+    # Note with id 3 is the last activity on Project 1
+    assert_equal Journal.find(3).created_on, Project.find(1).last_activity_date
+    # Project without activity should return nil
+    assert_nil Project.find(4).last_activity_date
+  end
+
+  def test_safe_attributes_inherit_members_for_new_record
+    role_with_manage_members = Role.generate!(:permissions => [:manage_members])
+    role_without_manage_members = Role.generate!(:permissions => [:view_issues])
+    user = User.generate!
+    parent = Project.generate!
+
+    with_settings :new_project_user_role_id => role_without_manage_members.id.to_s do
+      project = Project.new(:parent => parent)
+      assert_not project.safe_attribute?('inherit_members', user)
+      project.send(:safe_attributes=, {'inherit_members' => '1'}, user)
+      assert_not project.inherit_members?
+    end
+
+    with_settings :new_project_user_role_id => role_with_manage_members.id.to_s do
+      project = Project.new(:parent => parent)
+      assert project.safe_attribute?('inherit_members', user)
+      project.send(:safe_attributes=, {'inherit_members' => '1'}, user)
+      assert project.inherit_members?
+    end
+
+    project = Project.new(:parent => parent)
+    assert project.safe_attribute?('inherit_members', User.find(1)) # Admin
+  end
+
+  def test_safe_attributes_for_new_record_should_respect_oauth_scope
+    user = User.find(2)
+    {
+      'is_public' => :select_project_publicity,
+      'enabled_module_names' => :select_project_modules,
+      'inherit_members' => :manage_members
+    }.each do |attribute, permission|
+      with_settings :new_project_user_role_id => '1' do
+        assert Role.find(1).has_permission?(permission)
+
+        user.oauth_scope = [:add_project]
+        assert_not Project.new.safe_attribute?(attribute, user)
+
+        user.oauth_scope = [:add_project, permission]
+        assert Project.new.safe_attribute?(attribute, user)
+      end
+    end
+  end
+
+  def test_safe_attributes_inherit_members_for_existing_record
+    parent = Project.generate!
+    child = Project.generate_with_parent!(parent, :inherit_members => false)
+    user = User.generate!
+    role = Role.generate!(:permissions => [:edit_project])
+    User.add_to_project(user, child, role)
+
+    assert_not child.safe_attribute?('inherit_members', user)
+    child.send(:safe_attributes=, {'inherit_members' => '1'}, user)
+    assert_not child.inherit_members?
+
+    # Add manage_members permission
+    role.add_permission!(:manage_members)
+    user.reload
+
+    assert child.safe_attribute?('inherit_members', user)
+    child.send(:safe_attributes=, {'inherit_members' => '1'}, user)
+    assert child.inherit_members?
+  end
+
+  def test_safe_attributes_inherit_members_should_require_parent_visibility
+    parent = Project.generate!(:is_public => false)
+    child = Project.generate_with_parent!(parent, :inherit_members => false)
+    user = User.generate!
+    User.add_to_project(user, child, Role.generate!(:permissions => [:manage_members]))
+
+    # Parent is not visible to user
+    assert_not parent.visible?(user)
+    assert_not child.safe_attribute?('inherit_members', user)
+
+    # Parent becomes visible to user
+    User.add_to_project(user, parent, Role.generate!(:permissions => [:view_project]))
+    parent.reload
+    user.reload
+    assert parent.visible?(user)
+    assert child.safe_attribute?('inherit_members', user)
   end
 end

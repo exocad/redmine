@@ -48,6 +48,11 @@ class IssuesController < ApplicationController
     retrieve_query(IssueQuery, use_session)
 
     if @query.valid?
+      if (request.format.csv? || request.format.pdf?) && !export_allowed?(:export_issues, @query.base_scope)
+        deny_access
+        return
+      end
+
       respond_to do |format|
         format.html do
           @issue_count = @query.issue_count
@@ -58,8 +63,10 @@ class IssuesController < ApplicationController
         format.api do
           @offset, @limit = api_offset_and_limit
           @query.column_names = %w(author)
+          preload = [:tracker, :assigned_to, :category, :fixed_version, :custom_values]
+          preload << {:attachments => :author} if include_in_api_response?('attachments')
           @issue_count = @query.issue_count
-          @issues = @query.issues(:offset => @offset, :limit => @limit)
+          @issues = @query.issues(:offset => @offset, :limit => @limit, :preload => preload)
           Issue.load_visible_relations(@issues) if include_in_api_response?('relations')
           if User.current.allowed_to?(:view_time_entries, nil, :global => true)
             Issue.load_visible_spent_hours(@issues)
@@ -84,7 +91,7 @@ class IssuesController < ApplicationController
     else
       respond_to do |format|
         format.html {render :layout => !request.xhr?}
-        format.any(:atom, :csv, :pdf) {head 422}
+        format.any(:atom, :csv, :pdf) {head :unprocessable_content}
         format.api {render_validation_errors(@query)}
       end
     end
@@ -93,6 +100,11 @@ class IssuesController < ApplicationController
   end
 
   def show
+    if request.format.pdf? && !User.current.allowed_to?(:export_issues, @project)
+      deny_access
+      return
+    end
+
     if !api_request? || include_in_api_response?('journals')
       @journals = @issue.visible_journals_with_index
       @journals.reverse! if User.current.wants_comments_in_reverse_order?
@@ -112,8 +124,13 @@ class IssuesController < ApplicationController
     respond_to do |format|
       format.html do
         @priorities = IssuePriority.active
-        @time_entry = TimeEntry.new(:issue => @issue, :project => @issue.project)
-        @time_entries = @issue.time_entries.visible.preload(:activity, :user)
+        if @project.module_enabled?(:time_tracking)
+          @time_entry = TimeEntry.new(:issue => @issue, :project => @issue.project)
+          @time_entries = @issue.time_entries.visible.preload(:activity, :user)
+        else
+          @time_entry = nil
+          @time_entries = []
+        end
         @relation = IssueRelation.new
         @has_changesets = @issue.changesets.visible.preload(:repository, :user).exists?
         retrieve_previous_and_next_issue_ids
@@ -224,9 +241,8 @@ class IssuesController < ApplicationController
       end
       respond_to do |format|
         format.html do
-          redirect_back_or_default(
-            issue_path(@issue, previous_and_next_issue_ids_params)
-          )
+          redirect_back_or_default issue_path(@issue),
+            flash: { previous_and_next_issue_ids: previous_and_next_issue_ids_params }
         end
         format.api  {render_api_ok}
       end
@@ -328,7 +344,8 @@ class IssuesController < ApplicationController
     @versions = target_projects.map {|p| p.shared_versions.open}.reduce(:&)
     @categories = target_projects.map {|p| p.issue_categories}.reduce(:&)
     if @copy
-      @attachments_present = @issues.detect {|i| i.attachments.any?}.present?
+      @attachments_present = @issues.detect {|i| i.attachments.any?}.present? &&
+                               (Setting.copy_attachments_on_issue_copy == 'ask')
       @subtasks_present = @issues.detect {|i| !i.leaf?}.present?
       @watchers_present = User.current.allowed_to?(:add_issue_watchers, @projects) &&
                             Watcher.where(:watchable_type => 'Issue',
@@ -347,7 +364,6 @@ class IssuesController < ApplicationController
 
     attributes = parse_params_for_bulk_update(params[:issue])
     copy_subtasks = (params[:copy_subtasks] == '1')
-    copy_attachments = (params[:copy_attachments] == '1')
     copy_watchers = (params[:copy_watchers] == '1')
 
     if @copy
@@ -386,7 +402,7 @@ class IssuesController < ApplicationController
       if @copy
         issue = orig_issue.copy(
           {},
-          :attachments => copy_attachments,
+          :attachments => copy_attachments?(params[:copy_attachments]),
           :subtasks => copy_subtasks,
           :watchers => copy_watchers,
           :link => link_copy?(params[:link_copy])
@@ -399,6 +415,7 @@ class IssuesController < ApplicationController
       call_hook(:controller_issues_bulk_edit_before_save, {:params => params, :issue => issue})
       if issue.save
         saved_issues << issue
+        call_hook(:controller_issues_bulk_edit_after_save, { :params => params, :issue => issue, :journal => journal })
       else
         unsaved_issues << orig_issue
       end
@@ -502,8 +519,9 @@ class IssuesController < ApplicationController
       return
     end
     if !params[:set_filter] && use_session && session[:issue_query]
+      # Don't apply the default query if a valid query id is set in the session
       query_id, project_id = session[:issue_query].values_at(:id, :project_id)
-      return if IssueQuery.where(id: query_id).exists? && project_id == @project&.id
+      return if query_id && project_id == @project&.id && IssueQuery.exists?(id: query_id)
     end
     if default_query = IssueQuery.default(project: @project)
       params[:query_id] = default_query.id
@@ -511,11 +529,14 @@ class IssuesController < ApplicationController
   end
 
   def retrieve_previous_and_next_issue_ids
-    if params[:prev_issue_id].present? || params[:next_issue_id].present?
-      @prev_issue_id = params[:prev_issue_id].presence.try(:to_i)
-      @next_issue_id = params[:next_issue_id].presence.try(:to_i)
-      @issue_position = params[:issue_position].presence.try(:to_i)
-      @issue_count = params[:issue_count].presence.try(:to_i)
+    if flash.key?(:previous_and_next_issue_ids)
+      flash[:previous_and_next_issue_ids].then do |info|
+        @prev_issue_id = info[:prev_issue_id].presence.try(:to_i)
+        @next_issue_id = info[:next_issue_id].presence.try(:to_i)
+        @issue_position = info[:issue_position].presence.try(:to_i)
+        @issue_count = info[:issue_count].presence.try(:to_i)
+      end
+      flash.delete(:previous_and_next_issue_ids)
     else
       retrieve_query_from_session
       if @query
@@ -592,7 +613,7 @@ class IssuesController < ApplicationController
         end
 
         @link_copy = link_copy?(params[:link_copy]) || request.get?
-        @copy_attachments = params[:copy_attachments].present? || request.get?
+        @copy_attachments = copy_attachments?(params[:copy_attachments]) || request.get?
         @copy_subtasks = params[:copy_subtasks].present? || request.get?
         @copy_watchers = User.current.allowed_to?(:add_issue_watchers, @project)
         @issue.copy_from(@copy_from, :attachments => @copy_attachments,
@@ -610,6 +631,8 @@ class IssuesController < ApplicationController
     end
     @issue.author ||= User.current
     @issue.start_date ||= User.current.today if Setting.default_issue_start_date_to_creation_date?
+    offset = Setting.default_issue_due_date_offset_in_days
+    @issue.due_date ||= User.current.today + offset if offset
 
     attrs = (params[:issue] || {}).deep_dup
     if action_name == 'new' && params[:was_default_status] == attrs[:status_id]
@@ -619,6 +642,12 @@ class IssuesController < ApplicationController
       # Discard submitted version when changing the project on the issue form
       # so we can use the default version for the new project
       attrs.delete(:fixed_version_id)
+    end
+    if action_name == 'new' &&
+         %w[issue_project_id issue_tracker_id].include?(params[:form_update_triggered_by]) &&
+         attrs[:is_private] != '1'
+      # Drop the unchecked value so the selected tracker's private default can be applied.
+      attrs.delete(:is_private)
     end
     attrs[:assigned_to_id] = User.current.id if attrs[:assigned_to_id] == 'me'
     @issue.safe_attributes = attrs
@@ -695,15 +724,27 @@ class IssuesController < ApplicationController
     end
   end
 
+  # Returns true if the attachments should be copied
+  # from the original issue
+  def copy_attachments?(param)
+    case Setting.copy_attachments_on_issue_copy
+    when 'yes'
+      true
+    when 'no'
+      false
+    when 'ask'
+      param == '1'
+    end
+  end
+
   # Redirects user after a successful issue creation
   def redirect_after_create
     if params[:continue]
       url_params = {}
-      url_params[:issue] =
-        {
-          :tracker_id => @issue.tracker,
-          :parent_issue_id => @issue.parent_issue_id
-        }.reject {|k, v| v.nil?}
+      url_params[:issue] = {
+        :tracker_id => @issue.tracker,
+        :parent_issue_id => @issue.parent_issue_id
+      }.compact
       url_params[:back_url] = params[:back_url].presence
 
       if params[:project_id]

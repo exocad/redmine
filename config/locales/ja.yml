@@ -114,8 +114,9 @@ ja:
 # Used in array.to_sentence.
   support:
     array:
-      sentence_connector: "及び"
-      skip_last_comma: true
+      last_word_connector: "、"
+      two_words_connector: "、"
+      words_connector: "、"
 
   activerecord:
     errors:
@@ -158,6 +159,7 @@ ja:
         must_contain_digits: "は数字 (0-9) を含む必要があります"
         must_contain_special_chars: "は記号 (!, $, %, ...) を含む必要があります"
         domain_not_allowed: "は許可されていないドメインを含んでいます (%{domain})"
+        too_simple: "が簡単すぎます"
 
   actionview_instancetag_blank_option: 選んでください
 
@@ -218,7 +220,7 @@ ja:
   error_issue_done_ratios_not_updated: "チケットの進捗率が更新できません。"
   error_workflow_copy_source: 'コピー元となるトラッカーまたはロールを選択してください'
   error_workflow_copy_target: 'コピー先となるトラッカーとロールを選択してください'
-  error_can_not_delete_tracker: 'このトラッカーは使用中です。削除できません。'
+  error_can_not_delete_tracker_html: 'このトラッカーは使用中です。削除できません。<p>以下のプロジェクトにこのトラッカーを使用しているチケットがあります:<br>%{projects}</p>'
 
   warning_attachments_not_saved: "%{count}個の添付ファイルが保存できませんでした。"
 
@@ -227,7 +229,7 @@ ja:
   mail_body_lost_password_validity: 'このリンクでパスワードを再設定できるのは1回だけです。ご注意ください。'
   mail_subject_register: "%{value} アカウント登録の確認"
   mail_body_register: 'アカウント登録を完了するには、以下のアドレスをクリックしてください:'
-  mail_body_account_information_external: "%{value} アカウントを使ってにログインできます。"
+  mail_body_account_information_external: "%{value} アカウントを使ってログインできます。"
   mail_body_account_information: アカウント情報
   mail_subject_account_activation_request: "%{value} アカウントの承認要求"
   mail_body_account_activation_request: "新しいユーザー %{value} が登録されました。このアカウントはあなたの承認待ちです："
@@ -324,6 +326,7 @@ ja:
   field_time_zone: タイムゾーン
   field_searchable: 検索対象
   field_default_value: デフォルト値
+  field_default_value_mode: デフォルト値の指定方法
   field_comments_sorting: コメントの表示順
   field_parent_title: 親ページ
   field_editable: 編集可能
@@ -468,6 +471,7 @@ ja:
 
   label_user: ユーザー
   label_user_plural: ユーザー
+  label_users_and_groups: ユーザーとグループ
   label_user_new: 新しいユーザー
   label_user_anonymous: 匿名ユーザー
   label_profile: プロフィール
@@ -531,7 +535,6 @@ ja:
   label_activity: 活動
   label_user_activity: "%{value} の活動"
   label_new: 新しく作成
-  label_logged_as: ログイン中：
   label_environment: 環境
   label_authentication: 認証
   label_auth_source: 認証方式
@@ -576,7 +579,6 @@ ja:
   label_close_versions: 完了したバージョンを終了にする
   label_export_to: '他の形式にエクスポート:'
   label_read: 読む...
-  label_public_projects: 公開プロジェクト
   label_open_issues: 未完了
   label_open_issues_plural: 未完了
   label_closed_issues: 完了
@@ -595,9 +597,12 @@ ja:
   label_new_statuses_allowed: 遷移できるステータス
   label_all: すべて
   label_none: なし
+  label_absolute: 絶対値
+  label_relative: 相対値
   label_nobody: 無記名
   label_next: 次
   label_previous: 前
+  label_show_more: さらに表示
   label_used_by: 使用中
   label_details: 詳細
   label_add_note: コメントを追加
@@ -605,8 +610,6 @@ ja:
   label_months_from: ヶ月分
   label_gantt: ガントチャート
   label_internal: 内部
-  label_last_changes: "最新の変更 %{count}件"
-  label_change_view_all: すべての変更を表示
   label_comment: コメント
   label_comment_plural: コメント
   label_x_comments:
@@ -640,7 +643,6 @@ ja:
   label_last_month: 先月
   label_next_month: 来月
   label_this_year: 今年
-  label_date_range: 期間
   label_less_than_ago: N日前以降
   label_more_than_ago: N日前以前
   label_ago: N日前
@@ -649,7 +651,6 @@ ja:
   label_day_plural: 日
   label_repository: リポジトリ
   label_repository_plural: リポジトリ
-  label_browse: ブラウズ
   label_branch: ブランチ
   label_tag: タグ
   label_revision: リビジョン
@@ -680,7 +681,6 @@ ja:
   label_wiki_page_plural: Wikiページ
   label_index_by_title: 索引(名前順)
   label_index_by_date: 索引(日付順)
-  label_current_version: 最新版
   label_preview: プレビュー
   label_feed_plural: フィード
   label_changes_details: 全変更の詳細
@@ -705,7 +705,6 @@ ja:
   label_applied_status: 適用されるステータス
   label_loading: ロード中...
   label_relation_new: 新しい関連
-  label_relation_delete: 関連の削除
   label_relates_to: 関連している
   label_duplicates: 次のチケットと重複
   label_duplicated_by: 次のチケットが重複
@@ -732,8 +731,6 @@ ja:
   label_year: 年
   label_month: 月
   label_week: 週
-  label_date_from: "日付指定: "
-  label_date_to: から
   label_language_based: ユーザーの言語の設定に従う
   label_sort_by: "並べ替え %{value}"
   label_send_test_email: テストメールを送信
@@ -773,7 +770,6 @@ ja:
   label_ldap_authentication: LDAP認証
   label_downloads_abbr: DL
   label_optional_description: 説明 (任意)
-  label_add_another_file: 別のファイルを追加
   label_preferences: 設定
   label_chronological_order: 古い順
   label_reverse_chronological_order: 新しい順
@@ -814,6 +810,8 @@ ja:
   label_parent_revision: 親
   label_child_revision: 子
   label_gantt_progress_line: イナズマ線
+  label_last_used_on: "最終使用：%{value}前"
+  label_never_used: 未使用
 
   button_login: ログイン
   button_submit: 送信
@@ -908,10 +906,8 @@ ja:
   text_status_changed_by_changeset: "更新履歴 %{value} で適用されました。"
   text_time_logged_by_changeset: "更新履歴 %{value} で適用されました。"
   text_issues_destroy_confirmation: '本当に選択したチケットを削除しますか？'
-  text_select_project_modules: 'このプロジェクトで使用するモジュールを選択してください:'
   text_default_administrator_account_changed: デフォルト管理アカウントが変更済
   text_file_repository_writable: 添付ファイルディレクトリに書き込み可能
-  text_plugin_assets_writable: Plugin assetsディレクトリに書き込み可能
   text_minimagick_available: MiniMagickが利用可能 (オプション)
   text_destroy_time_entries_question: このチケットの%{hours}時間分の作業記録の扱いを選択してください。
   text_destroy_time_entries: 記録された作業時間を含めて削除
@@ -991,19 +987,17 @@ ja:
   setting_issue_group_assignment: グループへのチケット割り当てを許可
   description_query_sort_criteria_direction: 順序
   description_project_scope: 検索範囲
-  description_filter: Filter
   description_user_mail_notification: メール通知の設定
   description_message_content: 内容
   description_available_columns: 利用できる項目
   description_issue_category_reassign: 新しいカテゴリを選択してください
   description_search: 検索キーワード
   description_notes: コメント
-  description_choose_project: プロジェクト
   description_query_sort_criteria_attribute: 項目
   description_wiki_subpages_reassign: 新しい親ページを選択してください
   description_selected_columns: 選択された項目
   error_scm_annotate_big_text_file: テキストファイルサイズの上限を超えているためアノテートできません。
-  setting_default_issue_start_date_to_creation_date: 現在の日付を新しいチケットの開始日とする
+  setting_default_issue_start_date_to_creation_date: 新規チケットの開始日を現在の日付とする
   button_edit_section: このセクションを編集
   description_all_columns: すべての項目
   button_export: エクスポート
@@ -1103,6 +1097,7 @@ ja:
   notice_new_password_must_be_different: 新しいパスワードは現在のパスワードと異なるものでなければなりません
   setting_mail_handler_excluded_filenames: 除外する添付ファイル名
   text_convert_available: ImageMagickのconvertコマンドが利用可能 (オプション)
+  text_pandoc_available: Pandocが利用可能 (オプション)
   label_link: リンク
   label_only: 次のもののみ
   label_drop_down_list: ドロップダウンリスト
@@ -1172,6 +1167,8 @@ ja:
   label_fields_mapping: フィールドの対応関係
   label_file_content_preview: ファイル内容のプレビュー
   label_create_missing_values: 存在しない値は新規作成
+  label_position: 位置
+  label_message: メッセージ
   button_import: インポート
   field_total_estimated_hours: 合計予定工数
   label_api: API
@@ -1253,8 +1250,6 @@ ja:
   error_token_expired: パスワード再発行用のリンクはすでに失効しています。もう一度やり直してください。
   error_spent_on_future_date: 未来日付の作業時間は入力できません
   setting_timelog_accept_future_dates: 未来日付の作業時間の入力を許可
-  label_delete_link_to_subtask: 関連の削除
-  error_not_allowed_to_log_time_for_other_users: 他のユーザーの作業時間を入力する権限がありません
   permission_log_time_for_other_users: 他のユーザーの作業時間の入力
   text_role_no_workflow: このロールにワークフローが定義されていません
   text_status_no_workflow: このステータスはどのトラッカーのワークフローでも使われていません
@@ -1424,6 +1419,7 @@ ja:
   field_is_member_of_group: グループ
   text_users_bulk_destroy_head: 以下のユーザーとこれらのユーザーへのすべての参照を削除しようとしています。削除後は元に戻せません。通常は削除よりロックのほうが適切です。
   text_users_bulk_destroy_confirm: 削除する場合は確認のため "%{yes}" と入力してください。
+  text_users_remove_from_group_confirmation: グループ「%{group}」から選択したユーザーを削除してもよろしいですか？
   permission_select_project_publicity: プロジェクトの公開/非公開
   label_auto_watch_on_issue_created: 自分が作成したチケット
   field_any_searchable: 全検索対象テキスト
@@ -1439,3 +1435,123 @@ ja:
   field_name_or_email_or_login: 姓名・メールアドレス・ログインID
   text_default_active_job_queue_changed: キューアダプターがデフォルト (開発・テスト用) 以外のものに変更済み
   label_option_auto_lang: 自動設定
+  label_issue_attachment_added: 添付ファイルの追加
+  field_estimated_remaining_hours: 残工数
+  field_last_activity_date: 最終活動日
+  setting_issue_done_ratio_interval: 進捗率の間隔
+  setting_copy_attachments_on_issue_copy: チケットをコピーするとき添付ファイルもコピー
+  field_thousands_delimiter: 3桁区切り表示
+  label_involved_principals: 作成者 / 直近の関係者
+  label_attachment_summary:
+    zero: "%{filename}"
+    one: "%{filename} ほか%{count}件"
+    other: "%{filename} ほか%{count}件"
+  setting_wiki_tablesort_enabled: コンテンツ内テーブルの Tablesort (JavaScript) による並べ替え
+  label_progressbar: 進捗バー
+  error_spent_on_closed_issue: 完了したチケットに作業時間を記録することはできません
+  setting_timelog_accept_closed_issues: 完了したチケットへの作業時間の記録を許可
+  setting_related_issues_default_columns: 関連するチケットと子チケットの一覧で表示する項目
+  setting_display_related_issues_table_headers: テーブルヘッダを表示
+  error_can_not_remove_role_reason_members_html: "<p>以下のプロジェクトにこのロールのメンバーがいます:<br>%{projects}</p>"
+  setting_reactions_enabled: リアクション機能を有効にする
+  reaction_text_x_other_users:
+    one: 他1人
+    other: "他%{count}人"
+  text_setting_gravatar_default_initials_html: ユーザーの姓と名それぞれの先頭文字がアイコン生成のために <a href="%{url}">%{url}</a> に送信されます。
+  permission_view_project: プロジェクトの閲覧
+  permission_search_project: プロジェクトの検索
+  permission_view_members: プロジェクトのメンバーの閲覧
+  label_oauth_permission_admin: このRedmineの管理
+  label_oauth_admin_access: システム管理
+  label_oauth_application_plural: アプリケーション
+  label_oauth_authorized_application_plural: 認可済みアプリケーション
+  text_oauth_admin_permission: システム管理者権限。システム管理者によって認可された場合、このアプリケーションはすべてのデータを読み書きでき、また他のユーザーになりすますことができます。
+  text_oauth_admin_permission_info: このアプリケーションはシステム管理者権限を要求しています。
+    もしあなたがシステム管理者である場合（または将来的にシステム管理者になる場合）、このアプリケーションはすべてのデータを読み書きでき、あなたの代理で他のユーザーになりすますことができます。これを避けたい場合は、システム管理者権限のないユーザーとして認可してください。
+  text_oauth_copy_secret_now: シークレットは今すぐ安全な場所にコピーしてください。今後は再表示できません。
+  text_oauth_implicit_permissions: あなたの名前・ログインID・メインのメールアドレスの閲覧
+  text_oauth_info_scopes: このアプリケーションが要求できるスコープを選択してください。アプリケーションは、ここで選択された範囲を超えることはできません。また、認可したユーザーのロールおよび参加しているプロジェクトによる制限も常に適用されます。
+  twofa_already_setup: 二要素認証はすでに設定済みです。
+  permission_use_webhooks: Webhookの使用
+  label_webhook_plural: Webhook
+  label_webhook_new: 新しいwebhook
+  label_webhook_edit: webhookの編集
+  label_webhook_events: イベント
+  webhook_url_info: 選択されたイベントが発生するとRedmineはこのURLにPOSTリクエストを送信します。
+  webhook_secret_info_html: Redmineはこの値を使用してハッシュ署名を作成し、各リクエストの X-Redmine-Signature-256 ヘッダーの値として送信します。
+  setting_webhooks_enabled: Webhookを有効にする
+  label_integrations: 連携
+  label_alert_note: 注記
+  label_alert_tip: ヒント
+  label_alert_warning: 警告
+  label_alert_caution: 注意
+  label_alert_important: 重要
+  field_ratio_interval: 進捗率の間隔
+  webhook_event_created: "%{object_name} を作成しました"
+  webhook_event_updated: "%{object_name} を更新しました"
+  webhook_event_deleted: "%{object_name} を削除しました"
+  label_auto_watch_on_issue_assigned_to_me: 自分が担当者になったチケット
+  label_relation_remove: 関連を解除
+  label_subtask_remove: 子チケットを解除
+  button_remove: 解除
+  label_open_in_full_view: 全画面で表示
+  label_user_mail_option_only_my_watches: ウォッチ中のもの
+  setting_assignee_dropdown_display_format: 担当者ドロップダウンの表示形式
+  label_assignee_dropdown_display_format_users_then_groups: ユーザー → グループ
+  label_assignee_dropdown_display_format_groups_then_users: グループ → ユーザー
+  label_enable_default_issue_due_date_offset: 新規チケットの期日のデフォルト値を有効にする
+  setting_default_issue_due_date_offset: 新規チケットの期日のデフォルト値
+  label_days_relative_to_today: 日 (現在の日付からの相対値)
+  label_wiki_toolbar_strong: 強調
+  label_wiki_toolbar_italic: 斜体
+  label_wiki_toolbar_underline: 下線
+  label_wiki_toolbar_deleted: 取り消し線
+  label_wiki_toolbar_code: コード
+  label_wiki_toolbar_heading_1: 見出し 1
+  label_wiki_toolbar_heading_2: 見出し 2
+  label_wiki_toolbar_heading_3: 見出し 3
+  label_wiki_toolbar_unordered_list: 順不同リスト
+  label_wiki_toolbar_ordered_list: 番号つきリスト
+  label_wiki_toolbar_task_list: タスクリスト
+  label_wiki_toolbar_quote: 引用
+  label_wiki_toolbar_unquote: 引用解除
+  label_wiki_toolbar_table: テーブル
+  label_wiki_toolbar_preformatted_text: 整形済みテキスト
+  label_wiki_toolbar_preformatted_code: コードハイライト
+  label_wiki_toolbar_wiki_link: Wikiページへのリンク
+  label_wiki_toolbar_image: 画像
+  label_wiki_toolbar_help: ヘルプ
+  label_assignee_dropdown_display_format_users_by_group: グループ別
+  button_remove_from_group: グループから解除
+  button_add_to_group: グループに追加
+  field_private_by_default: デフォルトでプライベート
+  error_issue_status_in_use_by_issues: このステータスを使用しているチケットがあります
+  error_issue_status_default_for_trackers: このステータスをデフォルトのステータスとして使用しているトラッカーがあります
+  webhook_secret_keep_info: 他のユーザーのシークレットは表示されません。変更しない場合は空欄のままにしてください。
+  webhook_disabled_info_html: Webhookが無効になっているため以下のwebhookは実行されません。内容の確認や削除ができるよう一覧には引き続き表示しています。Webhookは設定の %{link} で有効にできます。
+  permission_export_issues: チケットのエクスポート
+  permission_export_time_entries: 作業時間のエクスポート
+  mail_subject_test_email: Redmine テストメール
+  mail_body_test_email: これはRedmineから送信されたテストメールです。
+  text_mermaid_available: Mermaid.jsが利用可能 (オプション)
+  label_member_view_all: すべてのメンバーを表示
+  field_date: 日付
+  label_non_working_date_plural: 個別休業日
+  label_non_working_date_new: 新しい個別休業日
+  text_non_working_dates_html: '祝日など日付指定の休業日を追加できます: <a href="%{non_working_dates_path}">個別休業日の管理</a>'
+  text_non_working_dates_export_all_years: すべての年の個別休業日がエクスポートされます。
+  label_import_non_working_dates: 個別休業日のインポート
+  field_avatar: アバター
+  setting_avatar_enabled: ユーザーによるアバターの設定を許可
+  button_change_avatar: アバター変更
+  text_avatar_uploaded: 現在はアップロードされた画像がアバターとして使用されています。
+  text_avatar_from_server_html: 現在は <a href="%{url}">%{url}</a> でユーザーのメールアドレスに関連づけられている画像がアバターとして使用されています。変更はそのサイトで行えます。そのサイトに画像が登録されていない場合はデフォルトのアバターが表示されます。
+  text_avatar_initials: 現在はユーザーの名前から生成された画像がアバターとして使用されています。
+  text_avatar_upload_instead: 代わりに使用する画像をアップロードすることもできます。
+  text_avatar_upload_disabled: アバター画像のアップロードは管理者によって無効にされています。
+  text_setting_avatar_enabled_imagemagick_unavailable: ImageMagickが利用できないためユーザーはアバターを設定できません。
+  text_setting_gravatar_enabled_fallback: 有効にするとRedmineでアバターを設定していないユーザーにはGravatarが使用されます。
+  setting_favicon: カスタムファビコン
+  text_setting_favicon_format: PNGまたはICO、最大 %{max_size}
+  notice_search_tokens_truncated: 'A maximum of %{max} search terms can be used. Only
+    the following terms were used: %{tokens}'

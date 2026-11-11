@@ -69,9 +69,10 @@ class Import < ApplicationRecord
     encoding = lu(user, :general_csv_encoding)
     if file_exists?
       begin
-        content = File.read(filepath, 256)
+        content = read_file_head
 
         separator = [',', ';'].max_by {|sep| content.count(sep)}
+        newline = content.index("\r\n") ? "\r\n" : '' # blank means auto
         wrapper = ['"', "'"].max_by {|quote_char| content.count(quote_char)}
 
         guessed_encoding = Redmine::CodesetUtil.guess_encoding(content)
@@ -89,6 +90,7 @@ class Import < ApplicationRecord
 
     self.settings.merge!(
       'separator' => separator,
+      'newline' => newline,
       'wrapper' => wrapper,
       'encoding' => encoding,
       'date_format' => date_format,
@@ -100,7 +102,9 @@ class Import < ApplicationRecord
       begin
         project = Project.find(options[:project_id])
         self.settings.merge!('mapping' => {'project_id' => project.id})
-      rescue; end
+      rescue
+        ;
+      end
     end
   end
 
@@ -248,6 +252,20 @@ class Import < ApplicationRecord
 
   private
 
+  # Reads lines from the beginning of the file, up to the specified number
+  # of bytes (max_read_bytes).
+  def read_file_head(max_read_bytes = 4096)
+    return '' unless file_exists?
+    return File.read(filepath, mode: 'rb') if File.size(filepath) <= max_read_bytes
+
+    # The last byte of the chunk may be part of a multi-byte character,
+    # causing an invalid byte sequence. To avoid this, it truncates
+    # the chunk at the last LF character, if found.
+    chunk = File.read(filepath, max_read_bytes)
+    last_lf_index = chunk.rindex("\n")
+    last_lf_index ? chunk[..last_lf_index] : chunk
+  end
+
   def read_rows
     return unless file_exists?
 
@@ -256,10 +274,12 @@ class Import < ApplicationRecord
     csv_options[:encoding] = 'bom|UTF-8' if csv_options[:encoding] == 'UTF-8'
     separator = settings['separator'].to_s
     csv_options[:col_sep] = separator if separator.size == 1
+    newline = settings['newline'].to_s
+    csv_options[:row_sep] = newline unless newline.empty?
     wrapper = settings['wrapper'].to_s
     csv_options[:quote_char] = wrapper if wrapper.size == 1
 
-    CSV.foreach(filepath, **csv_options) do |row|
+    CSV.foreach(filepath, 'rb', **csv_options) do |row|
       yield row if block_given?
     end
   end

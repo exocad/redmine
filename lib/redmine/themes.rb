@@ -110,12 +110,30 @@ module Redmine
         "themes/#{dir}/"
       end
 
+      # Returns an array of icon names available in the given sprite
+      def icons(sprite)
+        asset = Rails.application.assets.load_path.find(image_path("#{sprite}.svg"))
+
+        return [] unless asset
+
+        # This is called once per icon rendered, so it must not read and
+        # scan the sprite every time. Memoize the names per asset digest,
+        # so that changes to the sprite file are still picked up.
+        @icons ||= {}
+        digest, names = @icons[sprite]
+        return names if digest == asset.digest
+
+        names = asset.content.scan(/id=['"]icon--([^'"]+)['"]/).flatten
+        @icons[sprite] = [asset.digest, names]
+        names
+      end
+
       def asset_paths
         base_dir = Pathname.new(path)
-        paths = base_dir.children.filter_map do |child|
-          child if child.directory? &&
-                   child.basename.to_s != "src" &&
-                   !child.basename.to_s.start_with?('.')
+        paths = base_dir.children.select do |child|
+          child.directory? &&
+            child.basename.to_s != 'src' &&
+            !child.basename.to_s.start_with?('.')
         end
         Redmine::AssetPath.new(base_dir, paths, asset_prefix)
       end

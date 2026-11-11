@@ -20,15 +20,10 @@
 require_relative '../application_system_test_case'
 
 class IssuesImportTest < ApplicationSystemTestCase
-  fixtures :projects, :users, :email_addresses, :roles, :members, :member_roles,
-           :trackers, :projects_trackers, :enabled_modules, :issue_statuses, :issues,
-           :enumerations, :custom_fields, :custom_values, :custom_fields_trackers,
-           :watchers, :journals, :journal_details
-
   def test_import_issues_without_failures
     log_user('jsmith', 'jsmith')
     visit '/issues'
-    find('div.contextual>span.drdn').click
+    find('div.contextual>span.dropdown').click
     click_on 'Import'
 
     attach_file 'file', Rails.root.join('test/fixtures/files/import_issues.csv')

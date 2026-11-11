@@ -94,8 +94,9 @@ sl:
 # Used in array.to_sentence.
   support:
     array:
-      sentence_connector: "in"
-      skip_last_comma: false
+      last_word_connector: " in "
+      two_words_connector: " in "
+      words_connector: ", "
 
   activerecord:
     errors:
@@ -136,6 +137,7 @@ sl:
         must_contain_digits: "must contain digits (0-9)"
         must_contain_special_chars: "must contain special characters (!, $, %, ...)"
         domain_not_allowed: "contains a domain not allowed (%{domain})"
+        too_simple: "is too simple"
 
   actionview_instancetag_blank_option: Prosimo izberite
 
@@ -144,8 +146,8 @@ sl:
   general_text_no: 'ne'
   general_text_yes: 'da'
   general_lang_name: 'Slovene (Slovenščina)'
-  general_csv_separator: ','
-  general_csv_decimal_separator: '.'
+  general_csv_separator: ';'
+  general_csv_decimal_separator: ','
   general_csv_encoding: UTF-8
   general_pdf_fontname: freesans
   general_pdf_monospaced_fontname: freemono
@@ -432,7 +434,6 @@ sl:
   label_activity: Aktivnosti
   label_user_activity: "Aktivnost %{value}"
   label_new: Nov
-  label_logged_as: Prijavljen(a) kot
   label_environment: Okolje
   label_authentication: Overovitev
   label_auth_source: Način overovitve
@@ -474,7 +475,6 @@ sl:
   label_confirmation: Potrditev
   label_export_to: 'Na razpolago tudi v:'
   label_read: Preberi...
-  label_public_projects: Javni projekti
   label_open_issues: odprt zahtevek
   label_open_issues_plural: odprti zahtevki
   label_closed_issues: zaprt zahtevek
@@ -503,8 +503,6 @@ sl:
   label_months_from: mesecev od
   label_gantt: Gantogram
   label_internal: Notranji
-  label_last_changes: "zadnjih %{count} sprememb"
-  label_change_view_all: Poglej vse spremembe
   label_comment: Komentar
   label_comment_plural: Komentarji
   label_x_comments:
@@ -532,7 +530,6 @@ sl:
   label_this_month: ta mesec
   label_last_month: zadnji mesec
   label_this_year: to leto
-  label_date_range: Razpon datumov
   label_less_than_ago: manj kot dni nazaj
   label_more_than_ago: več kot dni nazaj
   label_ago: dni nazaj
@@ -541,7 +538,6 @@ sl:
   label_day_plural: dni
   label_repository: Shramba
   label_repository_plural: Shrambe
-  label_browse: Prebrskaj
   label_revision: Revizija
   label_revision_plural: Revizije
   label_associated_revisions: Povezane revizije
@@ -568,7 +564,6 @@ sl:
   label_wiki_page_plural: Predstavitvene strani
   label_index_by_title: Razvrsti po naslovu
   label_index_by_date: Razvrsti po datumu
-  label_current_version: Trenutna verzija
   label_preview: Predogled
   label_feed_plural: Atom viri
   label_changes_details: Podrobnosti o vseh spremembah
@@ -592,7 +587,6 @@ sl:
   label_applied_status: Uveljavljeno stanje
   label_loading: Nalaganje...
   label_relation_new: Nova povezava
-  label_relation_delete: Izbriši povezavo
   label_relates_to: povezan z
   label_duplicates: duplikati
   label_duplicated_by: dupliciral
@@ -617,8 +611,6 @@ sl:
   label_year: Leto
   label_month: Mesec
   label_week: Teden
-  label_date_from: Do
-  label_date_to: Do
   label_language_based: Glede na uporabnikov jezik
   label_sort_by: "Razporedi po %{value}"
   label_send_test_email: Pošlji testno e-pismo
@@ -651,7 +643,6 @@ sl:
   label_ldap_authentication: LDAP overovljanje
   label_downloads_abbr: D/L
   label_optional_description: Neobvezen opis
-  label_add_another_file: Dodaj še eno datoteko
   label_preferences: Preference
   label_chronological_order: Kronološko
   label_reverse_chronological_order: Obrnjeno kronološko
@@ -730,7 +721,6 @@ sl:
   text_load_default_configuration: Naloži privzeto konfiguracijo
   text_status_changed_by_changeset: "Dodano v zapis sprememb %{value}."
   text_issues_destroy_confirmation: 'Ali ste prepričani, da želite izbrisati izbrani(e) zahtevek(ke)?'
-  text_select_project_modules: 'Izberite module, ki jih želite omogočiti za ta projekt:'
   text_default_administrator_account_changed: Spremenjen privzeti administratorski račun
   text_file_repository_writable: Omogočeno pisanje v shrambo datotek
   text_minimagick_available: MiniMagick je na voljo(neobvezno)
@@ -773,7 +763,6 @@ sl:
   enumeration_activities: Aktivnosti (sledenje časa)
   warning_attachments_not_saved: "%{count} datotek(e) ni bilo mogoče shraniti."
   field_editable: Uredljivo
-  text_plugin_assets_writable: Zapisljiva mapa za vtičnike
   label_display: Prikaz
   button_create_and_continue: Ustvari in nadaljuj
   text_custom_field_possible_values_info: 'Ena vrstica za vsako vrednost'
@@ -878,7 +867,7 @@ sl:
   error_can_not_delete_custom_field: Polja po meri ni mogoče izbrisati
   error_unable_to_connect: Povezava ni mogoča (%{value})
   error_can_not_remove_role: Ta vloga je v uporabi in je ni mogoče izbrisati.
-  error_can_not_delete_tracker: Ta sledilnik vsebuje zahtevke in se ga ne more izbrisati.
+  error_can_not_delete_tracker_html: Ta sledilnik vsebuje zahtevke in se ga ne more izbrisati.<p>The following projects have issues with this tracker:<br>%{projects}</p>
   field_principal: User or Group
   notice_failed_to_save_members: "Shranjevanje uporabnika(ov) ni uspelo: %{errors}."
   text_zoom_out: Približaj
@@ -951,14 +940,12 @@ sl:
 
   description_query_sort_criteria_direction: Sort direction
   description_project_scope: Search scope
-  description_filter: Filter
   description_user_mail_notification: Mail notification settings
   description_message_content: Message content
   description_available_columns: Available Columns
   description_issue_category_reassign: Choose issue category
   description_search: Searchfield
   description_notes: Notes
-  description_choose_project: Projects
   description_query_sort_criteria_attribute: Sort attribute
   description_wiki_subpages_reassign: Choose new parent page
   description_selected_columns: Selected Columns
@@ -1245,8 +1232,6 @@ sl:
   error_token_expired: This password recovery link has expired, please try again.
   error_spent_on_future_date: Cannot log time on a future date
   setting_timelog_accept_future_dates: Accept time logs on future dates
-  label_delete_link_to_subtask: Izbriši povezavo
-  error_not_allowed_to_log_time_for_other_users: You are not allowed to log time
     for other users
   permission_log_time_for_other_users: Log spent time for other users
   label_tomorrow: tomorrow
@@ -1392,7 +1377,7 @@ sl:
     (%{identifier}) below.
   button_add_subtask: Add subtask
   notice_invalid_watcher: 'Invalid watcher: User will not receive any notifications
-    because it does not have access to view this object.'
+    because they do not have access to view this object.'
   button_fetch_changesets: Fetch commits
   permission_view_message_watchers: View message watchers list
   permission_add_message_watchers: Add message watchers
@@ -1487,3 +1472,154 @@ sl:
   text_default_active_job_queue_changed: Default queue adapter which is well suited
     only for dev/test changed
   label_option_auto_lang: auto
+  label_issue_attachment_added: Attachment added
+  field_estimated_remaining_hours: Estimated remaining time
+  field_last_activity_date: Last activity
+  setting_issue_done_ratio_interval: Done ratio options interval
+  setting_copy_attachments_on_issue_copy: Copy attachments on copy
+  field_thousands_delimiter: Thousands delimiter
+  label_involved_principals: Author / Recent participants
+  label_attachment_summary:
+    zero: "%{filename}"
+    one: "%{filename} and 1 file"
+    other: "%{filename} and %{count} files"
+  setting_wiki_tablesort_enabled: JavaScript based table sorting in wiki content
+  label_progressbar: Progress bar
+  error_spent_on_closed_issue: Cannot log time on a closed issue
+  setting_timelog_accept_closed_issues: Accept time logs on closed issues
+  setting_related_issues_default_columns: Related and sub issues list defaults
+  setting_display_related_issues_table_headers: Show table headers
+  error_can_not_remove_role_reason_members_html: "<p>The following projects have members
+    with this role:<br>%{projects}</p>"
+  setting_reactions_enabled: Enable reactions
+  reaction_text_x_other_users:
+    one: 1 other
+    other: "%{count} others"
+  text_setting_gravatar_default_initials_html: Users' initials are sent to <a href="%{url}">%{url}</a>
+    to generate their avatars.
+  permission_view_project: View projects
+  permission_search_project: Search projects
+  permission_view_members: View project members
+  label_oauth_permission_admin: Administrate this Redmine
+  label_oauth_admin_access: Administration
+  label_oauth_application_plural: Applications
+  label_oauth_authorized_application_plural: Authorized applications
+  text_oauth_admin_permission: Full administrative access. When authorized by an Administrator,
+    this application will be able to read and write all data and impersonate other users.
+  text_oauth_admin_permission_info: This application requests full administrative access.
+    If you are an Administrator (or become one in the future), it will be able to read
+    and write all data and impersonate other users on your behalf. If you want to avoid
+    this, authorize it as a user without Administrator privileges instead.
+  text_oauth_copy_secret_now: Copy the secret to a safe place now, it will not be shown
+    again.
+  text_oauth_implicit_permissions: View your name, login and primary email address
+  text_oauth_info_scopes: Select the scopes this application may request. The application
+    will not be allowed to do more than what is selected here. It will also always be
+    limited by the roles and project memberships of the user who authorized it.
+  label_position: Position
+  label_message: Message
+  twofa_already_setup: Two-factor authentication already set up
+  permission_use_webhooks: Use webhooks
+  label_webhook_plural: Webhooks
+  label_webhook_new: New webhook
+  label_webhook_edit: Edit webhook
+  label_webhook_events: Events
+  webhook_url_info: Redmine will send a POST request to this URL whenever one of the
+    selected events occurs in one of the selected projects.
+  webhook_secret_info_html: If provided, Redmine will use this to create a hash signature
+    that is sent with each delivery as the value of the X-Redmine-Signature-256 header.
+  setting_webhooks_enabled: Enable webhooks
+  label_integrations: Integrations
+  label_alert_note: Note
+  label_alert_tip: Tip
+  label_alert_warning: Warning
+  label_alert_caution: Caution
+  label_alert_important: Important
+  field_ratio_interval: Ratio interval
+  webhook_event_created: "%{object_name} created"
+  webhook_event_updated: "%{object_name} updated"
+  webhook_event_deleted: "%{object_name} deleted"
+  label_auto_watch_on_issue_assigned_to_me: Issues assigned to me
+  label_relation_remove: Remove relation
+  label_subtask_remove: Remove subtask
+  button_remove: Remove
+  label_open_in_full_view: Open in full view
+  text_pandoc_available: Pandoc available (optional)
+  label_user_mail_option_only_my_watches: Only for things I watch
+  label_last_used_on: 'Last used: %{value} ago'
+  label_never_used: Never used
+  setting_assignee_dropdown_display_format: Assignee drop-down display format
+  label_assignee_dropdown_display_format_users_then_groups: Users then groups
+  label_assignee_dropdown_display_format_groups_then_users: Groups then users
+  label_enable_default_issue_due_date_offset: Enable default due date for new issues
+  label_days_relative_to_today: days relative to today
+  label_wiki_toolbar_strong: Krepko
+  label_wiki_toolbar_italic: Poševno
+  label_wiki_toolbar_underline: Podčrtano
+  label_wiki_toolbar_deleted: Izbrisano
+  label_wiki_toolbar_code: Koda med vrsticami
+  label_wiki_toolbar_heading_1: Naslov 1
+  label_wiki_toolbar_heading_2: Naslov 2
+  label_wiki_toolbar_heading_3: Naslov 3
+  label_wiki_toolbar_unordered_list: Neurejen seznam
+  label_wiki_toolbar_ordered_list: Urejen seznam
+  label_wiki_toolbar_task_list: Task list
+  label_wiki_toolbar_quote: Citat
+  label_wiki_toolbar_unquote: Odstrani citat
+  label_wiki_toolbar_table: Table
+  label_wiki_toolbar_preformatted_text: Predoblikovano besedilo
+  label_wiki_toolbar_preformatted_code: Highlighted code
+  label_wiki_toolbar_wiki_link: Povezava na Wiki stran
+  label_wiki_toolbar_image: Slika
+  label_wiki_toolbar_help: Help
+  label_assignee_dropdown_display_format_users_by_group: Users by group
+  button_remove_from_group: Remove from group
+  button_add_to_group: Add to group
+  setting_default_issue_due_date_offset: Default due date for new issues
+  field_private_by_default: Private by default
+  field_default_value_mode: Default value mode
+  label_absolute: Absolute
+  label_relative: Relative
+  error_issue_status_in_use_by_issues: This status is used by some issues
+  error_issue_status_default_for_trackers: This status is used as the default status by some trackers
+  text_users_remove_from_group_confirmation: Are you sure you want to remove the selected user(s) from the group %{group}?
+  webhook_secret_keep_info: The secret of another user is not displayed. Leave this
+    field blank to keep it unchanged.
+  webhook_disabled_info_html: Webhooks are disabled, so none of the webhooks below is
+    triggered. They are still listed here so that they can be reviewed or removed. Webhooks
+    can be enabled in the %{link} settings.
+  permission_export_issues: Export issues
+  permission_export_time_entries: Export time entries
+  label_users_and_groups: Users and groups
+  mail_subject_test_email: Redmine test
+  mail_body_test_email: This is a test email sent by Redmine.
+  text_mermaid_available: Mermaid.js available (optional)
+  label_member_view_all: View all members
+  field_date: Date
+  label_non_working_date_plural: Non-working dates
+  label_non_working_date_new: New non-working date
+  text_non_working_dates_html: 'You can add non-working dates such as holidays: <a href="%{non_working_dates_path}">Manage
+    non-working dates</a>'
+  text_non_working_dates_export_all_years: Non-working dates of all years will be exported.
+  label_import_non_working_dates: Import non-working dates
+  field_avatar: Avatar
+  setting_avatar_enabled: Allow users to set their avatar
+  button_change_avatar: Change avatar
+  text_avatar_uploaded: The uploaded image is currently used as the avatar.
+  text_avatar_from_server_html: The image from <a href="%{url}">%{url}</a> associated
+    with the user's email address is currently used as the avatar. It can be changed
+    on that site. If no image is registered there, a default avatar is shown.
+  text_avatar_initials: The image generated from the user's name is currently used as
+    the avatar.
+  text_avatar_upload_instead: You can upload an image to use instead.
+  text_avatar_upload_disabled: Uploading an avatar image to Redmine has been disabled
+    by the administrator.
+  text_setting_avatar_enabled_imagemagick_unavailable: ImageMagick is not available,
+    so users cannot set their avatar.
+  text_setting_gravatar_enabled_fallback: If enabled, Gravatar is used for users who
+    have not set their avatar in Redmine.
+  label_show_more: Show more
+  setting_favicon: Custom favicon
+  text_setting_favicon_format: PNG or ICO, up to %{max_size}
+  notice_search_tokens_truncated: 'A maximum of %{max} search terms can be used. Only
+    the following terms were used: %{tokens}'

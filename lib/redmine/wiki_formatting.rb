@@ -18,7 +18,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 require_relative 'wiki_formatting/textile/redcloth3'
-require 'digest/md5'
 
 module Redmine
   module WikiFormatting
@@ -89,28 +88,28 @@ module Redmine
 
       def to_html(format, text, options = {})
         text =
-          if Setting.cache_formatted_text? && text.size > 2.kilobyte && cache_store &&
+          if Setting.cache_formatted_text? && text.size > 2.kilobytes && cache_store &&
               cache_key = cache_key_for(format, text, options[:object], options[:attribute])
             # Text retrieved from the cache store may be frozen
             # We need to dup it so we can do in-place substitutions with gsub!
             cache_store.fetch cache_key do
-              formatter_for(format).new(text).to_html
+              formatter_for(format).new(text, options).to_html
             end.dup
           else
-            formatter_for(format).new(text).to_html
+            formatter_for(format).new(text, options).to_html
           end
         text
       end
 
       # Returns true if the text formatter supports single section edit
       def supports_section_edit?
-        (formatter.instance_methods & ['update_section', :update_section]).any?
+        formatter.instance_methods.intersect?(['update_section', :update_section])
       end
 
       # Returns a cache key for the given text +format+, +text+, +object+ and +attribute+ or nil if no caching should be done
       def cache_key_for(format, text, object, attribute)
         if object && attribute && !object.new_record? && format.present?
-          "formatted_text/#{format}/#{object.class.model_name.cache_key}/#{object.id}-#{attribute}-#{Digest::MD5.hexdigest text}"
+          "formatted_text/#{format}/#{object.class.model_name.cache_key}/#{object.id}-#{attribute}-#{ActiveSupport::Digest.hexdigest text}"
         end
       end
 
@@ -128,8 +127,9 @@ module Redmine
         include ActionView::Helpers::UrlHelper
         include Redmine::WikiFormatting::LinksHelper
 
-        def initialize(text)
+        def initialize(text, options = {})
           @text = text
+          @options = options
         end
 
         def to_html(*args)

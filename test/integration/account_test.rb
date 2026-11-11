@@ -20,8 +20,6 @@
 require_relative '../test_helper'
 
 class AccountTest < Redmine::IntegrationTest
-  fixtures :users, :email_addresses, :roles
-
   def test_login
     get "/my/page"
     assert_redirected_to "/login?back_url=http%3A%2F%2Fwww.example.com%2Fmy%2Fpage"
@@ -97,7 +95,7 @@ class AccountTest < Redmine::IntegrationTest
             :autologin => 1
           }
         )
-        assert_response 302
+        assert_response :found
       end
       assert cookies['custom_autologin'].present?
       token = cookies['custom_autologin']
@@ -136,8 +134,8 @@ class AccountTest < Redmine::IntegrationTest
     follow_redirect!
     assert_response :success
     assert_select 'input[type=hidden][name=token][value=?]', token.value
-    assert_select 'input[name=new_password]'
-    assert_select 'input[name=new_password_confirmation]'
+    assert_select 'input[name=new_password][autocomplete=new-password]'
+    assert_select 'input[name=new_password_confirmation][autocomplete=new-password]'
 
     post(
       "/account/lost_password",
@@ -293,7 +291,6 @@ class AccountTest < Redmine::IntegrationTest
 
       assert_equal false, User.find_by_login('jsmith').must_change_passwd?
     end
-
   end
 
   def test_register_with_automatic_activation
@@ -430,7 +427,7 @@ class AccountTest < Redmine::IntegrationTest
           )
         end
       end
-      user = User.order('id desc').first
+      user = User.order(id: :desc).first
       assert_equal User::STATUS_REGISTERED, user.status
       reset!
 
@@ -454,7 +451,7 @@ class AccountTest < Redmine::IntegrationTest
         get '/account/activation_email'
       end
       assert_redirected_to '/login'
-      token = Token.order('id desc').first
+      token = Token.order(id: :desc).first
       activation_path = "/account/activate?token=#{token.value}"
       assert_include activation_path, mail_body(ActionMailer::Base.deliveries.last)
 

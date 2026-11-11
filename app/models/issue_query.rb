@@ -18,25 +18,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 class IssueQuery < Query
-  class EstimatedRemainingHoursColumn < QueryColumn
-    COLUMN_SQL = Arel.sql("COALESCE(#{Issue.table_name}.estimated_hours, 0) * (100 - COALESCE(#{Issue.table_name}.done_ratio, 0)) / 100")
-
-    def initialize
-      super(:estimated_remaining_hours, totalable: true, sortable: COLUMN_SQL)
-    end
-
-    def value(object)
-      (object.estimated_hours || 0) * (100 - (object.done_ratio || 0)) / 100
-    end
-
-    def value_object(object)
-      value(object)
-    end
-  end
-
   self.queried_class = Issue
   self.view_permission = :view_issues
 
+  ESTIMATED_REMAINING_HOURS_SQL = Arel.sql("COALESCE(#{Issue.table_name}.estimated_hours, 0) * (100 - COALESCE(#{Issue.table_name}.done_ratio, 0)) / 100")
   self.available_columns = [
     QueryColumn.new(:id, :sortable => "#{Issue.table_name}.id",
                     :default_order => 'desc', :caption => '#', :frozen => true),
@@ -66,7 +51,9 @@ class IssueQuery < Query
     QueryColumn.new(:due_date, :sortable => "#{Issue.table_name}.due_date", :groupable => true),
     QueryColumn.new(:estimated_hours, :sortable => "#{Issue.table_name}.estimated_hours",
                     :totalable => true),
-    EstimatedRemainingHoursColumn.new,
+    QueryColumn.new(:estimated_remaining_hours,
+                    :sortable => ESTIMATED_REMAINING_HOURS_SQL,
+                    :totalable => true),
     QueryColumn.new(
       :total_estimated_hours,
       :sortable =>
@@ -185,6 +172,18 @@ class IssueQuery < Query
       :type => :list, :values => lambda {author_values}
     )
     add_available_filter(
+      "author.group",
+      :type => :list,
+      :values => lambda {Group.givable.visible.pluck(:name, :id).map {|name, id| [name, id.to_s]}},
+      :name => l(:label_attribute_of_author, :name => l(:label_group))
+    )
+    add_available_filter(
+      "author.role",
+      :type => :list,
+      :values => lambda {Role.givable.pluck(:name, :id).map {|name, id| [name, id.to_s]}},
+      :name => l(:label_attribute_of_author, :name => l(:field_role))
+    )
+    add_available_filter(
       "assigned_to_id",
       :type => :list_optional_with_history, :values => lambda {assigned_to_values}
     )
@@ -226,10 +225,10 @@ class IssueQuery < Query
     add_available_filter "closed_on", :type => :date_past
     add_available_filter "start_date", :type => :date
     add_available_filter "due_date", :type => :date
-    add_available_filter "estimated_hours", :type => :float
+    add_available_filter "estimated_hours", :type => :hour
 
     if User.current.allowed_to?(:view_time_entries, project, :global => true)
-      add_available_filter "spent_time", :type => :float, :label => :label_spent_time
+      add_available_filter "spent_time", :type => :hour, :label => :label_spent_time
     end
 
     add_available_filter "done_ratio", :type => :integer
@@ -390,7 +389,7 @@ class IssueQuery < Query
   end
 
   def total_for_estimated_remaining_hours(scope)
-    map_total(scope.sum(EstimatedRemainingHoursColumn::COLUMN_SQL)) {|t| t.to_f.round(2)}
+    map_total(scope.sum(ESTIMATED_REMAINING_HOURS_SQL)) {|t| t.to_f.round(2)}
   end
 
   # Returns sum of all the issue's time entries hours
@@ -403,11 +402,12 @@ class IssueQuery < Query
   end
 
   # Returns the issues
-  # Valid options are :order, :offset, :limit, :include, :conditions
+  # Valid options are :order, :offset, :limit, :conditions,
+  # :include, and :preload
   def issues(options={})
     order_option = [group_by_sort_order, (options[:order] || sort_clause)].flatten.reject(&:blank?)
     # The default order of IssueQuery is issues.id DESC(by IssueQuery#default_sort_criteria)
-    unless ["#{Issue.table_name}.id ASC", "#{Issue.table_name}.id DESC"].any?{|i| order_option.include?(i)}
+    unless order_option.intersect?(["#{Issue.table_name}.id ASC", "#{Issue.table_name}.id DESC"])
       order_option << "#{Issue.table_name}.id DESC"
     end
 
@@ -425,6 +425,9 @@ class IssueQuery < Query
         [:tracker, :author, :assigned_to, :fixed_version,
          :category, :attachments] & columns.map(&:name)
       )
+    if options[:preload]
+      scope = scope.preload(options[:preload])
+    end
     if has_custom_field_column?
       scope = scope.preload(:custom_values)
     end
@@ -458,7 +461,7 @@ class IssueQuery < Query
   def issue_ids(options={})
     order_option = [group_by_sort_order, (options[:order] || sort_clause)].flatten.reject(&:blank?)
     # The default order of IssueQuery is issues.id DESC(by IssueQuery#default_sort_criteria)
-    unless ["#{Issue.table_name}.id ASC", "#{Issue.table_name}.id DESC"].any?{|i| order_option.include?(i)}
+    unless order_option.intersect?(["#{Issue.table_name}.id ASC", "#{Issue.table_name}.id DESC"])
       order_option << "#{Issue.table_name}.id DESC"
     end
 
@@ -532,8 +535,12 @@ class IssueQuery < Query
     "#{neg} EXISTS (#{subquery})"
   end
 
+  def sql_for_estimated_hours_field(field, operator, value)
+    sql_for_field("estimated_hours", operator, value.map(&:to_hours), Issue.table_name, "estimated_hours")
+  end
+
   def sql_for_spent_time_field(field, operator, value)
-    first, second = value.first.to_f, value.second.to_f
+    first, second = value.first.to_s.to_hours, value.second.to_s.to_hours
     sql_op =
       case operator
       when "=", ">=", "<=" then  "#{operator} #{first}"
@@ -551,7 +558,9 @@ class IssueQuery < Query
 
   def sql_for_watcher_id_field(field, operator, value)
     db_table = Watcher.table_name
-    me, others = value.partition {|id| ['0', User.current.id.to_s].include?(id)}
+    me_ids = [0, User.current.id]
+    me_ids.concat(User.current.groups.pluck(:id))
+    me, others = value.partition {|id| me_ids.include?(id.to_i)}
     sql =
       if others.any?
         "SELECT #{Issue.table_name}.id FROM #{Issue.table_name} " +
@@ -584,9 +593,7 @@ class IssueQuery < Query
     end
     groups ||= []
 
-    members_of_groups = groups.inject([]) do |user_ids, group|
-      user_ids + group.user_ids + [group.id]
-    end.uniq.compact.sort.collect(&:to_s)
+    members_of_groups = group_and_member_ids(groups)
 
     '(' + sql_for_field("assigned_to_id", operator, members_of_groups, Issue.table_name, "assigned_to_id", false) + ')'
   end
@@ -617,6 +624,46 @@ class IssueQuery < Query
         " WHERE #{Issue.table_name}.project_id = #{Member.table_name}.project_id AND #{Member.table_name}.user_id = #{Issue.table_name}.assigned_to_id AND #{role_cond}"
       "(#{nl} #{sw} EXISTS (#{subquery}))"
     end
+  end
+
+  def sql_for_author_group_field(field, operator, value)
+    groups = value.empty? ? Group.givable : Group.where(:id => value).to_a
+
+    author_groups = group_and_member_ids(groups)
+
+    '(' + sql_for_field("author_id", operator, author_groups, Issue.table_name, "author_id", false) + ')'
+  end
+
+  # Returns the ids of the given groups and of their members as strings,
+  # fetching the members of all the groups with a single query
+  def group_and_member_ids(groups)
+    group_ids = groups.map(&:id)
+    return [] if group_ids.empty?
+
+    user_ids = User.where(
+      "#{User.table_name}.id IN (SELECT gu.user_id" \
+        " FROM #{User.table_name_prefix}groups_users#{User.table_name_suffix} gu" \
+        " WHERE gu.group_id IN (?))",
+      group_ids
+    ).pluck(:id)
+    (group_ids + user_ids).uniq.compact.sort.collect(&:to_s)
+  end
+  private :group_and_member_ids
+
+  def sql_for_author_role_field(field, operator, value)
+    role_cond =
+      if value.any?
+        "#{MemberRole.table_name}.role_id IN (" + value.collect{|val| "'#{self.class.connection.quote_string(val)}'"}.join(",") + ")"
+      else
+        "1=0"
+      end
+    sw = operator == "!" ? 'NOT' : ''
+    nl = operator == "!" ? "#{Issue.table_name}.author_id IS NULL OR" : ''
+    subquery =
+      "SELECT 1" +
+      " FROM #{Member.table_name} inner join #{MemberRole.table_name} on members.id = member_roles.member_id" +
+      " WHERE #{Issue.table_name}.project_id = #{Member.table_name}.project_id AND #{Member.table_name}.user_id = #{Issue.table_name}.author_id AND #{role_cond}"
+    "(#{nl} #{sw} EXISTS (#{subquery}))"
   end
 
   def sql_for_fixed_version_status_field(field, operator, value)

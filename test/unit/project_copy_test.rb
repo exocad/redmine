@@ -20,26 +20,6 @@
 require_relative '../test_helper'
 
 class ProjectCopyTest < ActiveSupport::TestCase
-  fixtures :projects, :trackers, :issue_statuses, :issues,
-           :journals, :journal_details,
-           :enumerations, :users, :issue_categories,
-           :projects_trackers,
-           :custom_fields,
-           :custom_fields_projects,
-           :custom_fields_trackers,
-           :custom_values,
-           :roles,
-           :member_roles,
-           :members,
-           :enabled_modules,
-           :versions,
-           :wikis, :wiki_pages, :wiki_contents, :wiki_content_versions,
-           :groups_users,
-           :boards, :messages,
-           :repositories,
-           :news, :comments,
-           :documents, :attachments
-
   def setup
     User.current = nil
     ProjectCustomField.destroy_all
@@ -66,6 +46,7 @@ class ProjectCopyTest < ActiveSupport::TestCase
   test "#copy should copy issues" do
     @source_project.issues << Issue.generate!(:status => IssueStatus.find_by_name('Closed'),
                                               :subject => "copy issue status",
+                                              :done_ratio => 80,
                                               :tracker_id => 1,
                                               :assigned_to_id => 2,
                                               :project_id => @source_project.id)
@@ -84,6 +65,7 @@ class ProjectCopyTest < ActiveSupport::TestCase
     assert copied_issue
     assert copied_issue.status
     assert_equal "Closed", copied_issue.status.name
+    assert_equal 80, copied_issue.done_ratio
   end
 
   test "#copy should copy issues custom values" do
@@ -441,7 +423,7 @@ class ProjectCopyTest < ActiveSupport::TestCase
         assert project.copy(source.reload)
       end
     end
-    copy = Issue.where(:parent_id => nil).order("id DESC").first
+    copy = Issue.where(:parent_id => nil).order(id: :desc).first
     assert_equal project, copy.project
     assert_equal issue.descendants.count, copy.descendants.count
     child_copy = copy.children.detect {|c| c.subject == 'Child1'}

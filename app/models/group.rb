@@ -94,12 +94,12 @@ class Group < Principal
       destroy_all
   end
 
-  def self.human_attribute_name(attribute_key_name, *args)
+  def self.human_attribute_name(attribute_key_name, *)
     attr_name = attribute_key_name.to_s
     if attr_name == 'lastname'
       attr_name = "name"
     end
-    super(attr_name, *args)
+    super(attr_name, *)
   end
 
   def self.anonymous
@@ -118,5 +118,6 @@ class Group < Principal
 
     Issue.where(['assigned_to_id = ?', id]).update_all('assigned_to_id = NULL')
     Watcher.where('user_id = ?', id).delete_all
+    remove_user_custom_field_references
   end
 end

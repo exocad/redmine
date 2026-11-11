@@ -20,8 +20,6 @@
 require_relative '../test_helper'
 
 class WikisControllerTest < Redmine::ControllerTest
-  fixtures :projects, :users, :roles, :members, :member_roles, :enabled_modules, :wikis
-
   def setup
     User.current = nil
   end
@@ -51,6 +49,6 @@ class WikisControllerTest < Redmine::ControllerTest
   def test_not_found
     @request.session[:user_id] = 1
     post :destroy, :params => {:id => 999, :confirm => 1}
-    assert_response 404
+    assert_response :not_found
   end
 end

@@ -98,8 +98,9 @@ fa:
   # Used in array.to_sentence.
   support:
     array:
-      sentence_connector: "و"
-      skip_last_comma: false
+      last_word_connector: " و "
+      two_words_connector: " و "
+      words_connector: "، "
 
   activerecord:
     errors:
@@ -140,6 +141,7 @@ fa:
         must_contain_digits: "باید شامل عدد باشد (0-9)"
         must_contain_special_chars: "باید شامل نویسه‌های خاص باشد (!, $, %, ...)"
         domain_not_allowed: "شامل دامنه‌ی غیرمجازست (%{domain})"
+        too_simple: "خیلی ساده است"
 
   actionview_instancetag_blank_option: انتخاب کنید
 
@@ -149,7 +151,7 @@ fa:
   general_text_yes: 'آری'
   general_lang_name: 'Persian (فارسی)'
   general_csv_separator: ','
-  general_csv_decimal_separator: '.'
+  general_csv_decimal_separator: '٫'
   general_csv_encoding: UTF-8
   general_pdf_fontname: DejaVuSans
   general_pdf_monospaced_fontname: freemono
@@ -207,7 +209,7 @@ fa:
   error_no_tracker_in_project: 'هیچ نوع مسئله‌ای به این پروژه مرتبط نشده است. تنظیمات پروژه را بررسی کنید.'
   error_no_default_issue_status: 'هیچ وضعیت مسئله پیش‌فرض‌ای مشخص نشده است. تنظیمات را بررسی کنید (به «تنظیمات -> وضعیت‌های مسئله» بروید).'
   error_can_not_delete_custom_field: بخش سفارشی را نمی‌توان حذف کرد.
-  error_can_not_delete_tracker: "این نوع مسئله دارای مسئله است و نمی‌توان آن را حذف کرد."
+  error_can_not_delete_tracker_html: "این نوع مسئله دارای مسئله است و نمی‌توان آن را حذف کرد.<p>The following projects have issues with this tracker:<br>%{projects}</p>"
   error_can_not_remove_role: "از این نقش استفاده شده است و نمی‌توان آن را حذف کرد."
   error_can_not_reopen_issue_on_closed_version: 'یک مسئله که به یک نسخه بسته‌شده متعلق است را نمی‌توان باز کرد.'
   error_can_not_archive_project: این پروژه را نمی‌توان بایگانی کرد.
@@ -237,7 +239,6 @@ fa:
   error_exceeds_maximum_hours_per_day: "نمی‌توان بیش از %{max_hours} ساعت در یک روز زمان ثبت کرد. (%{logged_hours} ساعت تا کنون زمان ثبت شده است)"
   error_can_not_delete_auth_source: "این شیوه احراز هویت در حال استفاده است و حذف آن امکان‌‌پذیر نیست."
   error_spent_on_future_date: "ثبت زمان برای روزهای آینده امکان‌پذیر نیست"
-  error_not_allowed_to_log_time_for_other_users: "شما اجازه ثبت زمان برای سایر کاربران را ندارید"
   error_can_not_execute_macro_html: خطا در اجرای ماکروی <strong>%{name}</strong> (%{error})
   error_macro_does_not_accept_block: این ماکرو یک بلوک متنی را قبول نمی‌کند
   error_childpages_macro_no_argument: این ماکرو فقط در صفحات دانش‌نامه می‌تواند بدون ورودی، فراخوانی شود
@@ -273,10 +274,9 @@ fa:
   mail_body_security_notification_notify_disabled: "نشانی رایانامه %{value} دیگر آگاه‌سازی دریافت نخواهد کرد."
   mail_body_settings_updated: "تنظیمات زیر تغییر کردند:"
   mail_body_password_updated: "گذرواژه شما تغییر کرد."
-  mail_destroy_project_failed: Project %{value} could not be deleted.
-  mail_destroy_project_successful: Project %{value} was deleted successfully.
-  mail_destroy_project_with_subprojects_successful: Project %{value} and its subprojects
-    were deleted successfully.
+  mail_destroy_project_failed: پروژه %{value} نمی‌تواند حذف شود.
+  mail_destroy_project_successful: پروژه %{value} با موفقیت حذف شد.
+  mail_destroy_project_with_subprojects_successful: پروژه %{value} و زیرپروژه‌های آن با موفقیت حذف شدند.
 
   field_name: نام
   field_description: توضیح
@@ -420,6 +420,10 @@ fa:
   field_default_issue_query: جستار پیش‌فرض مسئله‌ها
   field_default_project_query: جستار پیش‌فرض پروژه
   field_default_time_entry_activity: دسته‌بندی پیش‌فرض زمان صرف شده
+  field_any_searchable: هر متن قابل جستجویی
+  field_estimated_remaining_hours: باقی‌مانده زمان برآورد شده
+  field_last_activity_date: آخرین فعالیت
+  field_thousands_delimiter: جداکننده هزارگان
 
   setting_app_title: عنوان برنامه
   setting_welcome_text: متن خوش‌آمد گویی
@@ -477,6 +481,7 @@ fa:
   setting_default_projects_modules: ابزارهای پیش‌فرض فعال برای پروژه‌های جدید
   setting_issue_done_ratio: برآورد اندازه انجام شده مسئله با
   setting_issue_done_ratio_issue_field: محاسبه بر اساس درصد پیش‌رفت مسئله
+  setting_issue_done_ratio_interval: فاصله گزینه‌های درصد انجام
   setting_issue_done_ratio_issue_status: محاسبه بر اساس وضعیت مسئله
   setting_start_of_week: آغاز تقویم از
   setting_rest_api_enabled: فعال‌سازی وب سرویس‌های REST
@@ -501,6 +506,7 @@ fa:
   setting_force_default_language_for_anonymous: الزام زبان پیش فرض برای کاربران ناشناس
   setting_force_default_language_for_loggedin: الزام زبان پیش‌فرض برای کاربران واردشده
   setting_link_copied_issue: ارتباط مسائل در هنگام رونوشت
+  setting_copy_attachments_on_issue_copy: رونوشت پیوست‌ها در زمان رونوشت
   setting_max_additional_emails: بیشینه تعداد نشانی‌های رایانامه
   setting_email_domains_allowed: دامنه‌های مجاز برای نشانی رایانامه
   setting_email_domains_denied: دامنه‌های غیرمجاز برای نشانی رایانامه
@@ -524,6 +530,7 @@ fa:
   permission_edit_project: ویرایش پروژه
   permission_close_project: بستن / بازگشایی پروژه
   permission_delete_project: حذف پروژه
+  permission_select_project_publicity: تنظیم پروژه به عمومی یا محرمانه
   permission_select_project_modules: انتخاب ابزارهای پروژه
   permission_manage_members: مدیریت اعضا
   permission_manage_project_activities: مدیریت دسته‌بندی زمان‌های پروژه
@@ -630,6 +637,7 @@ fa:
   label_issue_assigned_to_updated: مسئول به‌روز شد
   label_issue_priority_updated: اولویت به‌روز شد
   label_issue_fixed_version_updated: نسخه هدف به‌روز شد
+  label_issue_attachment_added: پیوست اضافه شد
   label_document: سند
   label_document_new: سند جدید
   label_document_plural: اسناد
@@ -680,7 +688,6 @@ fa:
   label_activity: خط زمان
   label_user_activity: "خط زمان %{value}"
   label_new: جدید
-  label_logged_as: "وارد‌شده به نام "
   label_environment: محیط
   label_authentication: احراز هویت
   label_auth_source: روش احراز هویت
@@ -711,6 +718,10 @@ fa:
   label_attachment_plural: پیوست‌ها
   label_file_added: پرونده افزوده شد
   label_attachment_description: توضیحات پیوست
+  label_attachment_summary:
+    zero: "%{filename}"
+    one: "%{filename} و 1 پرونده"
+    other: "%{filename} و %{count} پرونده"
   label_report: گزارش
   label_report_plural: گزارش‌ها
   label_news: مطلب
@@ -730,7 +741,6 @@ fa:
   label_confirmation: تأیید
   label_export_to: 'قالب‌های دیگر:'
   label_read: خواندن...
-  label_public_projects: پروژه‌های عمومی
   label_open_issues: باز
   label_open_issues_plural: باز‌ها
   label_closed_issues: بسته
@@ -766,8 +776,6 @@ fa:
   label_months_from: ماه از
   label_gantt: گانت
   label_internal: درونی
-  label_last_changes: "%{count} تغییر آخر"
-  label_change_view_all: مشاهده همه تغییرات
   label_comment: نظر
   label_comment_plural: نظرات
   label_x_comments:
@@ -805,11 +813,11 @@ fa:
   label_last_month: ماه قبل
   label_next_month: ماه آینده
   label_this_year: امسال
-  label_date_range: بازه تاریخ
   label_less_than_ago: قبل از چند روز پیش
   label_more_than_ago: بعد از چند روز پیش
   label_ago: روز قبل
   label_contains: شامل
+  label_contains_any_of: شامل یکی از
   label_not_contains: فاقد
   label_starts_with: شروع با
   label_ends_with: پایان با
@@ -818,11 +826,13 @@ fa:
   label_no_issues_in_project: مسئله‌ای در پروژه وجود ندارد
   label_any_open_issues: هر مسئله‌ی باز
   label_no_open_issues: بدون هیچ مسئله باز
+  label_has_been: بوده است
+  label_has_never_been: هرگز نبوده است
+  label_changed_from: تغییر کرده از
   label_day_plural: روز
   label_repository: مخزن
   label_repository_new: مخزن جدید
   label_repository_plural: مخزن‌ها
-  label_browse: مرور
   label_branch: انشعاب
   label_tag: برچسب
   label_revision: بازبینی
@@ -838,6 +848,7 @@ fa:
   label_latest_revision_plural: آخرین بازبینی‌ها
   label_view_revisions: مشاهده بازبینی‌ها
   label_view_all_revisions: مشاهده همه بازبینی‌ها
+  label_view_previous_annotation: مشاهده حاشیه‌نویسی قبل از این تغییر
   label_x_revisions: "%{count} بازبینی"
   label_max_size: بیشترین اندازه
   label_roadmap: نقشه راه
@@ -855,7 +866,6 @@ fa:
   label_wiki_page_new: صفحه دانش‌نامه جدید
   label_index_by_title: فهرست بر اساس عنوان
   label_index_by_date: فهرست بر اساس تاریخ
-  label_current_version: نسخه فعلی
   label_preview: پیش‌نمایش
   label_feed_plural: خوراک‌ها
   label_changes_details: جزئیات همه تغییرات
@@ -883,9 +893,7 @@ fa:
   label_applied_status: وضعیت اعمال‌شده
   label_loading: بارگذاری...
   label_relation_new: ارتباط جدید
-  label_relation_delete: حذف ارتباط
   label_relates_to: مرتبط با
-  label_delete_link_to_subtask: حذف پیوند به زیرکار
   label_duplicates: تکرارکننده
   label_duplicated_by: تکرارشونده
   label_blocks: سدکننده
@@ -914,8 +922,6 @@ fa:
   label_year: سال
   label_month: ماه
   label_week: هفته
-  label_date_from: از
-  label_date_to: تا
   label_language_based: بر اساس زبان کاربر
   label_sort_by: "مرتب‌سازی با %{value}"
   label_send_test_email: ارسال رایانامه آزمایشی
@@ -961,8 +967,8 @@ fa:
   label_ldaps_warning: پیش‌نهاد می‌شود که از یک ارتباط رمزنگاری‌شده LDAPS با بررسی گواهی‌نامه استفاده کنید تا از هر گونه دستکاری اطلاعات در زمان احراز هویت جلوگیری کنید.
   label_downloads_abbr: دریافت
   label_optional_description: توضیح اختیاری
-  label_add_another_file: افزودن پرونده دیگر
   label_auto_watch_on: ناظر خودکار
+  label_auto_watch_on_issue_created: مسئله‌هایی که من ساخته‌ام
   label_auto_watch_on_issue_contributed_to: مسئله‌هایی که در آن‌ها مشارکت داشته‌ام
   label_preferences: ترجیح‌ها
   label_chronological_order: به ترتیب تاریخ
@@ -1115,6 +1121,8 @@ fa:
   label_inherited_from_group: "ارث‌بری از گروه %{name}"
   label_trackers_description: توضیحات انواع مسئله
   label_open_trackers_description: نمایش توضیحات تمامی انواع مسئله
+  label_issue_statuses_description: توضیحات وضعیت‌های مسئله
+  label_open_issue_statuses_description: دیدن توضیحات همه وضعیت‌های مسئله‌ها
   label_preferred_body_part_text: متن
   label_preferred_body_part_html: HTML
   label_issue_history_properties: تغییرات بخش‌ها
@@ -1132,6 +1140,17 @@ fa:
   label_default_query: جستار پیش‌فرض
   label_edited: ویرایش شده
   label_time_by_author: "%{time} توسط %{author}"
+  label_involved_principals: Author / Recent participants
+  label_progressbar: نوار پیشرفت
+  label_oauth_permission_admin: راه‌بری این ردماین
+  label_oauth_admin_access: راه‌بری
+  label_oauth_application_plural: برنامه‌ها
+  label_oauth_authorized_application_plural: برنامه‌های مجاز
+  label_alert_note: یادداشت
+  label_alert_tip: نکته
+  label_alert_warning: هشدار
+  label_alert_caution: احتیاط
+  label_alert_important: مهم
 
   button_login: ورود
   button_submit: ثبت
@@ -1197,6 +1216,7 @@ fa:
   button_edit_object: ویرایش %{object_name}
   button_delete_object: حذف %{object_name}
   button_create_and_follow: ساخت و برگشت
+  button_apply_issues_filter: اعمال غربال مسئله‌ها
 
   status_active: فعال
   status_registered: ثبت‌نام‌شده
@@ -1265,14 +1285,13 @@ fa:
   text_issues_destroy_confirmation: 'آیا مطمئن هستید که می‌خواهید مسئله(‌های) انتخاب‌شده را حذف کنید؟'
   text_issues_destroy_descendants_confirmation: این همچنین %{count} زیرکار را حذف خواهد کرد.
   text_time_entries_destroy_confirmation: آیا مطمئنید که می‌خواهید ورودی(های) زمان انتخاب‌شده را حذف کنید؟
-  text_select_project_modules: 'ابزارهایی که باید برای این پروژه فعال شوند را انتخاب کنید:'
   text_default_administrator_account_changed: حساب راه‌بری پیش‌فرض تغییر کرده است
   text_file_repository_writable: پوشه پیوست‌ها نوشتنی است
-  text_plugin_assets_writable: پوشه دارایی‌های افزونه‌ها نوشتنی است
   text_all_migrations_have_been_run: همه تغییرات پایگاه داده اعمال شده اند
   text_minimagick_available: MiniMagick در دست‌رس است (اختیاری)
   text_convert_available: تبدیل ImageMagick در دست‌رس است (اختیاری)
   text_gs_available: پشتیبانی ImageMagick PDF موجود است (اختیاری)
+  text_default_active_job_queue_changed: آداپتور پیش‌فرض صف که به شکل مناسبی کار می‌کند تنها برای توسعه/آزمون تغییر کرد
   text_destroy_time_entries_question: "روی مسئله‌هایی که می‌خواهید حذف کنید، %{hours} ساعت زمان ثبت شده است. می‌خواهید چه‌کار کنید؟"
   text_destroy_time_entries: ساعت‌های ثبت شده حذف شوند
   text_assign_time_entries_to_project: ساعت‌های ثبت شده به پروژه واگذار شوند
@@ -1309,11 +1328,11 @@ fa:
   text_project_closed: این پروژه بسته و فقط‌خواندنی است.
   text_turning_multiple_off: "اگر این گزینه را غیرفعال کنید، در بخش‌های سفارشیِ ذخیره‌شده، فقط یک مقدار باقی خواهد ماند و بقیه موارد حذف خواهند شد."
   text_select_apply_tracker: "انتخاب نوع مسئله"
+  text_select_apply_issue_status: "وضعیت مسئله را انتخا کنید"
   text_avatar_server_config_html: خادم فعلی آواتار <a href="%{url}">%{url}</a> می‌باشد. شما می‌توانید آن را در config/configuration.yml تغییر دهید.
   text_no_subject: بدون موضوع
   text_allowed_queries_to_select: تنها جستارهای عمومی (برای همه کاربران) قابل انتخاب است
-  text_setting_config_change: می‌توانید رفتار را در config/configuration.yml ویرایش کنید.
-    لطفا پس از تغییر، برنامه را دوباره اجرا کنید.
+  text_setting_config_change: می‌توانید رفتار را در config/configuration.yml ویرایش کنید. لطفا پس از تغییر، برنامه را دوباره اجرا کنید.
 
   default_role_manager: مدیر
   default_role_developer: برنامه‌نویس
@@ -1341,9 +1360,7 @@ fa:
   enumeration_doc_categories: دسته‌بندی اسناد
   enumeration_activities: دسته‌بندی زمان‌ها
   enumeration_system_activity: تابع پیش‌فرض‌های سامانه
-  description_filter: غربال
   description_search: بخش جست‌وجو
-  description_choose_project: پروژه‌ها
   description_project_scope: حوزه جست‌وجو
   description_notes: یادداشت‌ها
   description_message_content: محتوای پیغام‌ها
@@ -1364,22 +1381,18 @@ fa:
   label_import_time_entries: ورود زمان‌ها
   label_import_users: وارد کردن فهرست کاربران
   sudo_mode_new_info_html: "<strong>چه اتفاقی می‌افتد؟</strong> قبل از انجام هرگونه اقداماتِ راه‌بری باید گذرواژه خود را دوباره وارد کنید، این کار تضمین می‌کند که حساب شما محافظت شود."
+
   twofa__totp__name: برنامک احراز هویت
-  twofa__totp__text_pairing_info_html: لطفا کد QR را را در یک برنامه TOTP اسکن کنید یا کلید متنی  را در آن وارد کنید (به عنوان مثال <a href="https://support.google.com/accounts/answer/1066447"> Google
-    Authenticator </a>، <a href="https://authy.com/download/"> Authy </a>، <a href = "https://guide.duo.com/third-party-accounts" > Duo
-    Mobile </a>) سپس کدی که برنامه در اختیار شما می‌گذارد را در قسمت زیر وارد نمایید تا احراز هویت دو مرحله ای فعال شود.
+  twofa__totp__text_pairing_info_html: لطفا کد QR را را در یک برنامه TOTP اسکن کنید یا کلید متنی  را در آن وارد کنید (به عنوان مثال <a href="https://support.google.com/accounts/answer/1066447"> Google Authenticator </a>، <a href="https://authy.com/download/"> Authy </a>، <a href = "https://guide.duo.com/third-party-accounts" > Duo Mobile </a>) سپس کدی که برنامه در اختیار شما می‌گذارد را در قسمت زیر وارد نمایید تا احراز هویت دو مرحله ای فعال شود.
   twofa__totp__label_plain_text_key: کلید متنی
   twofa__totp__label_activate: فعال‌سازی برنامک احراز هویت
   twofa_currently_active: 'فعال: %{twofa_scheme_name}'
   twofa_not_active: فعال نشده است
   twofa_label_code: کد
   twofa_hint_disabled_html: تنظیم <strong>%{label}</strong> احراز هویت دو عاملی را غیرفعال کرده و اتصال همه دستگاه‌های تمامی کاربران را قطع می‌کند.
-  twofa_hint_optional_html: تنظیم <strong>%{label}</strong> به کاربران اجازه می‌دهد
-    احراز هویت دوعاملی را در صورت تمایل فعال کنند، مگر این‌که توسط یکی از گروه‌های کاربری الزامی شده باشد.
+  twofa_hint_optional_html: تنظیم <strong>%{label}</strong> به کاربران اجازه می‌دهد احراز هویت دوعاملی را در صورت تمایل فعال کنند، مگر این‌که توسط یکی از گروه‌های کاربری الزامی شده باشد.
   twofa_hint_required_html: تنظیم <strong>%{label}</strong> تمامی کاربران را ملزم می‌کند تا احراز هویت دو عاملی را در اولین ورود بعدی فعال کنند.
-  twofa_hint_required_administrators_html: تنظیم <strong>%{label}</strong> شبیه
-   احراز هویت دوعاملی اختیاری عمل می‌کند, اما برای راه‌برها احراز هویت دوعاملی را
-    در اولین ورود بعدی الزامی می‌کند.
+  twofa_hint_required_administrators_html: تنظیم <strong>%{label}</strong> شبیه احراز هویت دوعاملی اختیاری عمل می‌کند, اما برای راه‌برها احراز هویت دوعاملی را در اولین ورود بعدی الزامی می‌کند.
   twofa_label_setup: فعال‌سازی احراز هویت دو عاملی
   twofa_label_deactivation_confirmation: غیرفعال‌سازی احراز هویت دو عاملی
   twofa_notice_select: 'لطفاً طرح دو عاملی را که می خواهید استفاده کنید انتخاب کنید:'
@@ -1407,17 +1420,135 @@ fa:
   twofa_text_group_disabled: "این تنظیم تنها زمانی مؤثر است که احراز هویت دوعاملی روی «اختیاری» تنظیم شده باشد. در حال حاضر، احراز هویت دوعاملی غیرفعال است."
   text_user_destroy_confirmation: مطمئنید که می خواهید این کاربر و همه ارجاع‌های مربوط به او را حذف کنید؟ این کار قابل بازگشت نیست. غالبا، قفل کردن کاربر به جای حذف، راه حل به‌تری است. برای تأیید، لطفاً شناسه ورود کاربر (%{login}) را در زیر وارد کنید.
   text_project_destroy_enter_identifier: برای تایید، لطفا شناسه پروژه (%{identifier}) را وارد کنید.
-  permission_select_project_publicity: تنظیم عمومی یا خصوصی بودن پروژه
-  label_auto_watch_on_issue_created: مسئله‌هایی که من ساخته‌ام
-  field_any_searchable: هر متن قابل جستجویی
-  label_contains_any_of: شامل یکی از
-  button_apply_issues_filter: اعمال غربال مسئله‌ها
-  label_view_previous_annotation: مشاهده حاشیه‌نویسی قبل از این تغییر
-  label_has_been: بوده است
-  label_has_never_been: نبوده است
-  label_changed_from: تغییر یافته از
-  label_issue_statuses_description: توضیحات وضعیت‌های مسئله
-  label_open_issue_statuses_description: مشاهده توضیحات همه وضعیت‌های مسئله‌ها
-  text_select_apply_issue_status: وضعیت مسئله را انتخاب کنید
   field_name_or_email_or_login: نام، رایانامه یا شناسه کاربری
-  text_default_active_job_queue_changed: آداپتور پیش‌فرض صف که به شکل مناسبی کار می‌کند تنها برای توسعه/آزمون تغییر کرد
+  setting_wiki_tablesort_enabled: مرتب‌سازی جدول بر پایه جاوااسکریپت در محتوای دانش‌نامه
+  error_spent_on_closed_issue: امکان ثبت زمان روی مسئله بسته شده وجود ندارد
+  setting_timelog_accept_closed_issues: پذیرش ثبت زمان روی مسائل بسته شده
+  setting_related_issues_default_columns: پیش‌فرض‌های فهرست مسائل مرتبط و زیرکارها
+  setting_display_related_issues_table_headers: نمایش سرآیندهای جدول
+  error_can_not_remove_role_reason_members_html: "<p>پروژه‌های زیر اعضایی با این نقش دارند:<br>%{projects}</p>"
+
+  setting_reactions_enabled: فعال‌سازی واکنش‌ها
+  reaction_text_x_other_users:
+    one: 1 کاربر دیگر
+    other: "%{count} کاربر دیگر"
+  text_setting_gravatar_default_initials_html: حروف اول اسامی کاربران به <a href="%{url}">%{url}</a> ارسال می‌شود
+    تا تصاویر پروفایل آن‌ها تولید شود.
+  permission_view_project: مشاهده پروژه‌ها
+  permission_search_project: جستجوی پروژه‌ها
+  permission_view_members: مشاهده اعضای پروژه
+  text_oauth_admin_permission: دسترسی راه‌بری کامل. در صورت مجوزدهی توسط یک راه‌بر،
+    این برنامه قادر خواهد بود تمام داده‌ها را خوانده و نوشته و هویت سایر کاربران را جعل کند.
+  text_oauth_admin_permission_info: این برنامه درخواست دسترسی کامل راه‌بری دارد.
+    اگر شما راه‌بر باشید (یا در آینده بشوید)، این برنامه قادر خواهد بود
+    تمام داده‌ها را بخواند و بنویسد
+    و به جای شما هویت دیگر کاربران را جعل کند.
+    اگر می‌خواهید از این وضعیت جلوگیری کنید، برنامه را به عنوان یک کاربر عادی (بدون دسترسی‌های راه‌بری) مجاز کنید.
+
+  text_oauth_copy_secret_now: رمز را در جای امنی نگهداری کنید، چرا که دوباره نمایش داده نخواهد شد.
+  text_oauth_implicit_permissions: مشاهده نام، شناسه کاربری و نشانی رایانامه اصلی شما
+  text_oauth_info_scopes: محدوده‌های دسترسی که این برنامه می‌تواند درخواست کند را انتخاب کنید.
+    به برنامه اجازه انجام عملیاتی فراتر از موارد انتخاب شده در اینجا داده نخواهد شد.
+    همچنین دسترسی برنامه همواره توسط نقش‌ها و عضویت‌های پروژه کاربری که آن را مجوز داده، محدود می‌شود.
+  label_position: موقعیت
+  label_message: پیام
+  twofa_already_setup: ورود دوعاملی قبلا راه‌اندازی شده است
+  permission_use_webhooks: Use webhooks
+  label_webhook_plural: Webhooks
+  label_webhook_new: New webhook
+  label_webhook_edit: Edit webhook
+  label_webhook_events: Events
+  webhook_url_info: Redmine will send a POST request to this URL whenever one of the
+    selected events occurs in one of the selected projects.
+  webhook_secret_info_html: If provided, Redmine will use this to create a hash signature
+    that is sent with each delivery as the value of the X-Redmine-Signature-256 header.
+  setting_webhooks_enabled: Enable webhooks
+  label_integrations: Integrations
+  field_ratio_interval: Ratio interval
+  webhook_event_created: "%{object_name} created"
+  webhook_event_updated: "%{object_name} updated"
+  webhook_event_deleted: "%{object_name} deleted"
+  label_auto_watch_on_issue_assigned_to_me: Issues assigned to me
+  label_relation_remove: Remove relation
+  label_subtask_remove: Remove subtask
+  button_remove: Remove
+  label_open_in_full_view: Open in full view
+  text_pandoc_available: Pandoc available (optional)
+  label_user_mail_option_only_my_watches: Only for things I watch
+  label_last_used_on: 'Last used: %{value} ago'
+  label_never_used: Never used
+  setting_assignee_dropdown_display_format: Assignee drop-down display format
+  label_assignee_dropdown_display_format_users_then_groups: Users then groups
+  label_assignee_dropdown_display_format_groups_then_users: Groups then users
+  label_enable_default_issue_due_date_offset: Enable default due date for new issues
+  label_days_relative_to_today: days relative to today
+  label_wiki_toolbar_strong: پررنگ
+  label_wiki_toolbar_italic: کج
+  label_wiki_toolbar_underline: زیرخط
+  label_wiki_toolbar_deleted: برداشته شده
+  label_wiki_toolbar_code: کد درون خطی
+  label_wiki_toolbar_heading_1: سربرگ ۱
+  label_wiki_toolbar_heading_2: سربرگ ۲
+  label_wiki_toolbar_heading_3: سربرگ ۳
+  label_wiki_toolbar_unordered_list: فهرست بدون شماره
+  label_wiki_toolbar_ordered_list: فهرست با شماره
+  label_wiki_toolbar_task_list: Task list
+  label_wiki_toolbar_quote: تو بردن
+  label_wiki_toolbar_unquote: بیرون آوردن
+  label_wiki_toolbar_table: Table
+  label_wiki_toolbar_preformatted_text: نوشته قالب بندی شده
+  label_wiki_toolbar_preformatted_code: Highlighted code
+  label_wiki_toolbar_wiki_link: پیوند به برگ ویکی
+  label_wiki_toolbar_image: عکس
+  label_wiki_toolbar_help: Help
+  label_assignee_dropdown_display_format_users_by_group: Users by group
+  button_remove_from_group: Remove from group
+  button_add_to_group: Add to group
+  setting_default_issue_due_date_offset: Default due date for new issues
+  field_private_by_default: Private by default
+  field_default_value_mode: Default value mode
+  label_absolute: Absolute
+  label_relative: Relative
+  error_issue_status_in_use_by_issues: This status is used by some issues
+  error_issue_status_default_for_trackers: This status is used as the default status by some trackers
+  text_users_remove_from_group_confirmation: Are you sure you want to remove the selected user(s) from the group %{group}?
+  webhook_secret_keep_info: The secret of another user is not displayed. Leave this
+    field blank to keep it unchanged.
+  webhook_disabled_info_html: Webhooks are disabled, so none of the webhooks below is
+    triggered. They are still listed here so that they can be reviewed or removed. Webhooks
+    can be enabled in the %{link} settings.
+  permission_export_issues: Export issues
+  permission_export_time_entries: Export time entries
+  label_users_and_groups: Users and groups
+  mail_subject_test_email: Redmine test
+  mail_body_test_email: This is a test email sent by Redmine.
+  text_mermaid_available: Mermaid.js available (optional)
+  label_member_view_all: View all members
+  field_date: Date
+  label_non_working_date_plural: Non-working dates
+  label_non_working_date_new: New non-working date
+  text_non_working_dates_html: 'You can add non-working dates such as holidays: <a href="%{non_working_dates_path}">Manage
+    non-working dates</a>'
+  text_non_working_dates_export_all_years: Non-working dates of all years will be exported.
+  label_import_non_working_dates: Import non-working dates
+  field_avatar: Avatar
+  setting_avatar_enabled: Allow users to set their avatar
+  button_change_avatar: Change avatar
+  text_avatar_uploaded: The uploaded image is currently used as the avatar.
+  text_avatar_from_server_html: The image from <a href="%{url}">%{url}</a> associated
+    with the user's email address is currently used as the avatar. It can be changed
+    on that site. If no image is registered there, a default avatar is shown.
+  text_avatar_initials: The image generated from the user's name is currently used as
+    the avatar.
+  text_avatar_upload_instead: You can upload an image to use instead.
+  text_avatar_upload_disabled: Uploading an avatar image to Redmine has been disabled
+    by the administrator.
+  text_setting_avatar_enabled_imagemagick_unavailable: ImageMagick is not available,
+    so users cannot set their avatar.
+  text_setting_gravatar_enabled_fallback: If enabled, Gravatar is used for users who
+    have not set their avatar in Redmine.
+  label_show_more: Show more
+  setting_favicon: Custom favicon
+  text_setting_favicon_format: PNG or ICO, up to %{max_size}
+  notice_search_tokens_truncated: 'A maximum of %{max} search terms can be used. Only
+    the following terms were used: %{tokens}'

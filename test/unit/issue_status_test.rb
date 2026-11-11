@@ -20,16 +20,6 @@
 require_relative '../test_helper'
 
 class IssueStatusTest < ActiveSupport::TestCase
-  fixtures :projects, :users, :members, :member_roles, :roles,
-           :groups_users,
-           :trackers, :projects_trackers,
-           :enabled_modules,
-           :versions,
-           :issue_statuses, :issue_categories, :issue_relations, :workflows,
-           :enumerations,
-           :issues, :journals, :journal_details,
-           :custom_fields, :custom_fields_projects, :custom_fields_trackers, :custom_values
-
   def setup
     User.current = nil
   end
@@ -56,7 +46,18 @@ class IssueStatusTest < ActiveSupport::TestCase
   def test_destroy_status_in_use
     # Status assigned to an Issue
     status = Issue.find(1).status
-    assert_raise(RuntimeError, "Cannot delete status") {status.destroy}
+    e = assert_raise(RuntimeError) {status.destroy}
+    assert_equal I18n.t(:error_issue_status_in_use_by_issues), e.message
+  end
+
+  def test_destroy_status_used_as_default_by_tracker
+    # Status that is not used by any issue but is the default status of a tracker
+    status = IssueStatus.find(3)
+    assert_not Issue.where(:status_id => status.id).exists?
+    Tracker.find(1).update_column(:default_status_id, status.id)
+
+    e = assert_raise(RuntimeError) {status.destroy}
+    assert_equal I18n.t(:error_issue_status_default_for_trackers), e.message
   end
 
   def test_new_statuses_allowed_to

@@ -19,17 +19,25 @@
 
 module Redmine
   module WikiFormatting
-    # Combination of SanitizationFilter and ExternalLinksFilter
+    # Combination of SanitizationFilter and ExternalLinksScrubber
     class HtmlSanitizer
-      Pipeline = HTML::Pipeline.new(
-        [
-          Redmine::WikiFormatting::CommonMark::SanitizationFilter,
-          Redmine::WikiFormatting::CommonMark::ExternalLinksFilter,
-        ], {})
+      SANITIZER = Redmine::WikiFormatting::CommonMark::SanitizationFilter.new
+      SCRUBBERS = [Redmine::WikiFormatting::CommonMark::ExternalLinksScrubber.new]
 
       def self.call(html)
-        result = Pipeline.call html
-        result[:output].to_s
+        fragment = HtmlParser.parse(html)
+        SANITIZER.call(fragment)
+
+        scrubber = Loofah::Scrubber.new do |node|
+          SCRUBBERS.each do |s|
+            result = s.scrub(node)
+            break result if result == Loofah::Scrubber::STOP
+            break if node.parent.nil?
+          end
+        end
+
+        fragment.scrub!(scrubber)
+        fragment.to_s
       end
     end
   end

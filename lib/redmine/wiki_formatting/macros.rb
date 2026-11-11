@@ -38,7 +38,7 @@ module Redmine
 
           method_name = "macro_#{name}"
           unless macro_options[:parse_args] == false
-            args = args.split(',').map(&:strip)
+            args = split_macro_args(args)
           end
 
           begin
@@ -50,17 +50,41 @@ module Redmine
               send(method_name, obj, args)
             end
           rescue => e
-            %|<div class="flash error">#{::I18n.t(:error_can_not_execute_macro_html, :name => name, :error => e.to_s)}</div>|.html_safe
+            %|<div class="flash error">#{::I18n.t(:error_can_not_execute_macro_html, :name => ::ERB::Util.h(name), :error => ::ERB::Util.h(e.to_s))}</div>|.html_safe
           end
         end
 
         def extract_macro_options(args, *keys)
           options = {}
           while args.last.to_s.strip =~ %r{^(.+?)\=(.+)$} && keys.include?($1.downcase.to_sym)
-            options[$1.downcase.to_sym] = $2
+            options[$1.downcase.to_sym] = $2.gsub(/^"(.*)"$/, '\1')
             args.pop
           end
           return [args, options]
+        end
+
+        # Splits the arguments by commas that are not within double quotes,
+        # scanning the string only once to avoid quadratic time on long input
+        def split_macro_args(args)
+          # A comma is outside double quotes when an even number of them follows it
+          quotes_after = args.count('"')
+          values = [+'']
+          args.split(/(\s*,\s*)/).each_with_index do |token, i|
+            if i.even?
+              quotes_after -= token.count('"')
+              values.last << token
+            elsif quotes_after.even?
+              values << +''
+            else
+              values.last << token
+            end
+          end
+          values.pop while values.last == ''
+          values.map {|v| v.gsub(/^"(.*)"$/, '\1').gsub('""', '"')}
+        end
+
+        def current_project(obj)
+          @project || (obj.is_a?(Project) && obj) || (obj.respond_to?(:project) && obj.project)
         end
       end
 
@@ -93,6 +117,8 @@ module Redmine
         # * :desc - A description of the macro
         # * :parse_args => false - Disables arguments parsing (the whole arguments
         #   string is passed to the macro)
+        # * :sections => true - Headings in the macro output are sections of the
+        #   page and get section edit links (eg. the block of text is part of the page)
         #
         # Macro blocks accept 2 or 3 arguments:
         # * obj: the object that is rendered (eg. an Issue, a WikiContent...)
@@ -150,7 +176,7 @@ module Redmine
         #
         # If a block of text is given, the closing tag }} must be at the start of a new line.
         def macro(name, options={}, &block)
-          options.assert_valid_keys(:desc, :parse_args)
+          options.assert_valid_keys(:desc, :parse_args, :sections)
           unless /\A\w+\z/.match?(name.to_s)
             raise "Invalid macro name: #{name} (only 0-9, A-Z, a-z and _ characters are accepted)"
           end
@@ -213,11 +239,62 @@ module Redmine
         render_page_hierarchy(pages, options[:parent] ? page.parent_id : page.id)
       end
 
+      desc "Displays a list of recently updated wiki pages. With no argument, it displays pages that have been updated within the last 7 days. Examples:\n\n" +
+             "{{recent_pages}} -- displays pages updated within the last 7 days\n" +
+             "{{recent_pages(days=3)}} -- displays pages updated within the last 3 days\n" +
+             "{{recent_pages(limit=5)}} -- limits the maximum number of pages to display to 5\n" +
+             "{{recent_pages(time=true)}} -- displays pages updated within the last 7 days with updated time\n" +
+             "{{recent_pages(project=identifier)}} -- displays pages updated within the last 7 days from a specific project\n" +
+             "{{recent_pages(include_subprojects=true)}} -- includes pages from subprojects"
+
+      macro :recent_pages do |obj, args|
+        args, options = extract_macro_options(args, :days, :limit, :time, :project, :include_subprojects)
+
+        if options[:project].presence
+          project = Project.find_by_identifier(options[:project].to_s) if options[:project].present?
+        else
+          project = current_project(obj)
+        end
+
+        return '' if project.nil?
+
+        days_to_list = (options[:days].presence || 7).to_i
+        limit = options[:limit].to_i if options[:limit].present?
+        is_show_time = options[:time].to_s == 'true'
+        if options[:include_subprojects].to_s == 'true'
+          project_ids = project.self_and_descendants.allowed_to(User.current, :view_wiki_pages).pluck(:id)
+        elsif User.current.allowed_to?(:view_wiki_pages, project)
+          project_ids = [project.id]
+        end
+
+        return '' if project_ids.blank?
+
+        pages = WikiPage.
+          joins(:wiki, :content).
+          where(:wikis => {:project_id => project_ids}).
+          where("#{WikiContent.table_name}.updated_on >= ?", days_to_list.days.ago).
+          order("#{WikiContent.table_name}.updated_on DESC, #{WikiPage.table_name}.id DESC").
+          limit(limit)
+
+        tag.ul do
+          pages.each do |page|
+            concat(
+              tag.li do
+                html = link_to(h(page.pretty_title), project_wiki_page_path(page.project, page.title))
+                html << " (#{time_ago_in_words(page.content.updated_on)})" if is_show_time
+                html
+              end
+            )
+          end
+        end
+      end
+
       desc "Includes a wiki page. Examples:\n\n" +
              "{{include(Foo)}}\n" +
              "{{include(projectname:Foo)}} -- to include a page of a specific project wiki"
       macro :include do |obj, args|
-        page = Wiki.find_page(args.first.to_s, :project => @project)
+        project = current_project(obj)
+        page = Wiki.find_page(args.first.to_s, :project => project)
         raise t(:error_page_not_found) if page.nil? || !User.current.allowed_to?(:view_wiki_pages, page.wiki.project)
 
         @included_wiki_pages ||= []
@@ -239,16 +316,16 @@ module Redmine
       desc "Inserts of collapsed block of text. Examples:\n\n" +
              "{{collapse\nThis is a block of text that is collapsed by default.\nIt can be expanded by clicking a link.\n}}\n\n" +
              "{{collapse(View details...)\nWith custom link text.\n}}"
-      macro :collapse do |obj, args, text|
+      macro :collapse, :sections => true do |obj, args, text|
         html_id = "collapse-#{Redmine::Utils.random_hex(4)}"
         show_label = args[0] || l(:button_show)
         hide_label = args[1] || args[0] || l(:button_hide)
         js = "$('##{html_id}-show, ##{html_id}-hide').toggle(); $('##{html_id}').fadeToggle(150);"
         out = ''.html_safe
-        out << link_to_function(show_label, js, :id => "#{html_id}-show", :class => 'icon icon-collapsed collapsible')
+        out << link_to_function(sprite_icon('angle-right', show_label, rtl: true), js, :id => "#{html_id}-show", :class => 'icon icon-collapsed collapsible')
         out <<
           link_to_function(
-            hide_label, js,
+            sprite_icon('angle-down', hide_label), js,
             :id => "#{html_id}-hide",
             :class => 'icon icon-expanded collapsible',
             :style => 'display:none;'

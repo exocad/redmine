@@ -20,10 +20,6 @@
 require_relative '../test_helper'
 
 class RoutesHelperTest < Redmine::HelperTest
-  fixtures :projects, :issues
-
-  include Rails.application.routes.url_helpers
-
   def test_time_entries_path
     assert_equal '/projects/ecookbook/time_entries', _time_entries_path(Project.find(1), nil)
     assert_equal '/time_entries', _time_entries_path(nil, nil)
@@ -46,5 +42,25 @@ class RoutesHelperTest < Redmine::HelperTest
     assert_equal 'http://test.host/issues', _project_issues_url(nil)
     assert_equal 'http://test.host/projects/ecookbook/issues?set_filter=1', _project_issues_url(Project.find(1), set_filter: 1)
     assert_equal 'http://test.host/issues?set_filter=1', _project_issues_url(nil, set_filter: 1)
+  end
+
+  def test_project_members_path_in_settings_context
+    project = Project.find('ecookbook')
+    stubs(:controller_name).returns('projects')
+    stubs(:action_name).returns('settings')
+
+    assert_equal '/projects/ecookbook/settings/members', _project_members_path(project)
+    assert_equal '/projects/ecookbook/settings/members?members_page=2', _project_members_path(project, :members_page => 2)
+    assert_equal '/projects/ecookbook/settings/members?members_page=2', _project_members_path(project, :tab => 'members', :members_page => 2)
+  end
+
+  def test_project_members_path_in_project_members_context
+    project = Project.find('ecookbook')
+    stubs(:controller_name).returns('members')
+    stubs(:action_name).returns('index')
+
+    assert_equal '/projects/ecookbook/members', _project_members_path(project)
+    assert_equal '/projects/ecookbook/members?members_page=2', _project_members_path(project, :members_page => 2)
+    assert_equal '/projects/ecookbook/members?members_page=2', _project_members_path(project, :tab => 'members', :members_page => 2)
   end
 end

@@ -20,22 +20,6 @@
 require_relative '../test_helper'
 
 class CalendarsControllerTest < Redmine::ControllerTest
-  fixtures :projects,
-           :trackers,
-           :projects_trackers,
-           :roles,
-           :member_roles,
-           :members,
-           :enabled_modules,
-           :issues,
-           :issue_statuses,
-           :issue_relations,
-           :issue_categories,
-           :enumerations,
-           :queries,
-           :users, :email_addresses,
-           :versions
-
   def test_show
     # Ensure that an issue to which a user is assigned is in the current
     # month's calendar in order to test Gravatar
@@ -73,7 +57,7 @@ class CalendarsControllerTest < Redmine::ControllerTest
         ) do
           assert_select 'a.issue[href=?]', '/issues/2', :text => 'Feature request #2'
           assert_select 'span.tip' do
-            assert_select 'img[class="gravatar"]'
+            assert_select 'img.gravatar.avatar.active'
           end
           assert_select 'input[name=?][type=?][value=?]', 'ids[]', 'checkbox', '2'
         end
@@ -155,15 +139,16 @@ class CalendarsControllerTest < Redmine::ControllerTest
   end
 
   def test_show_should_run_custom_queries
-    @query = IssueQuery.create!(:name => 'Calendar Query', :visibility => IssueQuery::VISIBILITY_PUBLIC)
+    query = IssueQuery.create!(:name => 'Calendar Query', :description => 'Description for Calendar Query', :visibility => IssueQuery::VISIBILITY_PUBLIC)
     get(
       :show,
       :params => {
-        :query_id => @query.id
+        :query_id => query.id
       }
     )
     assert_response :success
-    assert_select 'h2', :text => 'Calendar Query'
+    assert_select 'h2', :text => query.name
+    assert_select '#sidebar a.query.selected[title=?]', query.description, :text => query.name
   end
 
   def test_cross_project_calendar
@@ -218,14 +203,14 @@ class CalendarsControllerTest < Redmine::ControllerTest
 
     assert_select 'ul' do
       assert_select 'li.week-number:nth-of-type(2)', :text => /53$/
-      assert_select 'li.odd', :text => /^27/
-      assert_select 'li.even', :text => /^2/
+      assert_select 'li.other-month', :text => /^27/
+      assert_select 'li.this-month', :text => /^2/
     end
 
     assert_select 'ul' do
       assert_select 'li.week-number', :text => /1$/
-      assert_select 'li.odd', :text => /^3/
-      assert_select 'li.even', :text => /^9/
+      assert_select 'li.other-month', :text => /^3/
+      assert_select 'li.this-month', :text => /^9/
     end
 
     with_settings :start_of_week => 1 do
@@ -241,14 +226,14 @@ class CalendarsControllerTest < Redmine::ControllerTest
 
     assert_select 'ul' do
       assert_select 'li.week-number:nth-of-type(2)', :text => /53$/
-      assert_select 'li.even', :text => /^28/
-      assert_select 'li.even', :text => /^3/
+      assert_select 'li.this-month', :text => /^28/
+      assert_select 'li.this-month', :text => /^3/
     end
 
     assert_select 'ul' do
       assert_select 'li.week-number', :text => /1$/
-      assert_select 'li.even', :text => /^4/
-      assert_select 'li.even', :text => /^10/
+      assert_select 'li.this-month', :text => /^4/
+      assert_select 'li.this-month', :text => /^10/
     end
   end
 
@@ -291,5 +276,23 @@ class CalendarsControllerTest < Redmine::ControllerTest
       assert_select 'li.nwday', :text => /^4/
       assert_select 'li.nwday', :text => /^10/
     end
+  end
+
+  def test_show_calendar_should_mark_non_working_dates
+    NonWorkingDate.create!(:date => '2016-12-29', :name => 'Year-end Shutdown')
+    get(
+      :show,
+      :params => {
+        :month => '12',
+        :year => '2016'
+      }
+    )
+    assert_response :success
+
+    assert_select 'li.nwday', 11
+    assert_select 'li.nwday', :text => /^29/ do
+      assert_select 'span.non-working-date-name', :text => 'Year-end Shutdown'
+    end
+    assert_select 'span.non-working-date-name', 1
   end
 end

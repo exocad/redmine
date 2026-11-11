@@ -20,18 +20,6 @@
 require_relative '../test_helper'
 
 class UserTest < ActiveSupport::TestCase
-  fixtures :users, :email_addresses, :members, :projects, :roles, :member_roles, :auth_sources,
-           :trackers, :issue_statuses,
-           :projects_trackers,
-           :watchers,
-           :issue_categories, :enumerations, :issues,
-           :journals, :journal_details,
-           :groups_users,
-           :enabled_modules,
-           :tokens,
-           :user_preferences,
-           :custom_fields, :custom_fields_projects, :custom_fields_trackers, :custom_values
-
   include Redmine::I18n
 
   def setup
@@ -308,12 +296,17 @@ class UserTest < ActiveSupport::TestCase
   def test_destroy_should_update_journals
     issue = Issue.generate!(:project_id => 1, :author_id => 2,
                           :tracker_id => 1, :subject => 'foo')
+    # Prepare a journal with both user_id and updated_by_id set to 2
     issue.init_journal(User.find(2), "update")
     issue.save!
+    journal = issue.journals.first
+    journal.update_columns(updated_by_id: 2)
 
     User.find(2).destroy
     assert_nil User.find_by_id(2)
-    assert_equal User.anonymous, issue.journals.first.reload.user
+    journal.reload
+    assert_equal User.anonymous, journal.user
+    assert_equal User.anonymous, journal.updated_by
   end
 
   def test_destroy_should_update_journal_details_old_value
@@ -324,7 +317,7 @@ class UserTest < ActiveSupport::TestCase
     assert_difference 'JournalDetail.count' do
       issue.save!
     end
-    journal_detail = JournalDetail.order('id DESC').first
+    journal_detail = JournalDetail.order(id: :desc).first
     assert_equal '2', journal_detail.old_value
 
     User.find(2).destroy
@@ -340,7 +333,7 @@ class UserTest < ActiveSupport::TestCase
     assert_difference 'JournalDetail.count' do
       issue.save!
     end
-    journal_detail = JournalDetail.order('id DESC').first
+    journal_detail = JournalDetail.order(id: :desc).first
     assert_equal '2', journal_detail.value
 
     User.find(2).destroy
@@ -405,6 +398,43 @@ class UserTest < ActiveSupport::TestCase
     User.find(2).destroy
     assert_nil User.find_by_id(2)
     assert_nil Token.find_by_id(token.id)
+  end
+
+  def test_destroy_should_delete_oauth_access_grants
+    application = Doorkeeper::Application.create!(
+      :name => 'Test App',
+      :redirect_uri => 'http://localhost/callback',
+      :scopes => 'view_issues'
+    )
+    grant = Doorkeeper::AccessGrant.create!(
+      :application_id => application.id,
+      :resource_owner_id => 2,
+      :redirect_uri => application.redirect_uri,
+      :scopes => 'view_issues',
+      :expires_in => 600
+    )
+
+    User.find(2).destroy
+    assert_nil User.find_by_id(2)
+    assert_nil Doorkeeper::AccessGrant.find_by_id(grant.id)
+  end
+
+  def test_destroy_should_delete_oauth_access_tokens
+    application = Doorkeeper::Application.create!(
+      :name => 'Test App',
+      :redirect_uri => 'http://localhost/callback',
+      :scopes => 'view_issues'
+    )
+    token = Doorkeeper::AccessToken.create!(
+      :application_id => application.id,
+      :resource_owner_id => 2,
+      :scopes => 'view_issues',
+      :expires_in => 7200
+    )
+
+    User.find(2).destroy
+    assert_nil User.find_by_id(2)
+    assert_nil Doorkeeper::AccessToken.find_by_id(token.id)
   end
 
   def test_destroy_should_delete_watchers
@@ -477,6 +507,7 @@ class UserTest < ActiveSupport::TestCase
   def test_password_change_should_destroy_tokens
     recovery_token = Token.create!(:user_id => 2, :action => 'recovery')
     autologin_token = Token.create!(:user_id => 2, :action => 'autologin')
+    session_token = Token.create!(:user_id => 2, :action => 'session')
 
     user = User.find(2)
     user.password, user.password_confirmation = "a new password", "a new password"
@@ -484,18 +515,49 @@ class UserTest < ActiveSupport::TestCase
 
     assert_nil Token.find_by_id(recovery_token.id)
     assert_nil Token.find_by_id(autologin_token.id)
+    assert_nil Token.find_by_id(session_token.id)
   end
 
   def test_mail_change_should_destroy_tokens
     recovery_token = Token.create!(:user_id => 2, :action => 'recovery')
     autologin_token = Token.create!(:user_id => 2, :action => 'autologin')
+    session_token = Token.create!(:user_id => 2, :action => 'session')
 
     user = User.find(2)
     user.mail = "user@somwehere.com"
     assert user.save
 
     assert_nil Token.find_by_id(recovery_token.id)
-    assert_equal autologin_token, Token.find_by_id(autologin_token.id)
+    assert_nil Token.find_by_id(autologin_token.id)
+    assert_nil Token.find_by_id(session_token.id)
+  end
+
+  def test_lock_should_destroy_tokens
+    recovery_token = Token.create!(:user_id => 2, :action => 'recovery')
+    autologin_token = Token.create!(:user_id => 2, :action => 'autologin')
+    session_token = Token.create!(:user_id => 2, :action => 'session')
+
+    user = User.find(2)
+    user.status = User::STATUS_LOCKED
+    assert user.save
+
+    assert_nil Token.find_by_id(recovery_token.id)
+    assert_nil Token.find_by_id(autologin_token.id)
+    assert_nil Token.find_by_id(session_token.id)
+  end
+
+  def test_twofa_activation_should_destroy_tokens
+    recovery_token = Token.create!(:user_id => 2, :action => 'recovery')
+    autologin_token = Token.create!(:user_id => 2, :action => 'autologin')
+    session_token = Token.create!(:user_id => 2, :action => 'session')
+
+    user = User.find(2)
+    user.twofa_scheme = 'totp'
+    assert user.save
+
+    assert_nil Token.find_by_id(recovery_token.id)
+    assert_nil Token.find_by_id(autologin_token.id)
+    assert_nil Token.find_by_id(session_token.id)
   end
 
   def test_change_on_other_fields_should_not_destroy_tokens
@@ -508,6 +570,22 @@ class UserTest < ActiveSupport::TestCase
 
     assert_equal recovery_token, Token.find_by_id(recovery_token.id)
     assert_equal autologin_token, Token.find_by_id(autologin_token.id)
+  end
+
+  def test_delete_login_tokens_should_delete_recovery_autologin_and_session_tokens
+    recovery_token = Token.create!(:user_id => 2, :action => 'recovery')
+    autologin_token = Token.create!(:user_id => 2, :action => 'autologin')
+    session_token = Token.create!(:user_id => 2, :action => 'session')
+    api_token = Token.create!(:user_id => 2, :action => 'api')
+    other_users_token = Token.create!(:user_id => 3, :action => 'session')
+
+    User.find(2).delete_login_tokens
+
+    assert_nil Token.find_by_id(recovery_token.id)
+    assert_nil Token.find_by_id(autologin_token.id)
+    assert_nil Token.find_by_id(session_token.id)
+    assert Token.find_by_id(api_token.id)
+    assert Token.find_by_id(other_users_token.id)
   end
 
   def test_validate_login_presence
@@ -558,6 +636,25 @@ class UserTest < ActiveSupport::TestCase
     end
   end
 
+  def test_validate_password_complexity
+    set_language_if_valid 'en'
+    user = users(:users_002)
+    bad_passwords = [
+      user.login,
+      user.lastname,
+      user.firstname,
+      user.mail,
+      user.login.upcase
+    ]
+
+    bad_passwords.each do |p|
+      user.password = p
+      user.password_confirmation = p
+      assert_not user.save
+      assert_includes user.errors.full_messages, 'Password is too simple'
+    end
+  end
+
   def test_name_format
     assert_equal 'John S.', @jsmith.name(:firstname_lastinitial)
     assert_equal 'Smith, John', @jsmith.name(:lastname_comma_firstname)
@@ -574,6 +671,27 @@ class UserTest < ActiveSupport::TestCase
     end
     with_settings :user_format => :lastname do
       assert_equal 'Smith', @jsmith.reload.name
+    end
+  end
+
+  def test_initials_format
+    assert_equal 'JS', @jsmith.initials(:firstname_lastinitial)
+    assert_equal 'SJ', @jsmith.initials(:lastname_comma_firstname)
+    assert_equal 'SJ', @jsmith.initials(:lastname_firstname)
+    assert_equal 'JS', @jsmith.initials(:firstinitial_lastname)
+    assert_equal 'JL', User.new(:firstname => 'Jean-Philippe', :lastname => 'Lang').initials(:firstinitial_lastname)
+    assert_equal 'JS', @jsmith.initials(:undefined_format)
+  end
+
+  def test_initials_should_use_setting_as_default_format
+    with_settings :user_format => :firstname_lastname do
+      assert_equal 'JS', @jsmith.reload.initials
+    end
+    with_settings :user_format => :username do
+      assert_equal 'JS', @jsmith.reload.initials
+    end
+    with_settings :user_format => :lastname do
+      assert_equal 'SM', @jsmith.reload.initials
     end
   end
 
@@ -658,6 +776,19 @@ class UserTest < ActiveSupport::TestCase
     end
   end
 
+  def test_lastname_before_firstname_should_return_true_with_lastname_firstname_format
+    assert User.lastname_before_firstname?(:lastname_firstname)
+  end
+
+  def test_lastname_before_firstname_should_return_false_with_firstname_lastname_format
+    assert_not User.lastname_before_firstname?(:firstname_lastname)
+  end
+
+  def test_lastname_before_firstname_should_return_false_with_format_without_both_name_parts
+    assert_not User.lastname_before_firstname?(:username)
+    assert_not User.lastname_before_firstname?(:lastname)
+  end
+
   test ".try_to_login with good credentials should return the user" do
     user = User.try_to_login("admin", "admin")
     assert_kind_of User, user
@@ -706,7 +837,7 @@ class UserTest < ActiveSupport::TestCase
     auth_source = AuthSourceLdap.find(1)
     user = users(:users_001)
     user.update_column :auth_source_id, auth_source.id
-    AuthSource.any_instance.stubs(:initialize_ldap_con).raises(Net::LDAP::Error, 'Cannot connect')
+    AuthSourceLdap.any_instance.stubs(:initialize_ldap_con).raises(Net::LDAP::Error, 'Cannot connect')
     assert_raise(AuthSourceException){User.try_to_login!('admin', 'admin')}
   end
 
@@ -714,14 +845,14 @@ class UserTest < ActiveSupport::TestCase
     auth_source = AuthSourceLdap.find(1)
     user = users(:users_001)
     user.update_column :auth_source_id, auth_source.id
-    AuthSource.any_instance.stubs(:initialize_ldap_con).raises(Net::LDAP::Error, 'Cannot connect')
+    AuthSourceLdap.any_instance.stubs(:initialize_ldap_con).raises(Net::LDAP::Error, 'Cannot connect')
     assert_nil User.try_to_login('admin', 'admin')
   end
 
   test "#try_to_login using LDAP with new user and failed connection to the LDAP server" do
     auth_source = AuthSourceLdap.find(1)
     auth_source.update onthefly_register: true
-    AuthSource.any_instance.stubs(:initialize_ldap_con).raises(Net::LDAP::Error, 'Cannot connect')
+    AuthSourceLdap.any_instance.stubs(:initialize_ldap_con).raises(Net::LDAP::Error, 'Cannot connect')
 
     assert_nil User.try_to_login('edavis', 'wrong')
   end
@@ -1043,15 +1174,15 @@ class UserTest < ActiveSupport::TestCase
 
   def test_valid_notification_options
     # without memberships
-    assert_equal 5, User.find(7).valid_notification_options.size
+    assert_equal 6, User.find(7).valid_notification_options.size
     # with memberships
-    assert_equal 6, User.find(2).valid_notification_options.size
+    assert_equal 7, User.find(2).valid_notification_options.size
   end
 
   def test_valid_notification_options_class_method
-    assert_equal 5, User.valid_notification_options.size
-    assert_equal 5, User.valid_notification_options(User.find(7)).size
-    assert_equal 6, User.valid_notification_options(User.find(2)).size
+    assert_equal 6, User.valid_notification_options.size
+    assert_equal 6, User.valid_notification_options(User.find(7)).size
+    assert_equal 7, User.valid_notification_options(User.find(2)).size
   end
 
   def test_notified_project_ids_setter_should_coerce_to_unique_integer_array
@@ -1363,5 +1494,183 @@ class UserTest < ActiveSupport::TestCase
     assert_difference 'User.count', -2 do
       User.prune(7)
     end
+  end
+
+  def test_should_recognize_authorized_by_oauth
+    u = User.find 2
+    assert_not u.authorized_by_oauth?
+    u.oauth_scope = [:add_issues, :view_issues]
+    assert u.authorized_by_oauth?
+  end
+
+  def test_admin_should_be_limited_by_oauth_scope
+    u = User.find_by_admin(true)
+    assert u.admin?
+
+    u.oauth_scope = [:add_issues, :view_issues]
+    assert_not u.admin?
+
+    u.oauth_scope = [:add_issues, :view_issues, :admin]
+    assert u.admin?
+
+    u = User.find_by_admin(false)
+    assert_not u.admin?
+    u.oauth_scope = [:add_issues, :view_issues, :admin]
+    assert_not u.admin?
+  end
+
+  def test_oauth_scope_should_limit_global_user_permissions
+    admin = User.find 1
+    user = User.find 2
+    [admin, user].each do |u|
+      assert u.allowed_to?(:add_issues, nil, global: true)
+      assert u.allowed_to?(:view_issues, nil, global: true)
+      u.oauth_scope = [:view_issues]
+      assert_not u.allowed_to?(:add_issues, nil, global: true)
+      assert u.allowed_to?(:view_issues, nil, global: true)
+    end
+  end
+
+  def test_oauth_scope_should_limit_project_user_permissions
+    admin = User.find 1
+    project = Project.find 5
+    assert admin.allowed_to?(:add_issues, project)
+    assert admin.allowed_to?(:view_issues, project)
+    admin.oauth_scope = [:view_issues]
+    assert_not admin.allowed_to?(:add_issues, project)
+    assert admin.allowed_to?(:view_issues, project)
+
+    admin.oauth_scope = [:view_issues, :admin]
+    assert admin.allowed_to?(:add_issues, project)
+    assert admin.allowed_to?(:view_issues, project)
+
+    user = User.find 2
+    project = Project.find 1
+    assert user.allowed_to?(:add_issues, project)
+    assert user.allowed_to?(:view_issues, project)
+    user.oauth_scope = [:view_issues]
+    assert_not user.allowed_to?(:add_issues, project)
+    assert user.allowed_to?(:view_issues, project)
+
+    user.oauth_scope = [:view_issues, :admin]
+    assert_not user.allowed_to?(:add_issues, project)
+    assert user.allowed_to?(:view_issues, project)
+  end
+
+  def test_oauth_scope_should_limit_visible_issues
+    user = User.find 2
+    user.oauth_scope = [:view_issues]
+    # project 3 is visible through the Non member role, the others through memberships
+    assert_equal [1, 2, 3, 5], Issue.visible(user).pluck(:project_id).uniq.sort
+
+    user.oauth_scope = [:view_project]
+    assert_empty Issue.visible(user)
+  end
+
+  def test_empty_oauth_scope_should_deny_all_permissions
+    user = User.find 2
+    project = Project.find 1
+    user.oauth_scope = []
+    assert_not user.allowed_to?(:add_issues, project)
+    assert_not user.allowed_to?(:view_issues, project)
+    assert_not user.allowed_to?(:add_issues, nil, global: true)
+    assert_empty Issue.visible(user)
+  end
+
+  def test_destroy_should_delete_associated_reactions
+    users(:users_004).reactions.create!(
+      [
+        {reactable: issues(:issues_001)},
+        {reactable: issues(:issues_002)}
+      ]
+    )
+    assert_difference 'Reaction.count', -2 do
+      users(:users_004).destroy
+    end
+  end
+
+  def test_avatar_attachment_should_be_visible_only_to_user_and_administrators
+    set_tmp_attachments_directory
+    update_avatar(@jsmith, '2010/11/101123161450_testfile_1.png')
+
+    avatar = @jsmith.reload.avatar
+    assert avatar.visible?(@jsmith)
+    assert avatar.visible?(@admin)
+    assert_not avatar.visible?(@dlopper)
+  end
+
+  def test_avatar_available_should_require_setting_and_imagemagick
+    Redmine::Thumbnail.stubs(:convert_available?).returns(true)
+    assert User.avatar_available?
+    with_settings :avatar_enabled => '0' do
+      assert_not User.avatar_available?
+    end
+
+    Redmine::Thumbnail.stubs(:convert_available?).returns(false)
+    assert_not User.avatar_available?
+  end
+
+  def test_update_avatar_should_reject_images_without_imagemagick
+    Redmine::Thumbnail.stubs(:convert_available?).returns(false)
+    assert_no_difference 'Attachment.count' do
+      assert_not @jsmith.update_avatar(uploaded_test_file('2010/11/101123161450_testfile_1.png', 'image/png'))
+    end
+  end
+
+  def test_update_avatar_should_reject_non_raster_images
+    assert_no_difference 'Attachment.count' do
+      assert_not update_avatar(@jsmith, 'testfile.svg')
+    end
+    assert_include :avatar, @jsmith.errors.attribute_names
+  end
+
+  def test_update_avatar_should_keep_existing_avatar_if_image_cannot_be_converted
+    set_tmp_attachments_directory
+    update_avatar(@jsmith, '2010/11/101123161450_testfile_1.png')
+    avatar_id = @jsmith.avatar_id
+
+    Redmine::Thumbnail.stubs(:generate).returns(nil)
+    assert_no_difference 'Attachment.count' do
+      assert_not update_avatar(@jsmith, '2010/12/101223161450_testfile_2.png')
+    end
+    assert_include :avatar, @jsmith.errors.attribute_names
+    assert_equal avatar_id, @jsmith.reload.avatar_id
+  end
+
+  def test_update_avatar_should_replace_existing_avatar
+    set_tmp_attachments_directory
+    update_avatar(@jsmith, '2010/11/101123161450_testfile_1.png')
+    old_avatar_id = @jsmith.avatar_id
+
+    update_avatar(@jsmith, '2010/12/101223161450_testfile_2.png')
+    assert_not_equal old_avatar_id, @jsmith.reload.avatar_id
+    assert_not Attachment.exists?(old_avatar_id)
+  end
+
+  def test_delete_avatar_should_destroy_avatar
+    set_tmp_attachments_directory
+    update_avatar(@jsmith, '2010/11/101123161450_testfile_1.png')
+    avatar_id = @jsmith.avatar_id
+
+    @jsmith.delete_avatar
+    assert_nil @jsmith.reload.avatar_id
+    assert_not Attachment.exists?(avatar_id)
+  end
+
+  def test_destroy_should_destroy_avatar
+    set_tmp_attachments_directory
+    update_avatar(@jsmith, '2010/11/101123161450_testfile_1.png')
+
+    assert_difference 'Attachment.count', -1 do
+      @jsmith.destroy
+    end
+  end
+
+  private
+
+  def update_avatar(user, name)
+    skip unless convert_installed?
+
+    user.update_avatar(uploaded_test_file(name, Redmine::MimeType.of(name)))
   end
 end

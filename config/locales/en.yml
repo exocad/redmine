@@ -74,7 +74,7 @@ en:
   number:
     format:
       separator: "."
-      delimiter: ""
+      delimiter: ","
       precision: 3
 
     human:
@@ -95,8 +95,9 @@ en:
 # Used in array.to_sentence.
   support:
     array:
-      sentence_connector: "and"
-      skip_last_comma: false
+      last_word_connector: ", and "
+      two_words_connector: " and "
+      words_connector: ", "
 
   activerecord:
     errors:
@@ -137,6 +138,10 @@ en:
         must_contain_digits: "must contain digits (0-9)"
         must_contain_special_chars: "must contain special characters (!, $, %, ...)"
         domain_not_allowed: "contains a domain not allowed (%{domain})"
+        too_simple: "is too simple"
+    attributes:
+      doorkeeper/application:
+        scopes: Scopes
 
   actionview_instancetag_blank_option: Please select
 
@@ -183,6 +188,7 @@ en:
   notice_unable_delete_time_entry: Unable to delete time log entry.
   notice_issue_done_ratios_updated: Issue done ratios updated.
   notice_gantt_chart_truncated: "The chart was truncated because it exceeds the maximum number of items that can be displayed (%{max})"
+  notice_search_tokens_truncated: "A maximum of %{max} search terms can be used. Only the following terms were used: %{tokens}"
   notice_issue_successful_create: "Issue %{id} created."
   notice_issue_update_conflict: "The issue has been updated by an other user while you were editing it."
   notice_account_deleted: "Your account has been permanently deleted."
@@ -193,7 +199,7 @@ en:
   notice_issue_not_closable_by_open_tasks: "This issue cannot be closed because it has at least one open subtask."
   notice_issue_not_closable_by_blocking_issue: "This issue cannot be closed because it is blocked by at least one open issue."
   notice_issue_not_reopenable_by_closed_parent_issue: "This issue cannot be reopened because its parent issue is closed."
-  notice_invalid_watcher: "Invalid watcher: User will not receive any notifications because it does not have access to view this object."
+  notice_invalid_watcher: "Invalid watcher: User will not receive any notifications because they do not have access to view this object."
 
   error_can_t_load_default_data: "Default configuration could not be loaded: %{value}"
   error_scm_not_found: "The entry or revision was not found in the repository."
@@ -204,14 +210,17 @@ en:
   error_no_tracker_in_project: 'No tracker is associated to this project. Please check the Project settings.'
   error_no_default_issue_status: 'No default issue status is defined. Please check your configuration (Go to "Administration -> Issue statuses").'
   error_can_not_delete_custom_field: Unable to delete custom field
-  error_can_not_delete_tracker: "This tracker contains issues and cannot be deleted."
+  error_can_not_delete_tracker_html: "This tracker contains issues and cannot be deleted.<p>The following projects have issues with this tracker:<br>%{projects}</p>"
   error_can_not_remove_role: "This role is in use and cannot be deleted."
+  error_can_not_remove_role_reason_members_html: "<p>The following projects have members with this role:<br>%{projects}</p>"
   error_can_not_reopen_issue_on_closed_version: 'An issue assigned to a closed version cannot be reopened'
   error_can_not_archive_project: This project cannot be archived
   error_issue_done_ratios_not_updated: "Issue done ratios not updated."
   error_workflow_copy_source: 'Please select a source tracker or role'
   error_workflow_copy_target: 'Please select target tracker(s) and role(s)'
   error_unable_delete_issue_status: 'Unable to delete issue status (%{value})'
+  error_issue_status_in_use_by_issues: "This status is used by some issues"
+  error_issue_status_default_for_trackers: "This status is used as the default status by some trackers"
   error_unable_to_connect: "Unable to connect (%{value})"
   error_attachments_too_many: "This file cannot be uploaded because it exceeds the maximum number of files that can be attached simultaneously (%{max_number_of_files})"
   error_attachment_too_big: "This file cannot be uploaded because it exceeds the maximum allowed file size (%{max_size})"
@@ -234,7 +243,7 @@ en:
   error_exceeds_maximum_hours_per_day: "Cannot log more than %{max_hours} hours on the same day (%{logged_hours} hours have already been logged)"
   error_can_not_delete_auth_source: "This authentication mode is in use and cannot be deleted."
   error_spent_on_future_date: "Cannot log time on a future date"
-  error_not_allowed_to_log_time_for_other_users: "You are not allowed to log time for other users"
+  error_spent_on_closed_issue: "Cannot log time on a closed issue"
   error_can_not_execute_macro_html: "Error executing the <strong>%{name}</strong> macro (%{error})"
   error_macro_does_not_accept_block: "This macro does not accept a block of text"
   error_childpages_macro_no_argument: "With no argument, this macro can be called from wiki pages only"
@@ -270,11 +279,14 @@ en:
   mail_body_security_notification_notify_disabled: "Email address %{value} no longer receives notifications."
   mail_body_settings_updated: "The following settings were changed:"
   mail_body_password_updated: "Your password has been changed."
+  mail_subject_test_email: "Redmine test"
+  mail_body_test_email: "This is a test email sent by Redmine."
   mail_destroy_project_failed: Project %{value} could not be deleted.
   mail_destroy_project_successful: Project %{value} was deleted successfully.
   mail_destroy_project_with_subprojects_successful: Project %{value} and its subprojects were deleted successfully.
 
 
+  field_date: Date
   field_name: Name
   field_description: Description
   field_summary: Summary
@@ -319,6 +331,7 @@ en:
   field_is_public: Public
   field_parent: Subproject of
   field_is_in_roadmap: Issues displayed in roadmap
+  field_private_by_default: Private by default
   field_login: Login
   field_mail_notification: Email notifications
   field_admin: Administrator
@@ -345,6 +358,7 @@ en:
   field_start_date: Start date
   field_done_ratio: "% Done"
   field_auth_source: Authentication mode
+  field_avatar: Avatar
   field_hide_mail: Hide my email address
   field_comments: Comment
   field_url: URL
@@ -365,6 +379,7 @@ en:
   field_time_zone: Time zone
   field_searchable: Searchable
   field_default_value: Default value
+  field_default_value_mode: Default value mode
   field_comments_sorting: Display comments
   field_parent_title: Parent page
   field_editable: Editable
@@ -419,10 +434,14 @@ en:
   field_default_time_entry_activity: Default spent time activity
   field_any_searchable: Any searchable text
   field_estimated_remaining_hours: Estimated remaining time
+  field_last_activity_date: Last activity
+  field_thousands_delimiter: Thousands delimiter
+  field_ratio_interval: Ratio interval
 
   setting_app_title: Application title
   setting_welcome_text: Welcome text
   setting_default_language: Default language
+  setting_favicon: Custom favicon
   setting_login_required: Authentication required
   setting_self_registration: Self-registration
   setting_show_custom_fields_on_registration: Show custom fields on registration
@@ -463,6 +482,7 @@ en:
   setting_mail_handler_preferred_body_part: Preferred part of multipart (HTML) emails
   setting_sys_api_key: Repository management WS API key
   setting_sequential_project_identifiers: Generate sequential project identifiers
+  setting_avatar_enabled: Allow users to set their avatar
   setting_gravatar_enabled: Use Gravatar user icons
   setting_gravatar_default: Default Gravatar image
   setting_diff_max_lines_displayed: Maximum number of diff lines displayed
@@ -470,12 +490,13 @@ en:
   setting_repository_log_display_limit: Maximum number of revisions displayed on file log
   setting_password_max_age: Require password change after
   setting_password_min_length: Minimum password length
-  setting_password_required_char_classes : Required character classes for passwords
+  setting_password_required_char_classes: Required character classes for passwords
   setting_lost_password: Allow password reset via email
   setting_new_project_user_role_id: Role given to a non-admin user who creates a project
   setting_default_projects_modules: Default enabled modules for new projects
   setting_issue_done_ratio: Calculate the issue done ratio with
   setting_issue_done_ratio_issue_field: Use the issue field
+  setting_issue_done_ratio_interval: Done ratio options interval
   setting_issue_done_ratio_issue_status: Use the issue status
   setting_start_of_week: Start calendars on
   setting_rest_api_enabled: Enable REST web service
@@ -486,6 +507,7 @@ en:
   setting_gantt_items_limit: Maximum number of items displayed on the gantt chart
   setting_gantt_months_limit: Maximum number of months displayed on the gantt chart
   setting_issue_group_assignment: Allow issue assignment to groups
+  setting_assignee_dropdown_display_format: Assignee drop-down display format
   setting_default_issue_start_date_to_creation_date: Use current date as start date for new issues
   setting_commit_cross_project_ref: Allow issues of all the other projects to be referenced and fixed
   setting_unsubscribe: Allow users to delete their own account
@@ -495,11 +517,13 @@ en:
   setting_thumbnails_size: Thumbnails size (in pixels)
   setting_non_working_week_days: Non-working days
   setting_jsonp_enabled: Enable JSONP support
+  setting_webhooks_enabled: Enable webhooks
   setting_default_projects_tracker_ids: Default trackers for new projects
   setting_mail_handler_excluded_filenames: Exclude attachments by name
   setting_force_default_language_for_anonymous: Force default language for anonymous users
   setting_force_default_language_for_loggedin: Force default language for logged-in users
   setting_link_copied_issue: Link issues on copy
+  setting_copy_attachments_on_issue_copy: Copy attachments on copy
   setting_max_additional_emails: Maximum number of additional email addresses
   setting_email_domains_allowed: Allowed email domains
   setting_email_domains_denied: Disallowed email domains
@@ -514,9 +538,13 @@ en:
   setting_timelog_accept_0_hours: Accept time logs with 0 hours
   setting_timelog_max_hours_per_day: Maximum hours that can be logged per day and user
   setting_timelog_accept_future_dates: Accept time logs on future dates
+  setting_timelog_accept_closed_issues: Accept time logs on closed issues
   setting_show_status_changes_in_mail_subject: Show status changes in issue mail notifications subject
   setting_project_list_defaults: Projects list defaults
   setting_twofa: Two-factor authentication
+  setting_related_issues_default_columns: Related and sub issues list defaults
+  setting_display_related_issues_table_headers: Show table headers
+  setting_reactions_enabled: Enable reactions
 
   permission_add_project: Create project
   permission_add_subprojects: Create subprojects
@@ -591,8 +619,14 @@ en:
   permission_export_wiki_pages: Export wiki pages
   permission_manage_subtasks: Manage subtasks
   permission_manage_related_issues: Manage related issues
+  permission_export_issues: Export issues
   permission_import_issues: Import issues
   permission_log_time_for_other_users: Log spent time for other users
+  permission_view_project: View projects
+  permission_search_project: Search projects
+  permission_view_members: View project members
+  permission_use_webhooks: Use webhooks
+
 
   project_module_issue_tracking: Issue tracking
   project_module_time_tracking: Time tracking
@@ -607,6 +641,7 @@ en:
 
   label_user: User
   label_user_plural: Users
+  label_users_and_groups: Users and groups
   label_user_new: New user
   label_user_anonymous: Anonymous
   label_project: Project
@@ -644,6 +679,7 @@ en:
   label_member: Member
   label_member_new: New member
   label_member_plural: Members
+  label_member_view_all: View all members
   label_tracker: Tracker
   label_tracker_plural: Trackers
   label_tracker_all: All trackers
@@ -660,6 +696,8 @@ en:
   label_custom_field_new: New custom field
   label_enumerations: Enumerations
   label_enumeration_new: New value
+  label_non_working_date_plural: Non-working dates
+  label_non_working_date_new: New non-working date
   label_information: Information
   label_information_plural: Information
   label_register: Register
@@ -681,7 +719,6 @@ en:
   label_activity: Activity
   label_user_activity: "%{value}'s activity"
   label_new: New
-  label_logged_as: Logged in as
   label_environment: Environment
   label_authentication: Authentication
   label_auth_source: Authentication mode
@@ -704,6 +741,7 @@ en:
   label_no_preview: No preview available
   label_no_preview_alternative_html: No preview available. %{link} the file instead.
   label_no_preview_download: Download
+  label_open_in_full_view: Open in full view
   label_change_status: Change status
   label_history: History
   label_attachment: File
@@ -712,6 +750,10 @@ en:
   label_attachment_plural: Files
   label_file_added: File added
   label_attachment_description: File description
+  label_attachment_summary:
+    zero: "%{filename}"
+    one: "%{filename} and 1 file"
+    other: "%{filename} and %{count} files"
   label_report: Report
   label_report_plural: Reports
   label_news: News
@@ -731,7 +773,6 @@ en:
   label_confirmation: Confirmation
   label_export_to: 'Also available in:'
   label_read: Read...
-  label_public_projects: Public projects
   label_open_issues: open
   label_open_issues_plural: open
   label_closed_issues: closed
@@ -757,9 +798,12 @@ en:
   label_all: all
   label_any: any
   label_none: none
+  label_absolute: Absolute
+  label_relative: Relative
   label_nobody: nobody
   label_next: Next
   label_previous: Previous
+  label_show_more: Show more
   label_used_by: Used by
   label_details: Details
   label_add_note: Add a note
@@ -767,8 +811,6 @@ en:
   label_months_from: months from
   label_gantt: Gantt
   label_internal: Internal
-  label_last_changes: "last %{count} changes"
-  label_change_view_all: View all changes
   label_comment: Comment
   label_comment_plural: Comments
   label_x_comments:
@@ -806,7 +848,6 @@ en:
   label_last_month: last month
   label_next_month: next month
   label_this_year: this year
-  label_date_range: Date range
   label_less_than_ago: less than days ago
   label_more_than_ago: more than days ago
   label_ago: days ago
@@ -827,7 +868,6 @@ en:
   label_repository: Repository
   label_repository_new: New repository
   label_repository_plural: Repositories
-  label_browse: Browse
   label_branch: Branch
   label_tag: Tag
   label_revision: Revision
@@ -861,7 +901,6 @@ en:
   label_wiki_page_new: New wiki page
   label_index_by_title: Index by title
   label_index_by_date: Index by date
-  label_current_version: Current version
   label_preview: Preview
   label_feed_plural: Feeds
   label_changes_details: Details of all changes
@@ -889,9 +928,9 @@ en:
   label_applied_status: Applied status
   label_loading: Loading...
   label_relation_new: New relation
-  label_relation_delete: Delete relation
+  label_relation_remove: Remove relation
   label_relates_to: Related to
-  label_delete_link_to_subtask: Delete link to subtask
+  label_subtask_remove: Remove subtask
   label_duplicates: Is duplicate of
   label_duplicated_by: Has duplicate
   label_blocks: Blocks
@@ -920,8 +959,6 @@ en:
   label_year: Year
   label_month: Month
   label_week: Week
-  label_date_from: From
-  label_date_to: To
   label_language_based: Based on user's language
   label_sort_by: "Sort by %{value}"
   label_send_test_email: Send a test email
@@ -949,11 +986,12 @@ en:
   label_user_mail_option_only_my_events: "Only for things I watch or I'm involved in"
   label_user_mail_option_only_assigned: "Only for things I watch or I am assigned to"
   label_user_mail_option_only_owner: "Only for things I watch or I am the owner of"
+  label_user_mail_option_only_my_watches: "Only for things I watch"
   label_user_mail_no_self_notified: "I don't want to be notified of changes that I make myself"
   label_user_mail_notify_about_high_priority_issues_html: "Also notify me about issues with a priority of <em>%{prio}</em> or higher"
-  label_registration_activation_by_email: account activation by email
-  label_registration_manual_activation: manual account activation
-  label_registration_automatic_activation: automatic account activation
+  label_registration_activation_by_email: Self account activation by email verification
+  label_registration_manual_activation: Account activation by administrator approval
+  label_registration_automatic_activation: Automatic account activation
   label_display_per_page: "Per page: %{value}"
   label_age: Age
   label_change_properties: Change properties
@@ -967,10 +1005,10 @@ en:
   label_ldaps_warning: It is recommended to use an encrypted LDAPS connection with certificate check to prevent any manipulation during the authentication process.
   label_downloads_abbr: D/L
   label_optional_description: Optional description
-  label_add_another_file: Add another file
   label_auto_watch_on: Auto watch
   label_auto_watch_on_issue_created: Issues I created
   label_auto_watch_on_issue_contributed_to: Issues I contributed to
+  label_auto_watch_on_issue_assigned_to_me: Issues assigned to me
   label_preferences: Preferences
   label_chronological_order: In chronological order
   label_reverse_chronological_order: In reverse chronological order
@@ -1086,6 +1124,7 @@ en:
   label_member_management_all_roles: All roles
   label_member_management_selected_roles_only: Only these roles
   label_import_issues: Import issues
+  permission_export_time_entries: Export time entries
   permission_import_time_entries: Import time entries
   label_select_file_to_import: Select the file to import
   label_fields_separator: Field separator
@@ -1099,6 +1138,8 @@ en:
   label_relations_mapping: Relations mapping
   label_file_content_preview: File content preview
   label_create_missing_values: Create missing values
+  label_position: Position
+  label_message: Message
   label_api: API
   label_field_format_enumeration: Key/value list
   label_default_values_for_new_users: Default values for new users
@@ -1141,6 +1182,57 @@ en:
   label_default_query: Default query
   label_edited: Edited
   label_time_by_author: "%{time} by %{author}"
+  label_involved_principals: Author / Recent participants
+  label_assignee_dropdown_display_format_users_then_groups: Users then groups
+  label_assignee_dropdown_display_format_groups_then_users: Groups then users
+  label_assignee_dropdown_display_format_users_by_group: Users by group
+  label_progressbar: Progress bar
+  label_oauth_permission_admin: Administrate this Redmine
+  label_oauth_admin_access: Administration
+  label_oauth_application_plural: Applications
+  label_oauth_authorized_application_plural: Authorized applications
+  label_webhook_plural: Webhooks
+  label_webhook_new: New webhook
+  label_webhook_edit: Edit webhook
+  label_webhook_events: Events
+  label_integrations: Integrations
+  label_alert_note: Note
+  label_alert_tip: Tip
+  label_alert_warning: Warning
+  label_alert_caution: Caution
+  label_alert_important: Important
+  label_last_used_on: "Last used: %{value} ago"
+  label_never_used: Never used
+  label_enable_default_issue_due_date_offset: Enable default due date for new issues
+  setting_default_issue_due_date_offset: Default due date for new issues
+  label_days_relative_to_today: days relative to today
+  label_wiki_toolbar_strong: Strong
+  label_wiki_toolbar_italic: Italic
+  label_wiki_toolbar_underline: Underline
+  label_wiki_toolbar_deleted: Deleted
+  label_wiki_toolbar_code: Inline Code
+  label_wiki_toolbar_heading_1: Heading 1
+  label_wiki_toolbar_heading_2: Heading 2
+  label_wiki_toolbar_heading_3: Heading 3
+  label_wiki_toolbar_unordered_list: Unordered list
+  label_wiki_toolbar_ordered_list: Ordered list
+  label_wiki_toolbar_task_list: Task list
+  label_wiki_toolbar_quote: Quote
+  label_wiki_toolbar_unquote: Remove quote
+  label_wiki_toolbar_table: Table
+  label_wiki_toolbar_preformatted_text: Preformatted text
+  label_wiki_toolbar_preformatted_code: Highlighted code
+  label_wiki_toolbar_wiki_link: Link to a Wiki page
+  label_wiki_toolbar_image: Image
+  label_wiki_toolbar_help: Help
+
+  webhook_event_created: "%{object_name} created"
+  webhook_event_updated: "%{object_name} updated"
+  webhook_event_deleted: "%{object_name} deleted"
+  webhook_url_info: Redmine will send a POST request to this URL whenever one of the selected events occurs in one of the selected projects.
+  webhook_secret_info_html: If provided, Redmine will use this to create a hash signature that is sent with each delivery as the value of the X-Redmine-Signature-256 header.
+  webhook_secret_keep_info: The secret of another user is not displayed. Leave this field blank to keep it unchanged.
+  webhook_disabled_info_html: Webhooks are disabled, so none of the webhooks below is triggered. They are still listed here so that they can be reviewed or removed. Webhooks can be enabled in the %{link} settings.
 
   button_login: Login
   button_submit: Submit
@@ -1150,12 +1242,15 @@ en:
   button_collapse_all: Collapse all
   button_expand_all: Expand all
   button_delete: Delete
+  button_remove: Remove
+  button_remove_from_group: Remove from group
   button_create: Create
   button_create_and_continue: Create and add another
   button_test: Test
   button_edit: Edit
   button_edit_associated_wikipage: "Edit associated Wiki page: %{page_title}"
   button_add: Add
+  button_add_to_group: Add to group
   button_change: Change
   button_apply: Apply
   button_clear: Clear
@@ -1181,6 +1276,7 @@ en:
   button_reset: Reset
   button_rename: Rename
   button_change_password: Change password
+  button_change_avatar: Change avatar
   button_copy: Copy
   button_copy_and_follow: Copy and follow
   button_copy_link: Copy link
@@ -1239,6 +1335,7 @@ en:
   text_project_archive_confirmation: Are you sure you want to archive the '%{value}' project?
   text_users_bulk_destroy_head: 'You are about to delete the following users and remove all references to them. This cannot be undone. Often, locking users instead of deleting them is the better solution.'
   text_users_bulk_destroy_confirm: 'To confirm, please enter "%{yes}" below.'
+  text_users_remove_from_group_confirmation: Are you sure you want to remove the selected user(s) from the group %{group}?
   text_workflow_edit: Select a role and a tracker to edit the workflow
   text_are_you_sure: Are you sure?
   text_journal_changed: "%{label} changed from %{old} to %{new}"
@@ -1275,14 +1372,14 @@ en:
   text_issues_destroy_confirmation: 'Are you sure you want to delete the selected issue(s)?'
   text_issues_destroy_descendants_confirmation: "This will also delete %{count} subtask(s)."
   text_time_entries_destroy_confirmation: 'Are you sure you want to delete the selected time entr(y/ies)?'
-  text_select_project_modules: 'Select modules to enable for this project:'
   text_default_administrator_account_changed: Default administrator account changed
   text_file_repository_writable: Attachments directory writable
-  text_plugin_assets_writable: Plugin assets directory writable
   text_all_migrations_have_been_run: All database migrations have been run
   text_minimagick_available: MiniMagick available (optional)
   text_convert_available: ImageMagick convert available (optional)
   text_gs_available: ImageMagick PDF support available (optional)
+  text_pandoc_available: Pandoc available (optional)
+  text_mermaid_available: Mermaid.js available (optional)
   text_default_active_job_queue_changed: Default queue adapter which is well suited only for dev/test changed
   text_destroy_time_entries_question: "%{hours} hours were reported on the issues you are about to delete. What do you want to do?"
   text_destroy_time_entries: Delete reported hours
@@ -1322,9 +1419,23 @@ en:
   text_select_apply_tracker: "Select tracker"
   text_select_apply_issue_status: "Select issue status"
   text_avatar_server_config_html: The current avatar server is <a href="%{url}">%{url}</a>. You can configure it in config/configuration.yml.
+  text_avatar_uploaded: The uploaded image is currently used as the avatar.
+  text_avatar_from_server_html: The image from <a href="%{url}">%{url}</a> associated with the user's email address is currently used as the avatar. It can be changed on that site. If no image is registered there, a default avatar is shown.
+  text_avatar_initials: The image generated from the user's name is currently used as the avatar.
+  text_avatar_upload_instead: You can upload an image to use instead.
+  text_avatar_upload_disabled: Uploading an avatar image to Redmine has been disabled by the administrator.
   text_no_subject: no subject
   text_allowed_queries_to_select: Public (to any users) queries only selectable
   text_setting_config_change: You can configure the behaviour in config/configuration.yml. Please restart the application after editing it.
+  text_setting_gravatar_default_initials_html: Users' initials are sent to <a href="%{url}">%{url}</a> to generate their avatars.
+  text_setting_avatar_enabled_imagemagick_unavailable: ImageMagick is not available, so users cannot set their avatar.
+  text_setting_favicon_format: "PNG or ICO, up to %{max_size}"
+  text_setting_gravatar_enabled_fallback: If enabled, Gravatar is used for users who have not set their avatar in Redmine.
+  text_oauth_admin_permission: Full administrative access. When authorized by an Administrator, this application will be able to read and write all data and impersonate other users.
+  text_oauth_admin_permission_info: This application requests full administrative access. If you are an Administrator (or become one in the future), it will be able to read and write all data and impersonate other users on your behalf. If you want to avoid this, authorize it as a user without Administrator privileges instead.
+  text_oauth_copy_secret_now: Copy the secret to a safe place now, it will not be shown again.
+  text_oauth_implicit_permissions: View your name, login and primary email address
+  text_oauth_info_scopes: Select the scopes this application may request. The application will not be allowed to do more than what is selected here. It will also always be limited by the roles and project memberships of the user who authorized it.
 
   default_role_manager: Manager
   default_role_developer: Developer
@@ -1352,9 +1463,7 @@ en:
   enumeration_doc_categories: Document categories
   enumeration_activities: Activities (time tracking)
   enumeration_system_activity: System Activity
-  description_filter: Filter
   description_search: Searchfield
-  description_choose_project: Projects
   description_project_scope: Search scope
   description_notes: Notes
   description_message_content: Message content
@@ -1368,12 +1477,15 @@ en:
   description_wiki_subpages_reassign: Choose new parent page
   text_repository_identifier_info: 'Only lower case letters (a-z), numbers, dashes and underscores are allowed.<br />Once saved, the identifier cannot be changed.'
   text_login_required_html: When not requiring authentication, public projects and their contents are openly available on the network. You can <a href="%{anonymous_role_path}">edit the applicable permissions</a>.
+  text_non_working_dates_html: 'You can add non-working dates such as holidays: <a href="%{non_working_dates_path}">Manage non-working dates</a>'
+  text_non_working_dates_export_all_years: Non-working dates of all years will be exported.
   label_login_required_yes: "Yes"
   label_login_required_no: "No, allow anonymous access to public projects"
   text_project_is_public_non_member: Public projects and their contents are available to all logged-in users.
   text_project_is_public_anonymous: Public projects and their contents are openly available on the network.
   label_import_time_entries: Import time entries
   label_import_users: Import users
+  label_import_non_working_dates: Import non-working dates
   sudo_mode_new_info_html: <strong>What's happening?</strong> You need to reconfirm your password before taking any administrative actions, this ensures your account stays protected.
 
   twofa__totp__name: Authenticator app
@@ -1410,8 +1522,13 @@ en:
   twofa_text_backup_codes_hint: Use these codes instead of a one-time password should you not have access to your second factor. Each code can only be used once. It is recommended to print and store them in a safe place.
   twofa_text_backup_codes_created_at: Backup codes generated %{datetime}.
   twofa_backup_codes_already_shown: Backup codes cannot be shown again, please <a data-method="post" href="%{bc_path}">generate new backup codes</a> if required.
+  twofa_already_setup: Two-factor authentication already set up
   twofa_text_group_required: "This setting is only effective when the global two factor authentication setting is set to 'optional'. Currently, two factor authentication is required for all users."
   twofa_text_group_disabled: "This setting is only effective when the global two factor authentication setting is set to 'optional'. Currently, two factor authentication is disabled."
   text_user_destroy_confirmation: "Are you sure you want to delete this user and remove all references to them? This cannot be undone. Often, locking a user instead of deleting them is the better solution. To confirm, please enter their login (%{login}) below."
   text_project_destroy_enter_identifier: "To confirm, please enter the project's identifier (%{identifier}) below."
   field_name_or_email_or_login: Name, email or login
+  setting_wiki_tablesort_enabled: JavaScript based table sorting in wiki content
+  reaction_text_x_other_users:
+    one: "1 other"
+    other: "%{count} others"

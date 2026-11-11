@@ -21,19 +21,7 @@ require_relative '../test_helper'
 
 class ApplicationHelperTest < Redmine::HelperTest
   include ERB::Util
-  include Rails.application.routes.url_helpers
   include AvatarsHelper
-
-  fixtures :projects, :enabled_modules,
-           :users, :email_addresses,
-           :members, :member_roles, :roles,
-           :repositories, :changesets,
-           :projects_trackers,
-           :trackers, :issue_statuses, :issues, :versions, :documents, :journals,
-           :wikis, :wiki_pages, :wiki_contents,
-           :boards, :messages, :news,
-           :attachments, :enumerations,
-           :custom_values, :custom_fields, :custom_fields_projects
 
   def setup
     super
@@ -92,7 +80,7 @@ class ApplicationHelperTest < Redmine::HelperTest
         '(see <a href="http://www.foo.bar/Test" class="external">inline link</a>).',
       'www.foo.bar' => '<a class="external" href="http://www.foo.bar">www.foo.bar</a>',
       'http://foo.bar/page?p=1&t=z&s=' =>
-        '<a class="external" href="http://foo.bar/page?p=1&#38;t=z&#38;s=">http://foo.bar/page?p=1&#38;t=z&#38;s=</a>',
+        '<a class="external" href="http://foo.bar/page?p=1&amp;t=z&amp;s=">http://foo.bar/page?p=1&amp;t=z&amp;s=</a>',
       'http://foo.bar/page#125' => '<a class="external" href="http://foo.bar/page#125">http://foo.bar/page#125</a>',
       'http://foo@www.bar.com' => '<a class="external" href="http://foo@www.bar.com">http://foo@www.bar.com</a>',
       'http://foo:bar@www.bar.com' => '<a class="external" href="http://foo:bar@www.bar.com">http://foo:bar@www.bar.com</a>',
@@ -104,7 +92,7 @@ class ApplicationHelperTest < Redmine::HelperTest
          '<a class="external" href="http://example.net/path!602815048C7B5C20!302.html">' \
            'http://example.net/path!602815048C7B5C20!302.html</a>',
       # escaping
-      'http://foo"bar' => '<a class="external" href="http://foo&quot;bar">http://foo&quot;bar</a>',
+      'http://foo"bar' => '<a class="external" href="http://foo%22bar">http://foo"bar</a>',
       # wrap in angle brackets
       '<http://foo.bar>' => '&lt;<a class="external" href="http://foo.bar">http://foo.bar</a>&gt;',
       # invalid urls
@@ -142,22 +130,22 @@ class ApplicationHelperTest < Redmine::HelperTest
 
   def test_inline_images
     to_test = {
-      '!http://foo.bar/image.jpg!' => '<img src="http://foo.bar/image.jpg" alt="" />',
+      '!http://foo.bar/image.jpg!' => '<img src="http://foo.bar/image.jpg" alt="">',
       'floating !>http://foo.bar/image.jpg!' =>
-         'floating <span style="float:right"><img src="http://foo.bar/image.jpg" alt="" /></span>',
+         'floating <span style="float:right"><img src="http://foo.bar/image.jpg" alt=""></span>',
       'with class !(some-class)http://foo.bar/image.jpg!' =>
-         'with class <img src="http://foo.bar/image.jpg" class="wiki-class-some-class" alt="" />',
+         'with class <img src="http://foo.bar/image.jpg" class="wiki-class-some-class" alt="">',
       'with class !(wiki-class-foo)http://foo.bar/image.jpg!' =>
-         'with class <img src="http://foo.bar/image.jpg" class="wiki-class-foo" alt="" />',
+         'with class <img src="http://foo.bar/image.jpg" class="wiki-class-foo" alt="">',
       'with style !{width:100px;height:100px}http://foo.bar/image.jpg!' =>
-         'with style <img src="http://foo.bar/image.jpg" style="width:100px;height:100px;" alt="" />',
+         'with style <img src="http://foo.bar/image.jpg" style="width:100px;height:100px;" alt="">',
       'with title !http://foo.bar/image.jpg(This is a title)!' =>
-         'with title <img src="http://foo.bar/image.jpg" title="This is a title" alt="This is a title" />',
+         'with title <img src="http://foo.bar/image.jpg" title="This is a title" alt="This is a title">',
       'with title !http://foo.bar/image.jpg(This is a double-quoted "title")!' =>
         'with title <img src="http://foo.bar/image.jpg" title="This is a double-quoted &quot;title&quot;" ' \
-          'alt="This is a double-quoted &quot;title&quot;" />',
+          'alt="This is a double-quoted &quot;title&quot;">',
       'with query string !http://foo.bar/image.cgi?a=1&b=2!' =>
-        'with query string <img src="http://foo.bar/image.cgi?a=1&#38;b=2" alt="" />'
+        'with query string <img src="http://foo.bar/image.cgi?a=1&amp;b=2" alt="">'
     }
     with_settings :text_formatting => 'textile' do
       to_test.each {|text, result| assert_equal "<p>#{result}</p>", textilizable(text)}
@@ -173,178 +161,43 @@ class ApplicationHelperTest < Redmine::HelperTest
       p=. !bar.gif!
     RAW
     with_settings :text_formatting => 'textile' do
-      assert textilizable(raw).include?('<img src="foo.png" alt="" />')
-      assert textilizable(raw).include?('<img src="bar.gif" alt="" />')
+      assert textilizable(raw).include?('<img src="foo.png" alt="">')
+      assert textilizable(raw).include?('<img src="bar.gif" alt="">')
     end
   end
 
-  def test_attached_images
-    to_test = {
-      'Inline image: !logo.gif!' =>
-         'Inline image: <img src="/attachments/download/3/logo.gif" title="This is a logo" alt="This is a logo" loading="lazy" />',
-      'Inline image: !logo.GIF!' =>
-         'Inline image: <img src="/attachments/download/3/logo.gif" title="This is a logo" alt="This is a logo" loading="lazy" />',
-      'Inline WebP image: !logo.webp!' =>
-         'Inline WebP image: <img src="/attachments/download/24/logo.webp" title="WebP image" alt="WebP image" loading="lazy" />',
-      'No match: !ogo.gif!' => 'No match: <img src="ogo.gif" alt="" />',
-      'No match: !ogo.GIF!' => 'No match: <img src="ogo.GIF" alt="" />',
-      # link image
-      '!logo.gif!:http://foo.bar/' =>
-         '<a href="http://foo.bar/"><img src="/attachments/download/3/logo.gif" title="This is a logo" alt="This is a logo" loading="lazy" /></a>',
-    }
-    attachments = Attachment.all
+  def test_textilizable_should_resolve_inline_attachments_in_textile
+    attachment = Attachment.find(3)
     with_settings :text_formatting => 'textile' do
-      to_test.each {|text, result| assert_equal "<p>#{result}</p>", textilizable(text, :attachments => attachments)}
+      assert_include %(<img src="/attachments/download/#{attachment.id}/logo.gif"),
+                     textilizable("!logo.gif!", :attachments => [attachment])
     end
   end
 
-  def test_attached_images_on_issue
-    issue = Issue.generate!
-    attachment_1 = Attachment.generate!(:file => mock_file_with_options(:original_filename => "attached_on_issue.png"), :container => issue)
-    journal = issue.init_journal(User.find(2), issue)
-    attachment_2 = Attachment.generate!(:file => mock_file_with_options(:original_filename => "attached_on_journal.png"), :container => issue)
-    journal.journalize_attachment(attachment_2, :added)
+  def test_textilizable_should_resolve_inline_attachments_in_common_mark
+    attachment = Attachment.find(3)
+    with_settings :text_formatting => 'common_mark' do
+      assert_include %(<img src="/attachments/download/#{attachment.id}/logo.gif"),
+                     textilizable("![](logo.gif)", :attachments => [attachment])
+    end
+  end
 
-    raw = <<~RAW
-      !attached_on_issue.png!
-      !attached_on_journal.png!'
-    RAW
-
+  def test_textilizable_should_apply_hires_images_scrubber_in_textile
+    attachment = Attachment.generate!(:file => mock_file_with_options(:original_filename => "image@2x.png"))
     with_settings :text_formatting => 'textile' do
-      assert textilizable(raw, :object => journal).include?("<img src=\"/attachments/download/#{attachment_1.id}/attached_on_issue.png\" alt=\"\" loading=\"lazy\" />")
-      assert textilizable(raw, :object => journal).include?("<img src=\"/attachments/download/#{attachment_2.id}/attached_on_journal.png\" alt=\"\" loading=\"lazy\" />")
+      result = textilizable("!image@2x.png!", :attachments => [attachment])
+      assert_include 'srcset="/attachments/download/', result
+      assert_include ' 2x"', result
     end
   end
 
-  def test_attached_images_with_textile_and_non_ascii_filename
-    to_test = {
-      'CAFÉ.JPG' => 'CAF%C3%89.JPG',
-      'crème.jpg' => 'cr%C3%A8me.jpg',
-    }
-    with_settings :text_formatting => 'textile' do
-      to_test.each do |filename, result|
-        attachment = Attachment.generate!(:filename => filename)
-        assert_include %(<img src="/attachments/download/#{attachment.id}/#{result}" alt="" loading="lazy" />),
-                       textilizable("!#{filename}!", :attachments => [attachment])
-      end
+  def test_textilizable_should_apply_hires_images_scrubber_in_common_mark
+    attachment = Attachment.generate!(:file => mock_file_with_options(:original_filename => "image@2x.png"))
+    with_settings :text_formatting => 'common_mark' do
+      result = textilizable("![](image@2x.png)", :attachments => [attachment])
+      assert_include 'srcset="/attachments/download/', result
+      assert_include ' 2x"', result
     end
-  end
-
-  def test_attached_images_with_markdown_and_non_ascii_filename
-    skip unless Object.const_defined?(:Redcarpet)
-
-    to_test = {
-      'CAFÉ.JPG' => 'CAF%C3%89.JPG',
-      'crème.jpg' => 'cr%C3%A8me.jpg',
-    }
-    with_settings :text_formatting => 'markdown' do
-      to_test.each do |filename, result|
-        attachment = Attachment.generate!(:filename => filename)
-        assert_include %(<img src="/attachments/download/#{attachment.id}/#{result}" alt="" loading="lazy" />),
-                       textilizable("![](#{filename})", :attachments => [attachment])
-      end
-    end
-  end
-
-  def test_attached_images_with_hires_naming
-    attachment = Attachment.generate!(:filename => 'image@2x.png')
-    with_settings :text_formatting => 'textile' do
-      assert_equal(
-        %(<p><img src="/attachments/download/#{attachment.id}/image@2x.png" ) +
-          %(srcset="/attachments/download/#{attachment.id}/image@2x.png 2x" alt="" loading="lazy" /></p>),
-        textilizable("!image@2x.png!", :attachments => [attachment])
-      )
-    end
-  end
-
-  def test_attached_images_filename_extension
-    a1 =
-      Attachment.new(
-        :container => Issue.find(1),
-        :file => mock_file_with_options({:original_filename => "testtest.JPG"}),
-        :author => User.find(1)
-      )
-    assert a1.save
-    assert_equal "testtest.JPG", a1.filename
-    assert_equal "image/jpeg", a1.content_type
-    assert a1.image?
-
-    a2 =
-      Attachment.new(
-        :container => Issue.find(1),
-        :file => mock_file_with_options({:original_filename => "testtest.jpeg"}),
-        :author => User.find(1)
-      )
-    assert a2.save
-    assert_equal "testtest.jpeg", a2.filename
-    assert_equal "image/jpeg", a2.content_type
-    assert a2.image?
-
-    a3 =
-      Attachment.new(
-        :container => Issue.find(1),
-        :file => mock_file_with_options({:original_filename => "testtest.JPE"}),
-        :author => User.find(1)
-      )
-    assert a3.save
-    assert_equal "testtest.JPE", a3.filename
-    assert_equal "image/jpeg", a3.content_type
-    assert a3.image?
-
-    a4 =
-      Attachment.new(
-        :container => Issue.find(1),
-        :file => mock_file_with_options({:original_filename => "Testtest.BMP"}),
-        :author => User.find(1)
-      )
-    assert a4.save
-    assert_equal "Testtest.BMP", a4.filename
-    assert_equal "image/x-ms-bmp", a4.content_type
-    assert a4.image?
-
-    to_test = {
-      'Inline image: !testtest.jpg!' =>
-        'Inline image: <img src="/attachments/download/' + a1.id.to_s + '/testtest.JPG" alt="" loading="lazy" />',
-      'Inline image: !testtest.jpeg!' =>
-        'Inline image: <img src="/attachments/download/' + a2.id.to_s + '/testtest.jpeg" alt="" loading="lazy" />',
-      'Inline image: !testtest.jpe!' =>
-        'Inline image: <img src="/attachments/download/' + a3.id.to_s + '/testtest.JPE" alt="" loading="lazy" />',
-      'Inline image: !testtest.bmp!' =>
-        'Inline image: <img src="/attachments/download/' + a4.id.to_s + '/Testtest.BMP" alt="" loading="lazy" />',
-    }
-
-    attachments = [a1, a2, a3, a4]
-    with_settings :text_formatting => 'textile' do
-      to_test.each {|text, result| assert_equal "<p>#{result}</p>", textilizable(text, :attachments => attachments)}
-    end
-  end
-
-  def test_attached_images_should_read_later
-    set_fixtures_attachments_directory
-    a1 = Attachment.find(16)
-    assert_equal "testfile.png", a1.filename
-    assert a1.readable?
-    assert_not a1.visible?(User.anonymous)
-    assert a1.visible?(User.find(2))
-    a2 = Attachment.find(17)
-    assert_equal "testfile.PNG", a2.filename
-    assert a2.readable?
-    assert_not a2.visible?(User.anonymous)
-    assert a2.visible?(User.find(2))
-    assert a1.created_on < a2.created_on
-
-    to_test = {
-      'Inline image: !testfile.png!' =>
-        'Inline image: <img src="/attachments/download/' + a2.id.to_s + '/testfile.PNG" alt="" loading="lazy" />',
-      'Inline image: !Testfile.PNG!' =>
-        'Inline image: <img src="/attachments/download/' + a2.id.to_s + '/testfile.PNG" alt="" loading="lazy" />',
-    }
-    attachments = [a1, a2]
-    with_settings :text_formatting => 'textile' do
-      to_test.each {|text, result| assert_equal "<p>#{result}</p>", textilizable(text, :attachments => attachments)}
-    end
-  ensure
-    set_tmp_attachments_directory
   end
 
   def test_textile_external_links
@@ -357,7 +210,7 @@ class ApplicationHelperTest < Redmine::HelperTest
       "This is not a \"Link\":\n\nAnother paragraph" => "This is not a \"Link\":</p>\n\n\n\t<p>Another paragraph",
       # no multiline link text
       "This is a double quote \"on the first line\nand another on a second line\":test" =>
-        "This is a double quote \"on the first line<br />and another on a second line\":test",
+        "This is a double quote \"on the first line<br>and another on a second line\":test",
       # mailto link
       "\"system administrator\":mailto:sysadmin@example.com?subject=redmine%20permissions" =>
         "<a href=\"mailto:sysadmin@example.com?subject=redmine%20permissions\">system administrator</a>",
@@ -365,12 +218,12 @@ class ApplicationHelperTest < Redmine::HelperTest
       '"a link":http://example.net/path!602815048C7B5C20!302.html' =>
         '<a href="http://example.net/path!602815048C7B5C20!302.html" class="external">a link</a>',
       # escaping
-      '"test":http://foo"bar' => '<a href="http://foo&quot;bar" class="external">test</a>',
+      '"test":http://foo"bar' => '<a href="http://foo%22bar" class="external">test</a>',
       # ends with a hyphen
       '(see "inline link":http://www.foo.bar/Test-)' =>
         '(see <a href="http://www.foo.bar/Test-" class="external">inline link</a>)',
       'http://foo.bar/page?p=1&t=z&s=-' =>
-        '<a class="external" href="http://foo.bar/page?p=1&#38;t=z&#38;s=-">http://foo.bar/page?p=1&#38;t=z&#38;s=-</a>',
+        '<a class="external" href="http://foo.bar/page?p=1&amp;t=z&amp;s=-">http://foo.bar/page?p=1&amp;t=z&amp;s=-</a>',
       'This is an intern "link":/foo/bar-' => 'This is an intern <a href="/foo/bar-">link</a>'
     }
     with_settings :text_formatting => 'textile' do
@@ -611,9 +464,9 @@ class ApplicationHelperTest < Redmine::HelperTest
   end
 
   def test_user_links_with_email_as_login_name_should_not_be_parsed_markdown
-    with_settings :text_formatting => 'markdown' do
+    with_settings :text_formatting => 'common_mark' do
       u = User.generate!(:login => 'jsmith@somenet.foo')
-      html = '<a href=\"mailto:jsmith@somenet.foo\">jsmith@somenet.foo</a>'
+      html = '<a href=\"mailto:jsmith@somenet.foo\" class=\"email\">jsmith@somenet.foo</a>'
 
       # user link format: @jsmith@somenet.foo
       raw = "@jsmith@somenet.foo should not be parsed in jsmith@somenet.foo"
@@ -756,6 +609,8 @@ class ApplicationHelperTest < Redmine::HelperTest
   end
 
   def test_multiple_repositories_redmine_links
+    skip "Subversion or Mercurial is unavailable" unless Repository::Subversion.scm_available && Repository::Mercurial.scm_available
+
     svn = Repository::Subversion.create!(:project_id => 1, :identifier => 'svn_repo-1', :url => 'file:///foo/hg')
     Changeset.create!(:repository => svn, :committed_on => Time.now, :revision => '123')
     hg = Repository::Mercurial.create!(:project_id => 1, :identifier => 'hg1', :url => '/foo/hg')
@@ -813,6 +668,8 @@ class ApplicationHelperTest < Redmine::HelperTest
   end
 
   def test_cross_project_multiple_repositories_redmine_links
+    skip "Subversion or Mercurial is unavailable" unless Repository::Subversion.scm_available && Repository::Mercurial.scm_available
+
     svn = Repository::Subversion.create!(:project_id => 1, :identifier => 'svn1', :url => 'file:///foo/hg')
     Changeset.create!(:repository => svn, :committed_on => Time.now, :revision => '123')
     hg = Repository::Mercurial.create!(:project_id => 1, :identifier => 'hg1', :url => '/foo/hg')
@@ -872,6 +729,8 @@ class ApplicationHelperTest < Redmine::HelperTest
   end
 
   def test_redmine_links_git_commit
+    skip "Git is unavailable" unless Repository::Git.scm_available
+
     @project = Project.find(3)
     r = Repository::Git.create!(:project => @project, :url => '/tmp/test/git')
     c =
@@ -904,6 +763,8 @@ class ApplicationHelperTest < Redmine::HelperTest
 
   # TODO: Bazaar commit id contains mail address, so it contains '@' and '_'.
   def test_redmine_links_mercurial_commit
+    skip "Mercurial is unavailable" unless Repository::Mercurial.scm_available
+
     @project = Project.find(3)
     r = Repository::Mercurial.create!(:project => @project, :url => '/tmp/test')
     c =
@@ -978,7 +839,7 @@ class ApplicationHelperTest < Redmine::HelperTest
         %r{<p><a class="attachment" href="/attachments/#{attachment.id}">image@2x.png</a> should not be parsed in image@2x.png</p>},
         textilizable(raw, :attachments => [attachment]))
     end
-    with_settings :text_formatting => 'markdown' do
+    with_settings :text_formatting => 'common_mark' do
       raw = "attachment:image@2x.png should not be parsed in image@2x.png"
       assert_match(
         %r{<p><a class="attachment" href="/attachments/#{attachment.id}">image@2x.png</a> should not be parsed in image@2x.png</p>},
@@ -1101,7 +962,7 @@ class ApplicationHelperTest < Redmine::HelperTest
     to_test = wiki_links_with_special_characters
 
     @project = Project.find(1)
-    with_settings :text_formatting => 'markdown' do
+    with_settings :text_formatting => 'common_mark' do
       to_test.each {|text, result| assert_equal "<p>#{result}</p>", textilizable(text).strip}
     end
   end
@@ -1143,7 +1004,7 @@ class ApplicationHelperTest < Redmine::HelperTest
     with_settings :text_formatting => 'textile' do
       to_test.each {|text, result| assert_equal "<p>#{result}</p>", textilizable(text)}
     end
-    with_settings :text_formatting => 'markdown' do
+    with_settings :text_formatting => 'common_mark' do
       to_test.each {|text, result| assert_equal "<p>#{result}</p>", textilizable(text).strip}
     end
   end
@@ -1296,23 +1157,23 @@ class ApplicationHelperTest < Redmine::HelperTest
   def test_html_tags
     to_test = {
       "<div>content</div>" => "<p>&lt;div&gt;content&lt;/div&gt;</p>",
-      "<div class=\"bold\">content</div>" => "<p>&lt;div class=&quot;bold&quot;&gt;content&lt;/div&gt;</p>",
+      "<div class=\"bold\">content</div>" => "<p>&lt;div class=\"bold\"&gt;content&lt;/div&gt;</p>",
       "<script>some script;</script>" => "<p>&lt;script&gt;some script;&lt;/script&gt;</p>",
       # do not escape pre/code tags
-      "<pre>\nline 1\nline2</pre>" => "<pre>\nline 1\nline2</pre>",
-      "<pre><code>\nline 1\nline2</code></pre>" => "<pre><code>\nline 1\nline2</code></pre>",
-      "<pre><div class=\"foo\">content</div></pre>" => "<pre>&lt;div class=\"foo\"&gt;content&lt;/div&gt;</pre>",
-      "<pre><div class=\"<foo\">content</div></pre>" => "<pre>&lt;div class=\"&lt;foo\"&gt;content&lt;/div&gt;</pre>",
+      "<pre>\nline 1\nline2</pre>" => pre_wrapper("<pre data-clipboard-target=\"pre\">line 1\nline2</pre>"),
+      "<pre><code>\nline 1\nline2</code></pre>" => pre_wrapper("<pre data-clipboard-target=\"pre\"><code>\nline 1\nline2</code></pre>"),
+      "<pre><div class=\"foo\">content</div></pre>" => pre_wrapper("<pre data-clipboard-target=\"pre\">&lt;div class=\"foo\"&gt;content&lt;/div&gt;</pre>"),
+      "<pre><div class=\"<foo\">content</div></pre>" => pre_wrapper("<pre data-clipboard-target=\"pre\">&lt;div class=\"&lt;foo\"&gt;content&lt;/div&gt;</pre>"),
       "<!-- opening comment" => "<p>&lt;!-- opening comment</p>",
       # remove attributes including class
-      "<pre class='foo'>some text</pre>" => "<pre>some text</pre>",
-      '<pre class="foo">some text</pre>' => '<pre>some text</pre>',
-      "<pre class='foo bar'>some text</pre>" => "<pre>some text</pre>",
-      '<pre class="foo bar">some text</pre>' => '<pre>some text</pre>',
-      "<pre onmouseover='alert(1)'>some text</pre>" => "<pre>some text</pre>",
+      "<pre class='foo'>some text</pre>" => pre_wrapper('<pre data-clipboard-target="pre">some text</pre>'),
+      '<pre class="foo">some text</pre>' => pre_wrapper('<pre data-clipboard-target="pre">some text</pre>'),
+      "<pre class='foo bar'>some text</pre>" => pre_wrapper('<pre data-clipboard-target="pre">some text</pre>'),
+      '<pre class="foo bar">some text</pre>' => pre_wrapper('<pre data-clipboard-target="pre">some text</pre>'),
+      "<pre onmouseover='alert(1)'>some text</pre>" => pre_wrapper('<pre data-clipboard-target="pre">some text</pre>'),
       # xss
-      '<pre><code class=""onmouseover="alert(1)">text</code></pre>' => '<pre><code>text</code></pre>',
-      '<pre class=""onmouseover="alert(1)">text</pre>' => '<pre>text</pre>',
+      '<pre><code class=""onmouseover="alert(1)">text</code></pre>' => pre_wrapper('<pre data-clipboard-target="pre"><code>text</code></pre>'),
+      '<pre class=""onmouseover="alert(1)">text</pre>' => pre_wrapper('<pre data-clipboard-target="pre">text</pre>'),
     }
     with_settings :text_formatting => 'textile' do
       to_test.each {|text, result| assert_equal result, textilizable(text)}
@@ -1321,7 +1182,7 @@ class ApplicationHelperTest < Redmine::HelperTest
 
   def test_allowed_html_tags
     to_test = {
-      "<pre>preformatted text</pre>" => "<pre>preformatted text</pre>",
+      "<pre>preformatted text</pre>" => pre_wrapper('<pre data-clipboard-target="pre">preformatted text</pre>'),
       "<notextile>no *textile* formatting</notextile>" => "no *textile* formatting",
       "<notextile>this is <tag>a tag</tag></notextile>" => "this is &lt;tag&gt;a tag&lt;/tag&gt;"
     }
@@ -1342,9 +1203,7 @@ class ApplicationHelperTest < Redmine::HelperTest
     RAW
     expected = <<~EXPECTED
       <p>Before</p>
-      <pre>
-      &lt;prepared-statement-cache-size&gt;32&lt;/prepared-statement-cache-size&gt;
-      </pre>
+      #{pre_wrapper('<pre data-clipboard-target="pre">&lt;prepared-statement-cache-size&gt;32&lt;/prepared-statement-cache-size&gt;</pre>')}
       <p>After</p>
     EXPECTED
     with_settings :text_formatting => 'textile' do
@@ -1371,14 +1230,17 @@ class ApplicationHelperTest < Redmine::HelperTest
                       "/issues/1",
                       :class => Issue.find(1).css_classes,
                       :title => "Bug: Cannot print recipes (New)")
-    expected = <<~EXPECTED
-      <p>#{result1}</p>
-      <p>#{result2}</p>
-      <pre>
+    pre = <<~PRE
+      <pre data-clipboard-target="pre">
       [[CookBook documentation]]
 
       #1
       </pre>
+    PRE
+    expected = <<~EXPECTED
+      <p>#{result1}</p>
+      <p>#{result2}</p>
+      #{pre_wrapper(pre)}
     EXPECTED
     @project = Project.find(1)
     with_settings :text_formatting => 'textile' do
@@ -1390,9 +1252,13 @@ class ApplicationHelperTest < Redmine::HelperTest
     raw = <<~RAW
       <pre><code>
     RAW
+    pre = <<~PRE
+      <pre data-clipboard-target="pre">
+      <code></code>
+      </pre>
+    PRE
     expected = <<~EXPECTED
-      <pre><code>
-      </code></pre>
+      #{pre_wrapper(pre)}
     EXPECTED
     @project = Project.find(1)
     with_settings :text_formatting => 'textile' do
@@ -1414,9 +1280,24 @@ class ApplicationHelperTest < Redmine::HelperTest
       </code></pre>
     RAW
     expected = <<~EXPECTED
-      <pre><code class="ECMA_script syntaxhl" data-language="ECMA_script"><span class="cm">/* Hello */</span><span class="nb">document</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="dl">"</span><span class="s2">Hello World!</span><span class="dl">"</span><span class="p">);</span></code></pre>
+      #{pre_wrapper('<pre data-clipboard-target="pre"><code class="ECMA_script syntaxhl" data-language="ECMA_script"><span class="cm">/* Hello */</span><span class="nb">document</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="dl">"</span><span class="s2">Hello World!</span><span class="dl">"</span><span class="p">);</span></code></pre>')}
     EXPECTED
     with_settings :text_formatting => 'textile' do
+      assert_equal expected.gsub(%r{[\r\n\t]}, ''), textilizable(raw).gsub(%r{[\r\n\t]}, '')
+    end
+  end
+
+  def test_syntax_highlight_common_mark
+    raw = <<~RAW
+      ```ECMA_script
+      /* Hello */
+      document.write("Hello World!");
+      ```
+    RAW
+    expected = <<~EXPECTED
+      #{pre_wrapper('<pre data-clipboard-target="pre"><code class="ECMA_script syntaxhl" data-language="ECMA_script"><span class="cm">/* Hello */</span><span class="nb">document</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="dl">"</span><span class="s2">Hello World!</span><span class="dl">"</span><span class="p">);</span></code></pre>')}
+    EXPECTED
+    with_settings :text_formatting => 'common_mark' do
       assert_equal expected.gsub(%r{[\r\n\t]}, ''), textilizable(raw).gsub(%r{[\r\n\t]}, '')
     end
   end
@@ -1428,7 +1309,7 @@ class ApplicationHelperTest < Redmine::HelperTest
       </code></pre>
     RAW
     expected = <<~EXPECTED
-      <pre><code class="ruby syntaxhl" data-language="ruby"><span class="n">x</span> <span class="o">=</span> <span class="n">a</span> <span class="o">&amp;</span> <span class="n">b</span></code></pre>
+      #{pre_wrapper('<pre data-clipboard-target="pre"><code class="ruby syntaxhl" data-language="ruby"><span class="n">x</span> <span class="o">=</span> <span class="n">a</span> <span class="o">&amp;</span> <span class="n">b</span></code></pre>')}
     EXPECTED
     with_settings :text_formatting => 'textile' do
       assert_equal expected.gsub(%r{[\r\n\t]}, ''), textilizable(raw).gsub(%r{[\r\n\t]}, '')
@@ -1456,7 +1337,7 @@ class ApplicationHelperTest < Redmine::HelperTest
                "</tr><tr><td>Cell 21</td><td>#{link3}</td></tr>"
     @project = Project.find(1)
     with_settings :text_formatting => 'textile' do
-      assert_equal "<table>#{result}</table>", textilizable(text).gsub(/[\t\n]/, '')
+      assert_equal "<table><tbody>#{result}</tbody></table>", textilizable(text).gsub(/[\t\n]/, '')
     end
   end
 
@@ -1477,7 +1358,7 @@ class ApplicationHelperTest < Redmine::HelperTest
 
   def test_wiki_horizontal_rule
     with_settings :text_formatting => 'textile' do
-      assert_equal '<hr />', textilizable('---')
+      assert_equal '<hr>', textilizable('---')
       assert_equal '<p>Dashes: ---</p>', textilizable('Dashes: ---')
     end
   end
@@ -1493,15 +1374,29 @@ class ApplicationHelperTest < Redmine::HelperTest
   end
 
   def test_headings_with_special_chars
-    # This test makes sure that the generated anchor names match the expected
-    # ones even if the heading text contains unconventional characters
-    raw = 'h1. Some heading related to version 0.5'
-    anchor = sanitize_anchor_name("Some-heading-related-to-version-0.5")
-    expected =
-      %|<a name="#{anchor}"></a>\n<h1 >Some heading related to version 0.5| +
-        %|<a href="##{anchor}" class="wiki-anchor">&para;</a></h1>|
-    with_settings :text_formatting => 'textile' do
-      assert_equal expected, textilizable(raw)
+    # Each value is [expected anchor name, expected HTML-escaped TOC text].
+    headings = {
+      'Some heading related to version 0.5' =>
+        ['Some-heading-related-to-version-05', 'Some heading related to version 0.5'],
+      "Bob's guide" => ['Bobs-guide', 'Bob&#39;s guide'],
+      'The "quoted" guide' => ['The-quoted-guide', 'The &quot;quoted&quot; guide'],
+      "*Bob's* & B" => ['Bobs-amp-B', 'Bob&#39;s &amp; B'],
+      '&lt;img src=x onerror=alert(1)&gt;' =>
+        ['ltimg-srcx-onerroralert1gt', '&lt;img src=x onerror=alert(1)&gt;']
+    }
+
+    {'textile' => 'h1.', 'common_mark' => '#'}.each do |format, prefix|
+      with_settings :text_formatting => format do
+        headings.each do |heading, (anchor, escaped_heading)|
+          raw = "{{toc}}\n\n#{prefix} #{heading}\n\n[[##{anchor}|Wiki link]]"
+          html = textilizable(raw)
+
+          assert_select_in html, 'a[name=?]', anchor, :count => 1
+          assert_select_in html, 'h1 a.wiki-anchor[href=?]', "##{anchor}", :count => 1
+          assert_include %(<a href="##{anchor}">#{escaped_heading}</a>), html
+          assert_select_in html, 'a.wiki-page[href=?]', "##{anchor}", :text => 'Wiki link'
+        end
+      end
     end
   end
 
@@ -1637,9 +1532,9 @@ class ApplicationHelperTest < Redmine::HelperTest
     end
   end
 
-  if Object.const_defined?(:Redcarpet)
+  if Object.const_defined?(:Commonmarker)
     def test_toc_with_markdown_formatting_should_be_parsed
-      with_settings :text_formatting => 'markdown' do
+      with_settings :text_formatting => 'common_mark' do
         assert_select_in textilizable("{{toc}}\n\n# Heading"), 'ul.toc li', :text => 'Heading'
         assert_select_in textilizable("{{<toc}}\n\n# Heading"), 'ul.toc.left li', :text => 'Heading'
         assert_select_in textilizable("{{>toc}}\n\n# Heading"), 'ul.toc.right li', :text => 'Heading'
@@ -1684,7 +1579,8 @@ class ApplicationHelperTest < Redmine::HelperTest
         Regexp.new(
           '<div class="contextual heading-2" title="Edit this section" id="section-4">' \
           '<a class="icon-only icon-edit" href="/projects/1/wiki/Test/edit\?section=4">' \
-          'Edit this section' \
+          '<svg class="s18 icon-svg" aria-hidden="true"><use href="\/assets\/icons-.*.svg#icon--edit"></use></svg>' \
+          '<span class="icon-label">Edit this section</span>' \
           '</a></div>' \
           '<a name="Subtitle-with-inline-code"></a>' \
           '<h2 >Subtitle with ' \
@@ -1698,7 +1594,8 @@ class ApplicationHelperTest < Redmine::HelperTest
         Regexp.new(
           '<div class="contextual heading-2" title="Edit this section" id="section-5">' \
           '<a class="icon-only icon-edit" href="/projects/1/wiki/Test/edit\?section=5">' \
-          'Edit this section' \
+          '<svg class="s18 icon-svg" aria-hidden="true"><use href="\/assets\/icons-.*.svg#icon--edit"></use></svg>' \
+          '<span class="icon-label">Edit this section</span>' \
           '</a></div>' \
           '<a name="Subtitle-after-pre-tag"></a>' \
           '<h2 >Subtitle after pre tag' \
@@ -1706,6 +1603,196 @@ class ApplicationHelperTest < Redmine::HelperTest
         ),
         result
       )
+    end
+  end
+
+  def test_section_edit_links_with_multiline_heading
+    raw = <<~RAW
+      # Wiki
+
+      ## `Foo` Bar
+
+      The heading above generates multiline HTML.
+      Don't assume heading tags are always single-line.
+
+      ```
+      <h2>
+      <code>Foo</code> Bar</h2>
+      ```
+    RAW
+    @project = Project.find(1)
+    set_language_if_valid 'en'
+    with_settings :text_formatting => 'common_mark' do
+      result =
+        textilizable(
+          raw,
+          :edit_section_links =>
+            {:controller => 'wiki', :action => 'edit',
+            :project_id => '1', :id => 'Test'}
+        ).delete("\n")
+
+      assert_match(
+        Regexp.new(
+          '<div class="contextual heading-2" title="Edit this section" id="section-2">' \
+          '<a class="icon-only icon-edit" href="/projects/1/wiki/Test/edit\?section=2">' \
+          '<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/icons-.*\.svg#icon--edit"></use></svg>' \
+          '<span class="icon-label">Edit this section</span>' \
+          '</a></div>' \
+          '<a name="Foo-Bar"></a>' \
+          '<h2 ><code>Foo</code> Bar<a href="#Foo-Bar" class="wiki-anchor">&para;</a></h2>'
+        ),
+        result
+      )
+    end
+  end
+
+  def test_section_edit_links_with_collapse_macro
+    raw = <<~RAW
+      # Wiki
+      ## Section A
+
+      collapsed section
+      {{collapse(View details...)
+      ## Section B
+      }}
+
+      ## Section C
+    RAW
+    @project = Project.find(1)
+    set_language_if_valid 'en'
+    with_settings :text_formatting => 'common_mark' do
+      result =
+        textilizable(
+          raw,
+          :edit_section_links =>
+            {:controller => 'wiki', :action => 'edit',
+            :project_id => '1', :id => 'Test'}
+        ).delete("\n")
+
+      # Section B inside collapse macro should have section=3 edit link
+      assert_match(
+        Regexp.new(
+          '<div class="contextual heading-2" title="Edit this section" id="section-3">' \
+          '<a class="icon-only icon-edit" href="/projects/1/wiki/Test/edit\\?section=3">' \
+          '<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/icons-.*\\.svg#icon--edit"></use></svg>' \
+          '<span class="icon-label">Edit this section</span>' \
+          '</a></div>' \
+          '<a name="Section-B"></a>' \
+          '<h2 >Section B<a href="#Section-B" class="wiki-anchor">&para;</a></h2>'
+        ),
+        result
+      )
+
+      # Section C after collapse macro should have section=4 edit link
+      assert_match(
+        Regexp.new(
+          '<div class="contextual heading-2" title="Edit this section" id="section-4">' \
+          '<a class="icon-only icon-edit" href="/projects/1/wiki/Test/edit\\?section=4">' \
+          '<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/icons-.*\\.svg#icon--edit"></use></svg>' \
+          '<span class="icon-label">Edit this section</span>' \
+          '</a></div>' \
+          '<a name="Section-C"></a>' \
+          '<h2 >Section C<a href="#Section-C" class="wiki-anchor">&para;</a></h2>'
+        ),
+        result
+      )
+    end
+  end
+
+  def test_section_edit_links_should_ignore_headings_from_include_macro
+    raw = <<~RAW
+      # Test Wiki
+
+      ## Some local heading
+
+      Local text
+
+      {{include(Included_page)}}
+
+      ## More local heading
+
+      More local text
+    RAW
+    @project = Project.find(1)
+    set_language_if_valid 'en'
+    with_settings :text_formatting => 'common_mark' do
+      page = WikiPage.new(:wiki => Wiki.find(1), :title => 'Included_page')
+      page.content = WikiContent.new(
+        :text => "# Included Heading 1\n\n## Included Heading 2\n\nIncluded text\n",
+        :author => User.find(1))
+      page.save!
+
+      result =
+        textilizable(
+          raw,
+          :edit_section_links =>
+            {:controller => 'wiki', :action => 'edit',
+            :project_id => '1', :id => 'Test'}
+        ).delete("\n")
+
+      # Headings of the included page are rendered...
+      assert_include 'Included Heading 2', result
+      # ...but they are not sections of this page, so they must not get edit links
+      assert_equal %w(2 3), result.scan(/edit\?section=(\d+)/).flatten
+
+      # More local heading should have section=3 edit link
+      assert_match(
+        Regexp.new(
+          '<div class="contextual heading-2" title="Edit this section" id="section-3">' \
+          '<a class="icon-only icon-edit" href="/projects/1/wiki/Test/edit\\?section=3">' \
+          '<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/icons-.*\\.svg#icon--edit"></use></svg>' \
+          '<span class="icon-label">Edit this section</span>' \
+          '</a></div>' \
+          '<a name="More-local-heading"></a>' \
+          '<h2 >More local heading<a href="#More-local-heading" class="wiki-anchor">&para;</a></h2>'
+        ),
+        result
+      )
+
+      # The section number must match the one used when editing the page
+      section, _hash = Redmine::WikiFormatting.formatter.new(raw).get_section(3)
+      assert section.start_with?('## More local heading')
+    end
+  end
+
+  def test_section_edit_links_should_ignore_headings_from_include_macro_inside_collapse_macro
+    raw = <<~RAW
+      # Test Wiki
+
+      ## Section A
+
+      {{collapse
+      ## Section B
+
+      {{include(Included_page)}}
+      }}
+
+      ## Section C
+    RAW
+    @project = Project.find(1)
+    set_language_if_valid 'en'
+    with_settings :text_formatting => 'common_mark' do
+      page = WikiPage.new(:wiki => Wiki.find(1), :title => 'Included_page')
+      page.content = WikiContent.new(:text => "## Included Heading\n", :author => User.find(1))
+      page.save!
+
+      result =
+        textilizable(
+          raw,
+          :edit_section_links =>
+            {:controller => 'wiki', :action => 'edit',
+            :project_id => '1', :id => 'Test'}
+        ).delete("\n")
+
+      assert_include 'Included Heading', result
+      assert_equal %w(2 3 4), result.scan(/edit\?section=(\d+)/).flatten
+      assert_match(
+        /id="section-4"><a class="icon-only icon-edit" href="[^"]*section=4">.*?<\/a><\/div><a name="Section-C"><\/a>/,
+        result
+      )
+
+      section, _hash = Redmine::WikiFormatting.formatter.new(raw).get_section(4)
+      assert section.start_with?('## Section C')
     end
   end
 
@@ -1834,8 +1921,8 @@ class ApplicationHelperTest < Redmine::HelperTest
 
   def test_link_to_principal_should_link_to_group
     group = Group.find(10)
-    result = link_to('A Team', '/groups/10', :class => 'group')
-    assert_equal result, link_to_principal(group)
+    result = %r{<a class="group" href="/groups/10"><svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/icons-\w+.svg#icon--group"></use></svg>A Team</a>}
+    assert_match result, link_to_principal(group)
   end
 
   def test_link_to_principal_should_return_string_representation_for_unknown_type_principal
@@ -1874,6 +1961,48 @@ class ApplicationHelperTest < Redmine::HelperTest
     assert_equal ::I18n.t(:label_user_anonymous), t
   end
 
+  def test_link_to_mention
+    set_language_if_valid 'en'
+    user = User.find(2)
+    User.current = User.find(1)
+    issue = Issue.find(1)
+
+    # Mentioning a user
+    result = link_to("@John Smith", "/users/2", :class => "user active user-mention")
+    assert_equal result, link_to_mention(user, nil)
+
+    # Mentioning current user
+    User.current = user
+    result = link_to("@John Smith", "/users/2", :class => "user active user-mention user-current")
+    assert_equal result, link_to_mention(user, nil)
+
+    # Mentioning a user that has visibility over the mentioned object
+    User.current = User.find(1)
+    # Issue 1 is visible to John Smith (user 2)
+    assert issue.visible?(user)
+    result = link_to("@John Smith", "/users/2", :class => "user active user-mention user-mentionable")
+    assert_equal result, link_to_mention(user, issue)
+
+    # Mentioning current user that has visibility over the mentioned object
+    User.current = user
+    result = link_to("@John Smith", "/users/2", :class => "user active user-mention user-current user-mentionable")
+    assert_equal result, link_to_mention(user, issue)
+
+    # Mentioning a user that does not have visibility over the object
+    User.current = User.find(1)
+    unauthorized_user = User.find(3)
+    issue4 = Issue.find(4)
+    assert_not issue4.visible?(unauthorized_user)
+    result = link_to("@Dave Lopper", "/users/3", :class => "user active user-mention")
+    assert_equal result, link_to_mention(unauthorized_user, issue4)
+
+    # Mentioning in a journal
+    journal = Journal.find(1)
+    assert journal.visible?(user)
+    result = link_to("@John Smith", "/users/2", :class => "user active user-mention user-mentionable")
+    assert_equal result, link_to_mention(user, journal)
+  end
+
   def test_link_to_attachment
     a = Attachment.find(3)
     assert_equal(
@@ -1895,11 +2024,12 @@ class ApplicationHelperTest < Redmine::HelperTest
   end
 
   def test_thumbnail_tag
-    a = Attachment.find(3)
-    assert_select_in(
-      thumbnail_tag(a),
-      'a[href=?][title=?] img[src=?][loading="lazy"]',
-      "/attachments/3", "logo.gif", "/attachments/thumbnail/3/200")
+    attachment = Attachment.find(3)
+    assert_select_in thumbnail_tag(attachment), 'div.thumbnail[title=?]', 'logo.gif' do
+      assert_select 'a[href=?]', '/attachments/3' do
+        assert_select 'img[alt=?][src=?][loading="lazy"]', "logo.gif", "/attachments/thumbnail/3/200"
+      end
+    end
   end
 
   def test_link_to_project
@@ -1974,27 +2104,18 @@ class ApplicationHelperTest < Redmine::HelperTest
   end
 
   def test_principals_check_box_tag_with_avatar
-    principals = [User.find(1), Group.find(10)]
+    user = User.find(1)
+    group = Group.find(10)
     with_settings :gravatar_enabled => '1' do
-      tags = principals_check_box_tags("watcher[user_ids][]", principals)
-      principals.each do |principal|
-        assert_include avatar(principal, :size => 16), tags
-        assert_not_include content_tag('span', nil, :class => "name icon icon-#{principal.class.name.downcase}"), tags
-      end
-    end
-  end
+      tags = principals_check_box_tags("watcher[user_ids][]", [user, group])
 
-  def test_principals_check_box_tag_without_avatar
-    principals = [User.find(1), Group.find(10)]
-    Setting.gravatar_enabled = '1'
-    avatar_tags = principals.collect{|p| avatar(p, :size => 16)}
+      # User should have avatar
+      assert_include avatar(user, :size => 16), tags
+      assert_not_include content_tag('span', nil, :class => "name icon icon-#{user.class.name.downcase}"), tags
 
-    with_settings :gravatar_enabled => '0' do
-      tags = principals_check_box_tags(name, principals)
-      principals.each_with_index do |principal, i|
-        assert_not_include avatar_tags[i], tags
-        assert_include content_tag('span', nil, :class => "name icon icon-#{principal.class.name.downcase}"), tags
-      end
+      # Group should have group icon
+      assert_not_include avatar(group, :size => 16), tags
+      assert_include content_tag('span', principal_icon(group), :class => "name icon icon-#{group.class.name.downcase}"), tags
     end
   end
 
@@ -2018,10 +2139,60 @@ class ApplicationHelperTest < Redmine::HelperTest
     User.current = nil
     set_language_if_valid 'en'
     users = [User.find(2), Group.find(11), User.find(4), Group.find(10)]
-    assert_equal(
-      %(<option value="2">John Smith</option><option value="4">Robert Hill</option>) +
-      %(<optgroup label="Groups"><option value="10">A Team</option><option value="11">B Team</option></optgroup>),
-      principals_options_for_select(users))
+    result = principals_options_for_select(users)
+
+    assert_select_in result, 'optgroup[label="Users"]' do
+      assert_select 'option[value="2"]', text: 'John Smith'
+      assert_select 'option[value="4"]', text: 'Robert Hill'
+    end
+    assert_select_in result, 'optgroup[label="Groups"]' do
+      assert_select 'option[value="10"]', text: 'A Team'
+      assert_select 'option[value="11"]', text: 'B Team'
+    end
+  end
+
+  def test_principals_options_for_select_with_users_and_groups_with_groups_then_users
+    User.current = nil
+    set_language_if_valid 'en'
+    principals = [User.find(2), Group.find(11), User.find(4), Group.find(10)]
+
+    with_settings :assignee_dropdown_display_format => 'groups_then_users' do
+      result = principals_options_for_select(principals)
+
+      assert_select_in result, 'optgroup:nth-of-type(1)[label="Groups"]' do
+        assert_select 'option[value="10"]', text: 'A Team'
+        assert_select 'option[value="11"]', text: 'B Team'
+      end
+      assert_select_in result, 'optgroup:nth-of-type(2)[label="Users"]' do
+        assert_select 'option[value="2"]', text: 'John Smith'
+        assert_select 'option[value="4"]', text: 'Robert Hill'
+      end
+    end
+  end
+
+  def test_principals_options_for_select_with_users_and_groups_with_users_by_group
+    User.current = nil
+    set_language_if_valid 'en'
+    principals = [User.find(2), User.find(8), Group.find(11), Group.find(10)]
+
+    with_settings :assignee_dropdown_display_format => 'users_by_group' do
+      result = principals_options_for_select(principals)
+
+      assert_select_in result, 'optgroup:nth-of-type(1)[label="Groups"]' do
+        assert_select 'option[value="10"]', text: 'A Team'
+        assert_select 'option[value="11"]', text: 'B Team'
+      end
+      assert_select_in result, 'optgroup:nth-of-type(2)[label="A Team"]' do
+        assert_select 'option[value="8"]', text: 'User Misc'
+      end
+      assert_select_in result, 'optgroup:nth-of-type(3)[label="B Team"]' do
+        assert_select 'option[value="8"]', text: 'User Misc'
+      end
+      assert_select_in result, 'optgroup:nth-of-type(4)[label="Users"]' do
+        assert_select 'option[value="2"]', text: 'John Smith'
+        assert_select 'option[value="8"]', 0
+      end
+    end
   end
 
   def test_principals_options_for_select_with_empty_collection
@@ -2034,6 +2205,44 @@ class ApplicationHelperTest < Redmine::HelperTest
     User.current = User.find(4)
     assert_include '<option value="4">&lt;&lt; me &gt;&gt;</option>',
                    principals_options_for_select(users)
+  end
+
+  def test_principals_options_for_select_should_include_author_previous_assignee_and_last_notes_author
+    set_language_if_valid 'en'
+    users = [User.find(2), User.find(3), User.find(1), User.find(4)]
+    @issue = Issue.generate!(author_id: 1, assigned_to_id: 2)
+    @issue.init_journal(users.first, 'update')
+    @issue.assigned_to_id = 3
+    @issue.save
+    Journal.create!(:journalized => @issue, :user_id => 4, :notes => 'Last notes')
+
+    result = principals_options_for_select(users)
+    assert_select_in result, 'optgroup[label="Author / Recent participants"]' do
+      assert_select 'option:nth-of-type(1)', text: 'Redmine Admin'  # Author
+      assert_select 'option:nth-of-type(2)', text: 'John Smith'     # Prior assignee
+      assert_select 'option:nth-of-type(3)', text: 'Robert Hill'    # Last notes author
+    end
+  end
+
+  def test_principals_options_for_select_should_not_include_private_last_notes_author_without_permission
+    set_language_if_valid 'en'
+    User.current = User.find(3)
+    users = [User.find(2), User.find(3), User.find(1), User.find(4)]
+    @issue = Issue.generate!(author_id: 1, assigned_to_id: 2)
+    @issue.init_journal(users.first, 'update')
+    @issue.assigned_to_id = 3
+    @issue.save
+    Journal.create!(:journalized => @issue, :user_id => 4, :notes => 'Public notes')
+    Journal.create!(:journalized => @issue, :user_id => 8, :notes => 'Private notes', :private_notes => true)
+
+    result = principals_options_for_select(users)
+    assert_select_in result, 'optgroup[label="Author / Recent participants"]' do
+      assert_select 'option:nth-of-type(1)', text: 'Redmine Admin'
+      assert_select 'option:nth-of-type(2)', text: 'John Smith'
+      assert_select 'option:nth-of-type(3)', text: 'Robert Hill'
+    end
+  ensure
+    User.current = nil
   end
 
   def test_stylesheet_link_tag_should_pick_the_default_stylesheet
@@ -2117,6 +2326,16 @@ class ApplicationHelperTest < Redmine::HelperTest
     assert_equal 'Bar - Foo - Redmine', html_title
   end
 
+  def test_javascript_heads_should_not_expose_mermaid_asset_url_when_mermaid_is_not_available
+    Redmine::Mermaid.stubs(:available?).returns(false)
+    assert_not_include 'MermaidAssetUrl', javascript_heads
+  end
+
+  def test_javascript_heads_should_add_mermaid_available_class_when_mermaid_is_available
+    Redmine::Mermaid.stubs(:available?).returns(true)
+    assert_include "document.documentElement.classList.add('mermaid-available');", javascript_heads
+  end
+
   def test_favicon_path
     assert_match %r{^/assets/favicon-\w+\.ico}, favicon_path
   end
@@ -2160,14 +2379,33 @@ class ApplicationHelperTest < Redmine::HelperTest
     set_language_if_valid 'en'
 
     with_settings :timespan_format => 'minutes' do
+      assert_equal '-0:45', format_hours(-0.75)
+      assert_equal '0:00', format_hours(0)
       assert_equal '0:45', format_hours(0.75)
       assert_equal '0:45 h', l_hours_short(0.75)
       assert_equal '0:45 hour', l_hours(0.75)
     end
     with_settings :timespan_format => 'decimal' do
+      assert_equal '-0.75', format_hours(-0.75)
+      assert_equal '0.00', format_hours(0)
       assert_equal '0.75', format_hours(0.75)
       assert_equal '0.75 h', l_hours_short(0.75)
       assert_equal '0.75 hour', l_hours(0.75)
+    end
+  end
+
+  def test_format_hours_rounds_to_nearest_minute
+    set_language_if_valid 'en'
+
+    # 7h 59m 29s (7.991388888888889) -> 7h 59m (7.98)
+    # 7h 59m 30s (7.991666666666667) -> 8h  0m (8.00)
+    with_settings :timespan_format => 'minutes' do
+      assert_equal '7:59', format_hours(7.991388888888889)
+      assert_equal '8:00', format_hours(7.991666666666667)
+    end
+    with_settings :timespan_format => 'decimal' do
+      assert_equal '7.98', format_hours(7.991388888888889)
+      assert_equal '8.00', format_hours(7.991666666666667)
     end
   end
 
@@ -2197,28 +2435,6 @@ class ApplicationHelperTest < Redmine::HelperTest
     assert_match(/name="new_issue-[a-z0-9]{8}"/, labelled_form_for(Issue.new){})
   end
 
-  # TODO: Remove this test when ApplicationHelper#render_if_exist is removed
-  def test_render_if_exist_should_be_render_partial
-    saved_behavior = Rails.application.deprecators[:active_support].behavior
-    Rails.application.deprecators[:active_support].behavior = :silence
-
-    controller.prepend_view_path "test/fixtures/views"
-    assert_equal "partial html\n", render_if_exist(:partial => 'partial')
-  ensure
-    Rails.application.deprecators[:active_support].behavior = saved_behavior
-  end
-
-  # TODO: Remove this test when ApplicationHelper#render_if_exist is removed
-  def test_render_if_exist_should_be_render_nil
-    saved_behavior = Rails.application.deprecators[:active_support].behavior
-    Rails.application.deprecators[:active_support].behavior = :silence
-
-    controller.prepend_view_path "test/fixtures/views"
-    assert_nil render_if_exist(:partial => 'non_exist_partial')
-  ensure
-    Rails.application.deprecators[:active_support].behavior = saved_behavior
-  end
-
   def test_export_csv_encoding_select_tag_should_return_nil_when_general_csv_encoding_is_UTF8
     with_locale 'az' do
       assert_equal l(:general_csv_encoding), 'UTF-8'
@@ -2228,12 +2444,10 @@ class ApplicationHelperTest < Redmine::HelperTest
 
   def test_export_csv_encoding_select_tag_should_have_two_option_when_general_csv_encoding_is_not_UTF8
     with_locale 'en' do
-      assert_not_equal l(:general_csv_encoding), 'UTF-8'
+      assert_equal l(:general_csv_encoding), 'ISO-8859-1'
       result = export_csv_encoding_select_tag
-      assert_select_in result,
-                       "option[selected='selected'][value=#{l(:general_csv_encoding)}]",
-                       :text => l(:general_csv_encoding)
-      assert_select_in result, "option[value='UTF-8']", :text => 'UTF-8'
+      assert_select_in result, "option[selected='selected'][value='UTF-8']", :text => 'UTF-8'
+      assert_select_in result, "option[value='ISO-8859-1']", :text => 'ISO-8859-1'
     end
   end
 
@@ -2253,20 +2467,6 @@ class ApplicationHelperTest < Redmine::HelperTest
     end
   end
 
-  # TODO: Remove this test when Redcarpet-based Markdown formatter is removed
-  def test_markdown_formatter
-    [
-      ['markdown', 'markdown'],
-      ['common_mark', 'common_mark'],
-      ['textile', 'common_mark'],
-      ['', 'common_mark']
-    ].each do |text_formatting, expected|
-      with_settings text_formatting: text_formatting do
-        assert_equal expected, markdown_formatter
-      end
-    end
-  end
-
   def test_export_csv_separator_select_tag
     with_locale 'en' do
       result = export_csv_separator_select_tag
@@ -2279,6 +2479,43 @@ class ApplicationHelperTest < Redmine::HelperTest
       assert_equal ';', l(:general_csv_separator)
       assert_select_in result, 'option[value=?][selected=selected]', ';'
     end
+  end
+
+  def test_format_activity_description_should_strip_quoted_text
+    text = <<~TEXT
+      John Smith wrote in #note-1:
+      > The quick brown fox
+      > jumps over the lazy dog.
+
+      Brick quiz whangs jumpy veldt fox.
+
+      > The five
+
+      > boxing wizards
+
+      > jump quickly.
+
+      The quick onyx goblin jumps over the lazy dwarf.
+    TEXT
+
+    expected =
+      'John Smith wrote in #note-1:<br>' \
+      '&gt; The quick brown fox<br>' \
+      '&gt; ...<br>' \
+      'Brick quiz whangs jumpy veldt fox.<br>' \
+      '&gt; The five<br>' \
+      '&gt; ...<br>' \
+      'The quick onyx goblin jumps over the lazy dwarf.<br>'
+
+    assert_equal expected, format_activity_description(text)
+  end
+
+  def test_render_flash_messages_should_ignore_non_string_values
+    flash[:array_value] = ['1', '2']
+    flash[:hash_value] = { foo: 'bar' }
+
+    result = render_flash_messages
+    assert_equal '', result
   end
 
   private
@@ -2310,5 +2547,24 @@ class ApplicationHelperTest < Redmine::HelperTest
                   "/projects/ecookbook/wiki/%5Bfoo%5DIncluding_%5Bsquare_brackets%5D_in_wiki_title",
                   :class => "wiki-page new"),
     }
+  end
+
+  def test_wiki_textarea_stimulus_attributes
+    with_settings :text_formatting => 'textile' do
+      expected = {
+        controller: "list-autofill table-paste",
+        action: "beforeinput->list-autofill#handleBeforeInput paste->table-paste#handlePaste",
+        list_autofill_text_formatting_param: "textile",
+        table_paste_text_formatting_param: "textile"
+      }
+
+      assert_equal expected, wiki_textarea_stimulus_attributes
+    end
+  end
+
+  def test_wiki_textarea_stimulus_attributes_with_blank_text_formatting
+    with_settings :text_formatting => '' do
+      assert_equal({}, wiki_textarea_stimulus_attributes)
+    end
   end
 end

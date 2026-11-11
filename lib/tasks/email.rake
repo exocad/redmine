@@ -37,6 +37,8 @@ Available IMAP options:
   host=HOST                IMAP server host (default: 127.0.0.1)
   port=PORT                IMAP server port (default: 143)
   ssl=SSL                  Use SSL/TLS? (default: false)
+                           Setting `ssl=force` disables server certificate
+                           verification
   starttls=STARTTLS        Use STARTTLS? (default: false)
   username=USERNAME        IMAP account
   password=PASSWORD        IMAP password
@@ -132,6 +134,8 @@ Available POP3 options:
   password=PASSWORD        POP3 password
   apop=1                   use APOP authentication (default: false)
   ssl=SSL                  Use SSL? (default: false)
+                           Setting `ssl=force` disables server certificate
+                           verification
   delete_unprocessed=1     delete messages that could not be processed
                            successfully from the server (default
                            behaviour is to leave them on the server)

@@ -22,9 +22,9 @@ require 'redmine/scm/adapters/subversion_adapter'
 module Redmine
   # @private
   module VERSION
-    MAJOR = 5
-    MINOR = 1
-    TINY  = 2
+    MAJOR = 7
+    MINOR = 0
+    TINY  = 3
 
     # Branch values:
     # * official release: nil

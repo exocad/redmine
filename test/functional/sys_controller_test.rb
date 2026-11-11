@@ -20,15 +20,9 @@
 require_relative '../test_helper'
 
 class SysControllerTest < Redmine::ControllerTest
-  fixtures :projects, :repositories, :enabled_modules
-
   def setup
     Setting.sys_api_enabled = '1'
     Setting.enabled_scm = %w(Subversion Git)
-  end
-
-  def teardown
-    Setting.clear_cache
   end
 
   def test_projects_with_repository_enabled
@@ -95,7 +89,21 @@ class SysControllerTest < Redmine::ControllerTest
         :repository => {:url => 'invalid url'}
       }
     )
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
+  end
+
+  def test_create_disabled_adapter
+    with_settings(enabled_scm: []) do
+      post(
+        :create_project_repository,
+        :params => {
+          :id => 4,
+          :vendor => 'Subversion',
+          :repository => {:url => 'file:///create/project/repository/subproject2'}
+        }
+      )
+      assert_response :unprocessable_content
+    end
   end
 
   def test_fetch_changesets
@@ -118,13 +126,13 @@ class SysControllerTest < Redmine::ControllerTest
 
   def test_fetch_changesets_unknown_project
     get :fetch_changesets, :params => {:id => 'unknown'}
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_disabled_ws_should_respond_with_403_error
     with_settings :sys_api_enabled => '0' do
       get :projects
-      assert_response 403
+      assert_response :forbidden
       assert_include 'Access denied', response.body
     end
   end
@@ -139,7 +147,7 @@ class SysControllerTest < Redmine::ControllerTest
   def test_wrong_key_should_respond_with_403_error
     with_settings :sys_api_enabled => 'my_secret_key' do
       get :projects, :params => {:key => 'wrong_key'}
-      assert_response 403
+      assert_response :forbidden
       assert_include 'Access denied', response.body
     end
   end

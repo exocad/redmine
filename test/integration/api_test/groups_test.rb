@@ -20,11 +20,9 @@
 require_relative '../../test_helper'
 
 class Redmine::ApiTest::GroupsTest < Redmine::ApiTest::Base
-  fixtures :users, :groups_users, :email_addresses
-
   test "GET /groups.xml should require authentication" do
     get '/groups.xml'
-    assert_response 401
+    assert_response :unauthorized
   end
 
   test "GET /groups.xml should return givable groups" do
@@ -61,7 +59,7 @@ class Redmine::ApiTest::GroupsTest < Redmine::ApiTest::Base
 
   test "GET /groups.json should require authentication" do
     get '/groups.json'
-    assert_response 401
+    assert_response :unauthorized
   end
 
   test "GET /groups.json should return groups" do
@@ -122,6 +120,32 @@ class Redmine::ApiTest::GroupsTest < Redmine::ApiTest::Base
     end
   end
 
+  test "GET /groups/:id.xml with include=memberships should only include memberships in visible projects" do
+    # group 10 is a member of the private project 5, which dlopper can not see
+    Member.create!(:principal => Group.find(10), :project_id => 1, :role_ids => [2])
+
+    get '/groups/10.xml?include=memberships', :headers => credentials('admin')
+    assert_response :success
+    assert_select 'group memberships membership', 2
+
+    get '/groups/10.xml?include=memberships', :headers => credentials('dlopper')
+    assert_response :success
+    assert_select 'group memberships' do
+      assert_select 'membership', 1
+      assert_select 'membership project[id="1"]'
+      assert_select 'membership project[id="5"]', 0
+    end
+  end
+
+  test "GET /groups/:id.json with include=memberships should only include memberships in visible projects" do
+    Member.create!(:principal => Group.find(10), :project_id => 1, :role_ids => [2])
+
+    get '/groups/10.json?include=memberships', :headers => credentials('dlopper')
+    assert_response :success
+    json = ActiveSupport::JSON.decode(response.body)
+    assert_equal [1], json['group']['memberships'].map {|membership| membership['project']['id']}
+  end
+
   test "POST /groups.xml with valid parameters should create the group" do
     assert_difference('Group.count') do
       post(
@@ -133,7 +157,7 @@ class Redmine::ApiTest::GroupsTest < Redmine::ApiTest::Base
       assert_equal 'application/xml', response.media_type
     end
 
-    group = Group.order('id DESC').first
+    group = Group.order(id: :desc).first
     assert_equal 'Test', group.name
     assert_equal [2, 3], group.users.map(&:id).sort
 
@@ -150,7 +174,7 @@ class Redmine::ApiTest::GroupsTest < Redmine::ApiTest::Base
         :headers => credentials('admin')
       )
     end
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     assert_equal 'application/xml', response.media_type
 
     assert_select 'errors' do
@@ -179,7 +203,7 @@ class Redmine::ApiTest::GroupsTest < Redmine::ApiTest::Base
       :params => {:group => {:name => ''}},
       :headers => credentials('admin')
     )
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     assert_equal 'application/xml', response.media_type
 
     assert_select 'errors' do
@@ -220,7 +244,7 @@ class Redmine::ApiTest::GroupsTest < Redmine::ApiTest::Base
         :params => {:user_id => 5},
         :headers => credentials('admin')
       )
-      assert_response :unprocessable_entity
+      assert_response :unprocessable_content
     end
 
     assert_select 'errors' do

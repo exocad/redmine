@@ -19,17 +19,10 @@
 
 module Redmine
   module CodesetUtil
-
     def self.replace_invalid_utf8(str)
       return nil if str.nil?
 
-      str = str.dup
-      str.force_encoding('UTF-8')
-      if ! str.valid_encoding?
-        str = str.encode("UTF-16LE", :invalid => :replace,
-              :undef => :replace, :replace => '?').encode("UTF-8")
-      end
-      str
+      str.dup.force_encoding('UTF-8').scrub('?')
     end
 
     def self.to_utf8(str, encoding)
@@ -40,7 +33,7 @@ module Redmine
         str.force_encoding("UTF-8")
         return str
       end
-      enc = encoding.blank? ? "UTF-8" : encoding
+      enc = (encoding.presence || "UTF-8")
       if enc.casecmp("UTF-8") != 0
         str.force_encoding(enc)
         str = str.encode("UTF-8", :invalid => :replace,

@@ -79,14 +79,16 @@ module Redmine
           cmd_args = %w|branch --no-color --verbose --no-abbrev|
           git_cmd(cmd_args) do |io|
             io.each_line do |line|
-              branch_rev = line.match('\s*(\*?)\s*(.*?)\s*([0-9a-f]{40}).*$')
-              next unless branch_rev
+              # Each line looks like this ("*" marks the current branch):
+              #   * main  2a682156a3b6e77a8bf9cd4590e8db757f3c6c78 Add foo.txt
+              m = line.match(/\s*(?<current>\*?)\s*(?<name>.*?)\s+(?<rev>[0-9a-f]{40}).*$/)
+              next unless m
 
-              bran = GitBranch.new(scm_iconv('UTF-8', @path_encoding, branch_rev[2]))
-              bran.revision =  branch_rev[3]
-              bran.scmid    =  branch_rev[3]
-              bran.is_default = (branch_rev[1] == '*')
-              @branches << bran
+              branch = GitBranch.new(scm_iconv('UTF-8', @path_encoding, m[:name]))
+              branch.revision = m[:rev]
+              branch.scmid    = m[:rev]
+              branch.is_default = (m[:current] == '*')
+              @branches << branch
             end
           end
           @branches.sort!
@@ -118,7 +120,7 @@ module Redmine
         end
 
         def entry(path=nil, identifier=nil)
-          parts = path.to_s.split(%r{[\/\\]}).select {|n| !n.blank?}
+          parts = path.to_s.split(%r{[/\\]}).select {|n| !n.blank?}
           search_path = parts[0..-2].join('/')
           search_name = parts[-1]
           if search_path.blank? && search_name.blank?
@@ -357,6 +359,11 @@ module Redmine
               diff << line
             end
           end
+          # "git show" of Git 2.55.0 prints the commit header even when the
+          # given path is not modified by the commit. Discard such output so
+          # that an empty diff is returned as with the other versions.
+          return [] if !path.empty? && diff.none? {|line| line.start_with?('diff --')}
+
           diff
         rescue ScmCommandAborted
           nil
@@ -440,7 +447,7 @@ module Redmine
 
         private
 
-        def git_cmd(args, options = {}, &block)
+        def git_cmd(args, options = {}, &)
           repo_path = root_url || url
           full_args = ['--git-dir', repo_path]
           if self.class.client_version_above?([1, 7, 2])
@@ -452,7 +459,7 @@ module Redmine
             shellout(
               self.class.sq_bin + ' ' + full_args.map {|e| shell_quote e.to_s}.join(' '),
               options,
-              &block
+              &
             )
           if $? && $?.exitstatus != 0
             raise ScmCommandAborted, "git exited with non-zero status: #{$?.exitstatus}"

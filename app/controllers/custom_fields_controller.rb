@@ -34,7 +34,12 @@ class CustomFieldsController < ApplicationController
           IssueCustomField.where(is_for_all: false).joins(:projects).group(:custom_field_id).count
       end
       format.api do
-        @custom_fields = CustomField.all
+        @custom_fields = CustomField.includes(:roles).all.to_a
+        issue_custom_fields = @custom_fields.grep(IssueCustomField)
+        ActiveRecord::Associations::Preloader.new(
+          records: issue_custom_fields,
+          associations: [:projects, :trackers]
+        ).call
       end
     end
   end
@@ -70,12 +75,12 @@ class CustomFieldsController < ApplicationController
           flash[:notice] = l(:notice_successful_update)
           redirect_back_or_default edit_custom_field_path(@custom_field)
         end
-        format.js {head 200}
+        format.js {head :ok}
       end
     else
       respond_to do |format|
         format.html {render :action => 'edit'}
-        format.js {head 422}
+        format.js {head :unprocessable_content}
       end
     end
   end

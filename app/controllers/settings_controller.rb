@@ -26,7 +26,7 @@ class SettingsController < ApplicationController
 
   before_action :require_admin
 
-  require_sudo_mode :index, :edit, :plugin
+  require_sudo_mode :index, :edit, :delete_favicon, :plugin
 
   def index
     edit
@@ -36,7 +36,11 @@ class SettingsController < ApplicationController
   def edit
     @notifiables = Redmine::Notifiable.all
     if request.post?
-      errors = Setting.set_all_from_params(params[:settings].to_unsafe_hash)
+      settings = params[:settings].to_unsafe_hash
+      if settings['default_issue_due_date_offset_enabled'] == '0'
+        settings['default_issue_due_date_offset'] = ''
+      end
+      errors = Setting.set_all_from_params(settings)
       if errors.blank?
         flash[:notice] = l(:notice_successful_update)
         redirect_to settings_path(:tab => params[:tab])
@@ -59,6 +63,12 @@ class SettingsController < ApplicationController
     @commit_update_keywords = [{}] unless @commit_update_keywords.is_a?(Array) && @commit_update_keywords.any?
 
     Redmine::Themes.rescan
+  end
+
+  def delete_favicon
+    Setting.favicon = {}
+    flash[:notice] = l(:notice_successful_delete)
+    redirect_to settings_path(:tab => 'display')
   end
 
   def plugin

@@ -22,16 +22,6 @@ require_relative '../test_helper'
 class MailerTest < ActiveSupport::TestCase
   include Redmine::I18n
   include Rails::Dom::Testing::Assertions
-  fixtures :projects, :enabled_modules, :issues, :users, :email_addresses, :user_preferences, :members,
-           :member_roles, :roles, :documents, :attachments, :news,
-           :tokens, :journals, :journal_details, :changesets,
-           :trackers, :projects_trackers,
-           :custom_fields, :custom_fields_trackers,
-           :issue_statuses, :enumerations, :messages, :boards, :repositories,
-           :wikis, :wiki_pages, :wiki_contents, :wiki_content_versions,
-           :versions,
-           :comments,
-           :groups_users, :watchers
 
   def setup
     ActionMailer::Base.deliveries.clear
@@ -212,15 +202,11 @@ class MailerTest < ActiveSupport::TestCase
   end
 
   def test_email_headers
-    with_settings :mail_from => 'Redmine <redmine@example.net>' do
-      issue = Issue.find(1)
-      Mailer.deliver_issue_add(issue)
-    end
+    issue = Issue.find(1)
+    Mailer.deliver_issue_add(issue)
     mail = last_email
     assert_equal 'All', mail.header['X-Auto-Response-Suppress'].to_s
     assert_equal 'auto-generated', mail.header['Auto-Submitted'].to_s
-    # List-Id should not include the display name "Redmine"
-    assert_equal '<redmine.example.net>', mail.header['List-Id'].to_s
     assert_equal 'Bug', mail.header['X-Redmine-Issue-Tracker'].to_s
     assert_equal 'Low', mail.header['X-Redmine-Issue-Priority'].to_s
   end
@@ -324,6 +310,23 @@ class MailerTest < ActiveSupport::TestCase
       mail = last_email
       assert_equal 'redmine@example.net', mail.from_addrs.first
       assert_equal "Foo <redmine@example.net>", mail.header['From'].to_s
+    end
+  end
+
+  def test_list_id_header_should_include_project_identifier
+    with_settings :mail_from => 'Redmine <redmine@example.net>' do
+      content = WikiContent.find(1)
+      Mailer.deliver_wiki_content_added(content)
+      mail = last_email
+      assert_equal '<ecookbook.redmine.example.net>', mail.header['List-Id'].to_s
+    end
+  end
+
+  def test_list_id_header_excludes_project_identifier_for_non_project_emails
+    with_settings :mail_from => 'Redmine <redmine@example.net>' do
+      Mailer.deliver_test_email(User.find(1))
+      mail = last_email
+      assert_equal '<redmine.example.net>', mail.header['List-Id'].to_s
     end
   end
 
@@ -468,6 +471,28 @@ class MailerTest < ActiveSupport::TestCase
     assert_include user.mail, recipients
   end
 
+  test "#issue_add should notify issue watchers with only_my_watches mail notification" do
+    issue = Issue.find(1)
+    user = User.find(9)
+    user.mail_notification = 'only_my_watches'
+    user.save!
+
+    Watcher.create!(:watchable => issue, :user => user)
+    assert Mailer.deliver_issue_add(issue)
+    assert_include user.mail, recipients
+  end
+
+  test "#issue_add should not notify the author with only_my_watches mail notification unless watched" do
+    author = User.find(1)
+    author.mail_notification = 'only_my_watches'
+    author.save!
+
+    issue = Issue.generate!(project_id: 1, author: author)
+
+    assert Mailer.deliver_issue_add(issue)
+    assert_not_include author.mail, recipients
+  end
+
   test "#issue_add should not notify watchers not allowed to view the issue" do
     issue = Issue.find(1)
     user = User.find(9)
@@ -488,6 +513,13 @@ class MailerTest < ActiveSupport::TestCase
     # @dlopper won't receive duplicated notifications
     assert_equal 3, ActionMailer::Base.deliveries.size
     assert_include User.find(1).mail, recipients
+
+    # In the email sent to admin, the mention of admin is marked as the
+    # current user and both mentioned users are marked as mentionable
+    mail = ActionMailer::Base.deliveries.find {|m| m.to.include?(User.find(1).mail)}
+    html = mail.parts.detect {|part| part.content_type.include?('text/html')}.body.encoded
+    assert_select_in html, 'a.user-mention.user-current.user-mentionable[href$=?]', '/users/1', 1
+    assert_select_in html, 'a.user-mention.user-mentionable:not(.user-current)[href$=?]', '/users/3', 1
   end
 
   def test_issue_add_should_include_enabled_fields
@@ -540,6 +572,20 @@ class MailerTest < ActiveSupport::TestCase
     mail = last_email
     assert_select_email do
       assert_select 'span.badge.badge-status-open', text: 'open'
+    end
+  end
+
+  def test_issue_edit_should_not_send_notification_if_issue_was_deleted_after_journal_was_loaded
+    journal = Journal.find(1)
+    issue = Issue.find(journal.journalized_id)
+    assert_not journal.association(:journalized).loaded?
+
+    issue.destroy!
+    assert_not Issue.exists?(issue.id)
+    assert_not Journal.exists?(journal.id)
+
+    assert_no_difference 'ActionMailer::Base.deliveries.size' do
+      Mailer.issue_edit(User.find(1), journal).deliver_now
     end
   end
 

@@ -21,11 +21,6 @@ require_relative '../../test_helper'
 
 class Redmine::ApiTest::ProjectsTest < Redmine::ApiTest::Base
   include ActiveJob::TestHelper
-  fixtures :projects, :versions, :users, :roles, :members, :member_roles, :issues, :journals, :journal_details,
-           :trackers, :projects_trackers, :issue_statuses, :enabled_modules, :enumerations, :boards, :messages,
-           :attachments, :custom_fields, :custom_values, :custom_fields_projects, :time_entries, :issue_categories,
-           :queries
-
   def setup
     super
     set_tmp_attachments_directory
@@ -71,12 +66,47 @@ class Redmine::ApiTest::ProjectsTest < Redmine::ApiTest::Base
     assert_select 'issue_categories[type=array] issue_category[id="2"][name=Recipes]'
   end
 
+  test "GET /projects.xml with include=issue_categories without view_issues permission should not return categories" do
+    Role.anonymous.remove_permission! :view_issues
+    get '/projects.xml?include=issue_categories'
+    assert_response :success
+    assert_equal 'application/xml', @response.media_type
+
+    assert_select 'issue_categories', 0
+  end
+
   test "GET /projects.xml with include=trackers should return trackers" do
     get '/projects.xml?include=trackers'
     assert_response :success
     assert_equal 'application/xml', @response.media_type
 
     assert_select 'trackers[type=array] tracker[id="2"][name="Feature request"]'
+  end
+
+  test "GET /projects.xml with include=trackers without view_issues permission should not return trackers" do
+    Role.anonymous.remove_permission! :view_issues
+    get '/projects.xml?include=trackers'
+    assert_response :success
+    assert_equal 'application/xml', @response.media_type
+
+    assert_select 'trackers', 0
+  end
+
+  test "GET /projects.xml with include=time_entry_activities should return activities" do
+    get '/projects.xml?include=time_entry_activities'
+    assert_response :success
+    assert_equal 'application/xml', @response.media_type
+
+    assert_select 'time_entry_activities[type=array] time_entry_activity[id="10"][name=Development]'
+  end
+
+  test "GET /projects.xml with include=time_entry_activities without view_time_entries permission should not return activities" do
+    Role.anonymous.remove_permission! :view_time_entries
+    get '/projects.xml?include=time_entry_activities'
+    assert_response :success
+    assert_equal 'application/xml', @response.media_type
+
+    assert_select 'time_entry_activities', 0
   end
 
   test "GET /projects.xml with include=enabled_modules should return enabled modules" do
@@ -98,6 +128,15 @@ class Redmine::ApiTest::ProjectsTest < Redmine::ApiTest::Base
     # Custom field for all projects
     assert_select 'issue_custom_fields[type=array] custom_field[id="6"]'
     assert_select 'issue_custom_fields[type=array] custom_field[id="8"]', 0
+  end
+
+  test "GET /projects.xml with include=issue_custom_fields without view_issues permission should not return custom fields" do
+    Role.anonymous.remove_permission! :view_issues
+    get '/projects.xml?include=issue_custom_fields'
+    assert_response :success
+    assert_equal 'application/xml', @response.media_type
+
+    assert_select 'issue_custom_fields', 0
   end
 
   test "GET /projects/:id.xml should return the project" do
@@ -149,6 +188,15 @@ class Redmine::ApiTest::ProjectsTest < Redmine::ApiTest::Base
     assert_select 'issue_categories[type=array] issue_category[id="2"][name=Recipes]'
   end
 
+  test "GET /projects/:id.xml with include=issue_categories without view_issues permission should not return categories" do
+    Role.anonymous.remove_permission! :view_issues
+    get '/projects/1.xml?include=issue_categories'
+    assert_response :success
+    assert_equal 'application/xml', @response.media_type
+
+    assert_select 'issue_categories', 0
+  end
+
   test "GET /projects/:id.xml with include=time_entry_activities should return activities" do
     get '/projects/1.xml?include=time_entry_activities'
     assert_response :success
@@ -157,12 +205,30 @@ class Redmine::ApiTest::ProjectsTest < Redmine::ApiTest::Base
     assert_select 'time_entry_activities[type=array] time_entry_activity[id="10"][name=Development]'
   end
 
+  test "GET /projects/:id.xml with include=time_entry_activities without view_time_entries permission should not return activities" do
+    Role.anonymous.remove_permission! :view_time_entries
+    get '/projects/1.xml?include=time_entry_activities'
+    assert_response :success
+    assert_equal 'application/xml', @response.media_type
+
+    assert_select 'time_entry_activities', 0
+  end
+
   test "GET /projects/:id.xml with include=trackers should return trackers" do
     get '/projects/1.xml?include=trackers'
     assert_response :success
     assert_equal 'application/xml', @response.media_type
 
     assert_select 'trackers[type=array] tracker[id="2"][name="Feature request"]'
+  end
+
+  test "GET /projects/:id.xml with include=trackers without view_issues permission should not return trackers" do
+    Role.anonymous.remove_permission! :view_issues
+    get '/projects/1.xml?include=trackers'
+    assert_response :success
+    assert_equal 'application/xml', @response.media_type
+
+    assert_select 'trackers', 0
   end
 
   test "GET /projects/:id.xml with include=trackers should return trackers based on role-based permissioning" do
@@ -198,6 +264,28 @@ class Redmine::ApiTest::ProjectsTest < Redmine::ApiTest::Base
     assert_equal 'application/xml', @response.media_type
 
     assert_select 'enabled_modules[type=array] enabled_module[name=issue_tracking]'
+  end
+
+  test "GET /projects/:id.xml with include=issue_custom_fields should return custom fields" do
+    IssueCustomField.find(6).update_attribute :is_for_all, true
+    IssueCustomField.find(8).update_attribute :is_for_all, false
+    get '/projects/1.xml?include=issue_custom_fields'
+    assert_response :success
+    assert_equal 'application/xml', @response.media_type
+
+    assert_select 'issue_custom_fields[type=array] custom_field[name="Project 1 cf"]'
+    # Custom field for all projects
+    assert_select 'issue_custom_fields[type=array] custom_field[id="6"]'
+    assert_select 'issue_custom_fields[type=array] custom_field[id="8"]', 0
+  end
+
+  test "GET /projects/:id.xml with include=issue_custom_fields without view_issues permission should not return custom fields" do
+    Role.anonymous.remove_permission! :view_issues
+    get '/projects/1.xml?include=issue_custom_fields'
+    assert_response :success
+    assert_equal 'application/xml', @response.media_type
+
+    assert_select 'issue_custom_fields', 0
   end
 
   def test_get_project_with_default_version_and_assignee
@@ -246,7 +334,7 @@ class Redmine::ApiTest::ProjectsTest < Redmine::ApiTest::Base
       end
     end
 
-    project = Project.order('id DESC').first
+    project = Project.order(id: :desc).first
     assert_equal 'API test', project.name
     assert_equal 'api-test', project.identifier
     assert_equal ['issue_tracking', 'repository'], project.enabled_module_names.sort
@@ -272,8 +360,69 @@ class Redmine::ApiTest::ProjectsTest < Redmine::ApiTest::Base
       )
     end
 
-    project = Project.order('id DESC').first
+    project = Project.order(id: :desc).first
     assert_equal ['issue_tracking', 'news', 'time_tracking'], project.enabled_module_names.sort
+  end
+
+  test "POST /projects.json authenticated via OAuth should ignore attributes not covered by the token scope" do
+    Role.find(1).add_permission!(:add_subprojects)
+    with_settings(:new_project_user_role_id => '1', :default_projects_public => '0',
+                  :default_projects_modules => ['issue_tracking']) do
+      assert_difference('Project.count') do
+        post(
+          '/projects.json',
+          :params => {
+            :project => {
+              :name => 'API test',
+              :identifier => 'api-test',
+              :parent_id => 1,
+              :is_public => true,
+              :enabled_module_names => ['wiki'],
+              :inherit_members => true
+            }
+          },
+          :headers => oauth_credentials('jsmith', 'add_project add_subprojects')
+        )
+      end
+    end
+    assert_response :created
+
+    project = Project.order(id: :desc).first
+    assert_equal 1, project.parent_id
+    assert_not project.is_public?
+    assert_equal ['issue_tracking'], project.enabled_module_names
+    assert_not project.inherit_members?
+  end
+
+  test "POST /projects.json authenticated via OAuth should accept attributes covered by the token scope" do
+    Role.find(1).add_permission!(:add_subprojects)
+    scope = 'add_project add_subprojects select_project_publicity select_project_modules manage_members'
+    with_settings(:new_project_user_role_id => '1', :default_projects_public => '0',
+                  :default_projects_modules => ['issue_tracking']) do
+      assert_difference('Project.count') do
+        post(
+          '/projects.json',
+          :params => {
+            :project => {
+              :name => 'API test',
+              :identifier => 'api-test',
+              :parent_id => 1,
+              :is_public => true,
+              :enabled_module_names => ['wiki'],
+              :inherit_members => true
+            }
+          },
+          :headers => oauth_credentials('jsmith', scope)
+        )
+      end
+    end
+    assert_response :created
+
+    project = Project.order(id: :desc).first
+    assert_equal 1, project.parent_id
+    assert project.is_public?
+    assert_equal ['wiki'], project.enabled_module_names
+    assert project.inherit_members?
   end
 
   test "POST /projects.xml should accept tracker_ids attribute" do
@@ -291,7 +440,7 @@ class Redmine::ApiTest::ProjectsTest < Redmine::ApiTest::Base
       )
     end
 
-    project = Project.order('id DESC').first
+    project = Project.order(id: :desc).first
     assert_equal [1, 3], project.trackers.map(&:id).sort
   end
 
@@ -304,7 +453,7 @@ class Redmine::ApiTest::ProjectsTest < Redmine::ApiTest::Base
       )
     end
 
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     assert_equal 'application/xml', @response.media_type
     assert_select 'errors error', :text => "Identifier cannot be blank"
   end
@@ -366,7 +515,7 @@ class Redmine::ApiTest::ProjectsTest < Redmine::ApiTest::Base
       )
     end
 
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     assert_equal 'application/xml', @response.media_type
     assert_select 'errors error', :text => "Name cannot be blank"
   end
@@ -415,5 +564,9 @@ class Redmine::ApiTest::ProjectsTest < Redmine::ApiTest::Base
     assert_equal '', @response.body
     assert p = Project.find(1)
     assert p.active?
+  end
+
+  def queue_adapter_for_test
+    ActiveJob::QueueAdapters::TestAdapter.new
   end
 end

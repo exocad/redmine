@@ -21,19 +21,6 @@ require_relative '../test_helper'
 
 class IssuesCustomFieldsVisibilityTest < Redmine::ControllerTest
   tests IssuesController
-  fixtures :projects,
-           :users, :email_addresses, :user_preferences,
-           :roles,
-           :members,
-           :member_roles,
-           :issue_statuses,
-           :trackers,
-           :projects_trackers,
-           :enabled_modules,
-           :enumerations,
-           :workflows,
-           :custom_fields, :custom_fields_trackers
-
   def setup
     CustomField.destroy_all
     Issue.delete_all
@@ -114,9 +101,9 @@ class IssuesCustomFieldsVisibilityTest < Redmine::ControllerTest
       get(:show, :params => {:id => @issue.id})
       @fields.each_with_index do |field, i|
         if fields.include?(field)
-          assert_select 'ul.details i', {:text => "Value#{i}", :count => 1}, "User #{user.id} was not able to view #{field.name} change"
+          assert_select 'ul.journal-details i', {:text => "Value#{i}", :count => 1}, "User #{user.id} was not able to view #{field.name} change"
         else
-          assert_select 'ul.details i', {:text => "Value#{i}", :count => 0}, "User #{user.id} was able to view #{field.name} change"
+          assert_select 'ul.journal-details i', {:text => "Value#{i}", :count => 0}, "User #{user.id} was able to view #{field.name} change"
         end
       end
     end
@@ -242,9 +229,9 @@ class IssuesCustomFieldsVisibilityTest < Redmine::ControllerTest
     user = User.generate!
     User.add_to_project(user, p1, Role.where(:id => [1, 3]).to_a)
     User.add_to_project(user, p2, Role.where(:id => 3).to_a)
-    Issue.generate!(:project => p1, :tracker_id => 1, :custom_field_values => {@field2.id => 'ValueA'})
-    Issue.generate!(:project => p2, :tracker_id => 1, :custom_field_values => {@field2.id => 'ValueB'})
-    Issue.generate!(:project => p1, :tracker_id => 1, :custom_field_values => {@field2.id => 'ValueC'})
+    Issue.generate!(:project => p1, :tracker_id => 1, :author_id => 1, :custom_field_values => {@field2.id => 'ValueA'})
+    Issue.generate!(:project => p2, :tracker_id => 1, :author_id => 1, :custom_field_values => {@field2.id => 'ValueB'})
+    Issue.generate!(:project => p1, :tracker_id => 1, :author_id => 1, :custom_field_values => {@field2.id => 'ValueC'})
 
     @request.session[:user_id] = user.id
     get(
@@ -300,7 +287,7 @@ class IssuesCustomFieldsVisibilityTest < Redmine::ControllerTest
           }
         }
       )
-      assert_response 302
+      assert_response :found
     end
 
     assert_equal users_to_test.keys.size, ActionMailer::Base.deliveries.size
@@ -341,7 +328,7 @@ class IssuesCustomFieldsVisibilityTest < Redmine::ControllerTest
         }
       }
     )
-    assert_response 302
+    assert_response :found
     assert_equal users_to_test.keys.size, ActionMailer::Base.deliveries.size
     # tests that each user receives 1 email with the custom fields he is allowed to see only
     users_to_test.each do |user, fields|
@@ -378,10 +365,10 @@ class IssuesCustomFieldsVisibilityTest < Redmine::ControllerTest
         }
       }
     )
-    assert_response 302
+    assert_response :found
     users_to_test.each do |user, fields|
       mails = ActionMailer::Base.deliveries.select {|m| m.to.include? user.mail}
-      if (fields & [@field2, @field3]).any?
+      if fields.intersect?([@field2, @field3])
         assert_equal 1, mails.size, "User #{user.id} was not notified"
       else
         assert_equal 0, mails.size, "User #{user.id} was notified"

@@ -20,8 +20,6 @@
 require_relative '../test_helper'
 
 class ProjectsTest < Redmine::IntegrationTest
-  fixtures :projects, :users, :members, :enabled_modules
-
   def test_archive_project
     subproject = Project.find(1).children.first
     log_user("admin", "admin")
@@ -33,9 +31,9 @@ class ProjectsTest < Redmine::IntegrationTest
     assert !Project.find(1).active?
 
     get '/projects/1'
-    assert_response 403
+    assert_response :forbidden
     get "/projects/#{subproject.id}"
-    assert_response 403
+    assert_response :forbidden
 
     post "/projects/1/unarchive"
     assert_redirected_to "/admin/projects"
@@ -49,7 +47,64 @@ class ProjectsTest < Redmine::IntegrationTest
 
     assert_no_difference 'EnabledModule.count' do
       get '/projects/1/modules', :params => {:enabled_module_names => ['']}
-      assert_response 404
+      assert_response :not_found
+    end
+  end
+
+  def test_list_layout_when_show_projects_scheduled_for_deletion
+    project = Project.find(1)
+    project.update_attribute :status, Project::STATUS_SCHEDULED_FOR_DELETION
+
+    log_user('admin', 'admin')
+
+    get '/admin/projects', :params => { :f => ['status'], :v => { 'status' => ['10'] } }
+    assert_response :success
+
+    assert_select '#project-1' do
+      assert_select 'td.checkbox.hide-when-print'
+      assert_select 'td.name'
+      assert_select 'td.identifier'
+      assert_select 'td.short_description'
+      assert_select 'td.buttons', text: ''
+    end
+  end
+
+  def test_index_should_render_include_macro_in_short_description
+    project = Project.find(1)
+    project.update!(:description => '{{include(Another page)}}')
+
+    log_user('admin', 'admin')
+
+    get '/projects', :params => {:display_type => 'list'}
+    assert_response :success
+    assert_select 'td.short_description div.wiki', :text => /This is a link to a ticket/
+
+    get '/projects', :params => {:display_type => ''}
+    assert_response :success
+    assert_select 'div.wiki.description', :text => /This is a link to a ticket/
+  end
+
+  def test_index_should_render_recent_pages_macro_in_short_description
+    freeze_time do
+      project = Project.find(1)
+      project.update!(:description => '{{recent_pages}}')
+
+      WikiContent.update_all(updated_on: Time.current)
+      project.wiki.pages.each_with_index do |page, i|
+        page.content.update_attribute(:updated_on, (i + 1).days.ago)
+      end
+
+      log_user('admin', 'admin')
+
+      get '/projects', :params => {:display_type => 'list'}
+      assert_response :success
+      assert_select 'td.short_description div.wiki ul li a', :count => 7
+      assert_select 'td.short_description div.wiki ul li:first a', :text => 'Another page'
+
+      get '/projects', :params => {:display_type => ''}
+      assert_response :success
+      assert_select 'div.wiki.description ul li a', :count => 7
+      assert_select 'div.wiki.description ul li:first a', :text => 'Another page'
     end
   end
 end

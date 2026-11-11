@@ -22,16 +22,6 @@ require_relative '../test_helper'
 class ProjectsHelperTest < Redmine::HelperTest
   include ProjectsHelper
   include ERB::Util
-  include Rails.application.routes.url_helpers
-
-  fixtures :projects, :trackers, :issue_statuses, :issues,
-           :enumerations, :users, :issue_categories,
-           :versions,
-           :projects_trackers,
-           :member_roles,
-           :members,
-           :groups_users,
-           :enabled_modules
 
   def test_link_to_version_within_project
     @project = Project.find(2)

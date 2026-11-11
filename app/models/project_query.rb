@@ -18,14 +18,19 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 class ProjectQuery < Query
-  attr_accessor :admin_projects
-
   self.queried_class = Project
   self.view_permission = :search_project
 
   validate do |query|
     # project must be blank for ProjectQuery
     errors.add(:project_id, :exclusion) if query.project_id.present?
+  end
+
+  # Inheriting ProjectAdminQuery from ProjectQuery introduces the problem that
+  # ProjectQuery.visible also yields ProjectAdminQueries, as
+  # well. We fix that by adding a condition on the actual class name.
+  def self.visible(*)
+    super.where type: name
   end
 
   self.available_columns = [
@@ -36,7 +41,9 @@ class ProjectQuery < Query
     QueryColumn.new(:identifier, :sortable => "#{Project.table_name}.identifier"),
     QueryColumn.new(:parent_id, :sortable => "#{Project.table_name}.lft ASC", :default_order => 'desc', :caption => :field_parent),
     QueryColumn.new(:is_public, :sortable => "#{Project.table_name}.is_public", :groupable => true),
-    QueryColumn.new(:created_on, :sortable => "#{Project.table_name}.created_on", :default_order => 'desc')
+    QueryColumn.new(:created_on, :sortable => "#{Project.table_name}.created_on", :default_order => 'desc'),
+    QueryColumn.new(:updated_on, :sortable => "#{Project.table_name}.updated_on", :default_order => 'desc'),
+    QueryColumn.new(:last_activity_date)
   ]
 
   def self.default(project: nil, user: User.current)
@@ -77,13 +84,8 @@ class ProjectQuery < Query
       :values => [[l(:general_text_yes), "1"], [l(:general_text_no), "0"]]
     )
     add_available_filter "created_on", :type => :date_past
+    add_available_filter "updated_on", :type => :date_past
     add_custom_fields_filters(project_custom_fields)
-  end
-
-  def build_from_params(params, defaults={})
-    query = super
-    query.admin_projects = params[:admin_projects]
-    query
   end
 
   def available_columns
@@ -96,28 +98,7 @@ class ProjectQuery < Query
   end
 
   def available_display_types
-    if self.admin_projects
-      ['list']
-    else
-      ['board', 'list']
-    end
-  end
-
-  def display_type
-    if self.admin_projects
-      'list'
-    else
-      super
-    end
-  end
-
-  def project_statuses_values
-    values = super
-    if self.admin_projects
-      values << [l(:project_status_archived), Project::STATUS_ARCHIVED.to_s]
-      values << [l(:project_status_scheduled_for_deletion), Project::STATUS_SCHEDULED_FOR_DELETION.to_s]
-    end
-    values
+    ['board', 'list']
   end
 
   def default_columns_names
@@ -133,11 +114,14 @@ class ProjectQuery < Query
   end
 
   def base_scope
-    if self.admin_projects
-      Project.where(statement)
-    else
-      Project.visible.where(statement)
-    end
+    Project.visible.where(statement)
+  end
+
+  # Returns the project count
+  def result_count
+    base_scope.count
+  rescue ::ActiveRecord::StatementInvalid => e
+    raise StatementInvalid, e.message
   end
 
   def results_scope(options={})
@@ -146,7 +130,9 @@ class ProjectQuery < Query
     order_option << "#{Project.table_name}.lft ASC"
     scope = base_scope.
       order(order_option).
-      joins(joins_for_order_statement(order_option.join(',')))
+      joins(joins_for_order_statement(order_option.join(','))).
+      limit(options[:limit]).
+      offset(options[:offset])
 
     if has_custom_field_column?
       scope = scope.preload(:custom_values)
@@ -154,6 +140,10 @@ class ProjectQuery < Query
 
     if has_column?(:parent_id)
       scope = scope.preload(:parent)
+    end
+
+    if has_column?(:last_activity_date)
+      Project.load_last_activity_date(scope)
     end
 
     scope

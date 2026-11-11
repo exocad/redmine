@@ -19,12 +19,15 @@
 
 require_relative '../../../../../test_helper'
 
-if Object.const_defined?(:CommonMarker)
+if Object.const_defined?(:Commonmarker)
   require 'redmine/wiki_formatting/common_mark/markdown_filter'
 
   class Redmine::WikiFormatting::CommonMark::MarkdownFilterTest < ActiveSupport::TestCase
     def filter(markdown)
-      Redmine::WikiFormatting::CommonMark::MarkdownFilter.to_html(markdown)
+      filter = Redmine::WikiFormatting::CommonMark::MarkdownFilter.new(
+        markdown,
+        Redmine::WikiFormatting::CommonMark::PIPELINE_CONFIG)
+      filter.call
     end
 
     # just a basic sanity test. more formatting tests in the formatter_test

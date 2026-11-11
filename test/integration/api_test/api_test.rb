@@ -20,8 +20,6 @@
 require_relative '../../test_helper'
 
 class Redmine::ApiTest::ApiTest < Redmine::ApiTest::Base
-  fixtures :users, :email_addresses, :members, :member_roles, :roles, :projects
-
   def test_api_should_work_with_protect_from_forgery
     ActionController::Base.allow_forgery_protection = true
     assert_difference('User.count') do
@@ -35,7 +33,7 @@ class Redmine::ApiTest::ApiTest < Redmine::ApiTest::Base
         },
         :headers => credentials('admin')
       )
-      assert_response 201
+      assert_response :created
     end
   ensure
     ActionController::Base.allow_forgery_protection = false

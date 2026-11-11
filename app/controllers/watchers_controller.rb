@@ -18,6 +18,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 class WatchersController < ApplicationController
+  WATCHER_USERS_PER_PAGE = 100
+
   before_action :require_login, :find_watchables, :only => [:watch, :unwatch]
 
   def watch
@@ -41,6 +43,8 @@ class WatchersController < ApplicationController
   end
 
   def create
+    return unless authorize_for_watchable_type(:add)
+
     user_ids = []
     if params[:watcher]
       user_ids << (params[:watcher][:user_ids] || params[:watcher][:user_id])
@@ -51,13 +55,15 @@ class WatchersController < ApplicationController
     users = Principal.assignable_watchers.where(:id => user_ids).to_a
     users.each do |user|
       @watchables.each do |watchable|
-        Watcher.create(:watchable => watchable, :user => user)
+        if watchable.valid_watcher?(user)
+          Watcher.create(:watchable => watchable, :user => user)
+        end
       end
     end
     respond_to do |format|
       format.html do
         redirect_to_referer_or do
-          render(:html => 'Watcher added.', :status => 200, :layout => true)
+          render(:html => 'Watcher added.', :status => :ok, :layout => true)
         end
       end
       format.js  {@users = users_for_new_watcher}
@@ -71,11 +77,13 @@ class WatchersController < ApplicationController
       @users = Principal.assignable_watchers.where(:id => user_ids).to_a
     end
     if @users.blank?
-      head 200
+      head :ok
     end
   end
 
   def destroy
+    return unless authorize_for_watchable_type(:delete)
+
     user = Principal.find(params[:user_id])
     @watchables.each do |watchable|
       watchable.set_watcher(user, false)
@@ -83,7 +91,7 @@ class WatchersController < ApplicationController
     respond_to do |format|
       format.html do
         redirect_to_referer_or do
-          render(:html => 'Watcher removed.', :status => 200, :layout => true)
+          render(:html => 'Watcher removed.', :status => :ok, :layout => true)
         end
       end
       format.js
@@ -132,7 +140,7 @@ class WatchersController < ApplicationController
       format.html do
         text = watching ? 'Watcher added.' : 'Watcher removed.'
         redirect_to_referer_or do
-          render(:html => text, :status => 200, :layout => true)
+          render(:html => text, :status => :ok, :layout => true)
         end
       end
       format.js do
@@ -142,27 +150,71 @@ class WatchersController < ApplicationController
     end
   end
 
+  # Returns a paginated array of users that can be added as watchers to the object(s).
   def users_for_new_watcher
-    scope = nil
-    if params[:q].blank?
-      if @project.present?
-        scope = @project.principals.assignable_watchers
-      elsif @projects.present? && @projects.size > 1
-        scope = Principal.joins(:members).where(:members => { :project_id => @projects }).assignable_watchers.distinct
-      end
-    else
-      scope = Principal.assignable_watchers.limit(100)
-    end
-    users = scope.sorted.like(params[:q]).to_a
-    if @watchables && @watchables.size == 1
-      watchable_object = @watchables.first
-      users -= watchable_object.watcher_users
+    limit = WATCHER_USERS_PER_PAGE
+    offset = params[:offset].to_i
+    offset = 0 if offset < 0
+    q = params[:q].to_s.strip
 
-      if watchable_object.respond_to?(:visible?)
-        users.reject! {|user| user.is_a?(User) && !watchable_object.visible?(user)}
+    valid_users, next_offset, more = scan_watcher_candidates(watcher_candidate_scope(q), offset, limit)
+
+    @more_users_for_watcher = more
+    @watcher_users_next_offset = next_offset
+    valid_users
+  end
+
+  def watcher_candidate_scope(q)
+    scope =
+      if q.blank?
+        if @project.present?
+          @project.principals.assignable_watchers
+        elsif @projects.present? && @projects.size > 1
+          Principal.joins(:members).where(:members => {:project_id => @projects}).assignable_watchers.distinct
+        else
+          Principal.none
+        end
+      else
+        Principal.assignable_watchers
       end
+
+    if @watchables&.size == 1
+      watcher_ids = @watchables.first.visible_watcher_users.map(&:id)
+      scope = scope.where.not(:id => watcher_ids) if watcher_ids.present?
     end
-    users
+
+    scope.sorted.like(q)
+  end
+
+  def scan_watcher_candidates(scope, offset, limit)
+    valid_users = []
+    current_offset = offset
+    has_more = false
+
+    while valid_users.size < limit
+      batch = scope.offset(current_offset).limit(limit + 1).to_a
+      has_more = batch.size > limit
+      batch = batch.first(limit)
+      break if batch.empty?
+
+      batch.each_with_index do |user, idx|
+        if @watchables.blank? || @watchables.all? {|w| w.valid_watcher?(user)}
+          valid_users << user
+          if valid_users.size == limit
+            has_more ||= (idx + 1 < batch.size)
+            current_offset += (idx + 1)
+            break
+          end
+        end
+      end
+
+      break if valid_users.size == limit
+
+      current_offset += batch.size
+      break unless has_more
+    end
+
+    [valid_users, current_offset, has_more && (valid_users.size == limit)]
   end
 
   def users_for_mention
@@ -171,7 +223,7 @@ class WatchersController < ApplicationController
 
     scope = nil
     if params[:q].blank? && @project.present?
-      scope = @project.principals.assignable_watchers
+      scope = @project.principals.assignable_watchers.limit(100)
     else
       scope = Principal.assignable_watchers.limit(10)
     end
@@ -212,7 +264,7 @@ class WatchersController < ApplicationController
     return unless klass < ApplicationRecord
     return unless klass < Redmine::Acts::Watchable::InstanceMethods
 
-    scope = klass.where(:id => Array.wrap(params[:object_id]))
+    scope = klass.where(:id => Array.wrap(params[:object_id])).order(:id)
     if klass.reflect_on_association(:project)
       scope = scope.preload(:project => :enabled_modules)
     end
@@ -227,5 +279,15 @@ class WatchersController < ApplicationController
     end
 
     objects
+  end
+
+  # Check permission for the watchable type for each watchable involved
+  def authorize_for_watchable_type(action)
+    if @watchables.any?{|watchable| !User.current.allowed_to?(:"#{action}_#{watchable.class.name.underscore}_watchers", watchable.project)}
+      render_403
+      return false
+    else
+      return true
+    end
   end
 end

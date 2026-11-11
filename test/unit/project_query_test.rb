@@ -20,14 +20,6 @@
 require_relative '../test_helper'
 
 class ProjectQueryTest < ActiveSupport::TestCase
-  fixtures :projects, :users,
-           :members, :roles, :member_roles,
-           :issue_categories, :enumerations,
-           :groups_users,
-           :enabled_modules,
-           :custom_fields, :custom_values,
-           :queries
-
   include Redmine::I18n
 
   def test_filter_values_be_arrays
@@ -64,14 +56,7 @@ class ProjectQueryTest < ActiveSupport::TestCase
 
   def test_available_display_types_should_returns_bord_and_list
     query = ProjectQuery.new
-    query.admin_projects = nil
     assert_equal ['board', 'list'], query.available_display_types
-  end
-
-  def test_available_display_types_should_always_returns_list_when_admin_projects_is_set
-    query = ProjectQuery.new
-    query.admin_projects = 1
-    assert_equal ['list'], query.available_display_types
   end
 
   def test_display_type_default_should_equal_with_setting_project_list_display_type
@@ -89,8 +74,10 @@ class ProjectQueryTest < ActiveSupport::TestCase
     user_query = ProjectQuery.find(12)
     user_query.update(visibility: Query::VISIBILITY_PUBLIC)
 
-    [nil, user, User.anonymous].each do |u|
-      assert_nil IssueQuery.default(user: u)
+    with_settings :default_project_query => nil do
+      [nil, user, User.anonymous].each do |u|
+        assert_nil ProjectQuery.default(user: u)
+      end
     end
 
     # only global default is set
@@ -118,25 +105,10 @@ class ProjectQueryTest < ActiveSupport::TestCase
     assert_nil ProjectQuery.default
   end
 
-  def test_display_type_should_returns_list_when_admin_projects_is_set
-    q = ProjectQuery.new
-    q.admin_projects = 1
-    assert_equal 'list', q.display_type
-  end
-
   def test_project_statuses_values_should_equal_ancestors_return
     ancestor = Query.new
     q = ProjectQuery.new
     assert_equal ancestor.project_statuses_values, q.project_statuses_values
-  end
-
-  def test_project_statuses_values_should_includes_project_status_archeved_when_admin_projects_is_set
-    q = ProjectQuery.new
-    q.admin_projects = 1
-    assert_includes q.project_statuses_values, [l(:project_status_archived), Project::STATUS_ARCHIVED.to_s]
-    Query.new.project_statuses_values.each do |status|
-      assert_includes q.project_statuses_values, status
-    end
   end
 
   def test_base_scope_should_return_visible_projects
@@ -144,9 +116,29 @@ class ProjectQueryTest < ActiveSupport::TestCase
     assert_equal Project.visible, q.base_scope
   end
 
-  def test_base_scope_should_return_all_projects_when_admin_projects_is_set
+  def test_results_scope_has_last_activity_date
+    q = ProjectQuery.generate!(column_names: [:last_activity_date])
+    result_projects = q.results_scope({})
+
+    assert_kind_of ActiveRecord::Relation, result_projects
+    assert_equal Project, result_projects.klass
+
+    last_activitiy_date = result_projects.find{|p| p.id == 1}.instance_variable_get(:@last_activity_date)
+    assert_not_nil last_activitiy_date
+    assert_equal Redmine::Activity::Fetcher.new(User.current).events(nil, nil, :project => Project.find(1)).first.updated_on, last_activitiy_date
+  end
+
+  def test_results_scope_with_offset_and_limit
     q = ProjectQuery.new
-    q.admin_projects = 1
-    assert_equal Project.all, q.base_scope
+
+    ((q.results_scope.count / 2) + 1).times do |i|
+      limit = 2
+      offset = i * 2
+
+      scope_without = q.results_scope.offset(offset).limit(limit).ids
+      scope_with = q.results_scope(:offset => offset, :limit => limit).ids
+
+      assert_equal scope_without, scope_with
+    end
   end
 end

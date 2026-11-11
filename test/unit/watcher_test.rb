@@ -20,12 +20,6 @@
 require_relative '../test_helper'
 
 class WatcherTest < ActiveSupport::TestCase
-  fixtures :projects, :groups_users, :users, :user_preferences, :email_addresses, :members, :member_roles, :roles, :enabled_modules,
-           :issues, :issue_statuses, :enumerations, :trackers, :projects_trackers,
-           :boards, :messages,
-           :wikis, :wiki_pages,
-           :watchers
-
   def setup
     User.current = nil
     @user = User.find(1)
@@ -116,14 +110,6 @@ class WatcherTest < ActiveSupport::TestCase
     assert_equal 2, issue.watchers.count
   end
 
-  def test_addable_watcher_users
-    addable_watcher_users = @issue.addable_watcher_users
-    assert_kind_of Array, addable_watcher_users
-    addable_watcher_users.each do |addable_watcher|
-      assert_equal true, addable_watcher.is_a?(User) || addable_watcher.is_a?(Group)
-    end
-  end
-
   def test_add_watcher_with_unsaved_object
     issue = Issue.new(project: Project.find(1), tracker_id: 1, subject: "test", author: User.find(2))
     assert_not issue.persisted?
@@ -159,11 +145,6 @@ class WatcherTest < ActiveSupport::TestCase
 
     issue.save!
     assert 0, Watcher.where(watchable: issue).count
-  end
-
-  def test_addable_watcher_users_should_not_include_user_that_cannot_view_the_object
-    issue = Issue.new(:project => Project.find(1), :is_private => true)
-    assert_nil issue.addable_watcher_users.detect {|user| user.is_a?(User) && !issue.visible?(user)}
   end
 
   def test_any_watched_should_return_false_if_no_object_is_watched

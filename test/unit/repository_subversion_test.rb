@@ -20,8 +20,6 @@
 require_relative '../test_helper'
 
 class RepositorySubversionTest < ActiveSupport::TestCase
-  fixtures :projects, :repositories, :enabled_modules, :users, :roles
-
   include Redmine::I18n
 
   NUM_REV = 16
@@ -32,19 +30,40 @@ class RepositorySubversionTest < ActiveSupport::TestCase
     @repository = Repository::Subversion.create(:project => @project,
                     :url => self.class.subversion_repository_url)
     assert @repository
+    skip "SCM command is unavailable" unless @repository.class.scm_available
+  end
+
+  def test_scm_available
+    klass = Repository::Subversion
+    assert_equal "Subversion", klass.scm_name
+    assert klass.scm_adapter_class
+    assert_not_equal "", klass.scm_command
+
+    Redmine::Configuration.with 'scm_subversion_path_regexp' => '' do
+      assert_equal false, klass.scm_available
+    end
+
+    Redmine::Configuration.with 'scm_subversion_path_regexp' => '.*' do
+      assert_equal true, klass.scm_available
+    end
   end
 
   def test_invalid_url
     set_language_if_valid 'en'
-    ['invalid', 'http://', 'svn://', 'svn+ssh://', 'file://'].each do |url|
+    invalid_urls = [
+      'invalid', 'http://', 'svn://', 'svn+ssh://', 'file://',
+      "http://valid\nfoo",
+      "svn://valid\r\nbar"
+    ]
+    invalid_urls.each do |url|
       repo =
         Repository::Subversion.new(
           :project      => @project,
           :identifier   => 'test',
           :url => url
         )
-      assert !repo.save
-      assert_equal ["is invalid"], repo.errors[:url]
+      assert !repo.save, "expected #{url.inspect} to be rejected"
+      assert_equal ["is invalid"], repo.errors[:url]&.uniq
     end
   end
 
@@ -91,6 +110,16 @@ class RepositorySubversionTest < ActiveSupport::TestCase
       repo.url = 'file:///svnpath/subproject1.foo'
       assert repo.valid?
     end
+  end
+
+  def test_relative_path_should_handle_percent_encoded_root_url
+    repository =
+      Repository::Subversion.new(
+        :project => @project,
+        :url => 'file:///svn/repo with spaces/trunk',
+        :root_url => 'file:///svn/repo%20with%20spaces'
+      )
+    assert_equal '/dir/file.txt', repository.relative_path('/trunk/dir/file.txt')
   end
 
   if repository_configured?('subversion')

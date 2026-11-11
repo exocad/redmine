@@ -20,12 +20,9 @@
 require_relative '../test_helper'
 
 class HelpControllerTest < Redmine::ControllerTest
-  fixtures :users, :email_addresses
-
   def test_get_help_wiki_syntax
     formatters = {
       :textile => "Wiki Syntax Quick Reference",
-      :markdown => "Wiki Syntax Quick Reference (Markdown)",
       :common_mark => "Wiki Syntax Quick Reference (CommonMark Markdown (GitHub Flavored))"
     }
 
@@ -42,7 +39,6 @@ class HelpControllerTest < Redmine::ControllerTest
   def test_get_help_wiki_syntax_detailed
     formatters = {
       :textile => "Wiki formatting",
-      :markdown => "Wiki formatting (Markdown)",
       :common_mark => "Wiki formatting (CommonMark Markdown (GitHub Flavored))"
     }
 
@@ -58,6 +54,18 @@ class HelpControllerTest < Redmine::ControllerTest
     end
   end
 
+  def test_get_help_wiki_syntax_detailed_should_show_installed_mermaid_version
+    Redmine::Mermaid.stubs(:installed_version).returns('12.0.0')
+    get :show_wiki_syntax, :params => {:type => 'detailed'}
+    assert_response :success
+    assert_select 'p', :text => /not be supported by the installed version, 12\.0\.0\./
+
+    Redmine::Mermaid.stubs(:installed_version).returns(nil)
+    get :show_wiki_syntax, :params => {:type => 'detailed'}
+    assert_response :success
+    assert_select 'p', :text => /installed version/, :count => 0
+  end
+
   def test_get_help_wiki_syntax_should_return_lang_if_available
     user = User.find(2)
     user.language = 'de'
@@ -70,13 +78,30 @@ class HelpControllerTest < Redmine::ControllerTest
     assert_select 'h1', :text => "Wiki Syntax Schnellreferenz (CommonMark Markdown (GitHub Flavored))"
   end
 
+  def test_get_help_wiki_syntax_should_use_lowercase_region_locale_directory
+    user = User.find(2)
+    user.language = 'ta-IN'
+    user.save!
+    @request.session[:user_id] = 2
+
+    # The Tamil CommonMark help is stored under the lowercase ta-in directory, not ta-IN.
+    with_settings :text_formatting => 'common_mark' do
+      get :show_wiki_syntax
+    end
+    assert_response :success
+
+    assert_select 'h1', :text => "விக்கி தொடரியல் விரைவு குறிப்பு (CommonMark Markdown (GitHub Flavored))"
+  end
+
   def test_get_help_wiki_syntax_should_fallback_to_english
     user = User.find(2)
     user.language = 'ro'
     user.save!
     @request.session[:user_id] = 2
 
-    get :show_wiki_syntax
+    with_settings :text_formatting => 'common_mark' do
+      get :show_wiki_syntax
+    end
     assert_response :success
 
     assert_select 'h1', :text => "Wiki Syntax Quick Reference (CommonMark Markdown (GitHub Flavored))"
@@ -87,5 +112,13 @@ class HelpControllerTest < Redmine::ControllerTest
     assert_response :success
 
     assert_select 'h1', :text =>  "List of languages supported by Redmine code highlighter"
+
+    # 1-based index + 1 for the header row
+    index = Rouge::Lexer.all.sort_by(&:tag).index(Rouge::Lexers::Ruby) + 2
+    assert_select "table tr:nth-of-type(#{index})" do
+      assert_select '>td:nth-of-type(1)', :text => 'ruby'
+      assert_select '>td:nth-of-type(2)', :text => /The Ruby programming language/
+      assert_select '>td:nth-of-type(2)', :text => /\[aliases: rb\]/
+    end
   end
 end

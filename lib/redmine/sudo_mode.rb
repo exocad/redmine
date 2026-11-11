@@ -47,7 +47,7 @@ module Redmine
       #
       # taken from https://github.com/brianhempel/hash_to_hidden_fields
       def hash_to_hidden_fields(hash)
-        cleaned_hash = hash.to_unsafe_h.reject {|k, v| v.nil?}
+        cleaned_hash = hash.to_unsafe_h.compact
         pairs = cleaned_hash.to_query.split(Rack::Utils::DEFAULT_SEP)
         tags = pairs.map do |pair|
           key, value = pair.split('=', 2).map {|str| Rack::Utils.unescape(str)}
@@ -121,9 +121,10 @@ module Redmine
       # display the sudo password form
       def render_sudo_form(param_names)
         @sudo_form ||= SudoMode::Form.new
-        @sudo_form.original_fields = params.slice( *param_names )
+        @sudo_form.original_fields = params.slice(*param_names)
         # a simple 'render "sudo_mode/new"' works when used directly inside an
         # action, but not when called from a before_action:
+        no_store
         respond_to do |format|
           format.html {render 'sudo_mode/new'}
           format.js   {render 'sudo_mode/new'}
@@ -153,11 +154,11 @@ module Redmine
       # Before Filter which is used by the require_sudo_mode class method.
       class SudoRequestFilter < Struct.new(:parameters, :request_methods)
         def before(controller)
-          method_matches = request_methods.blank? || request_methods.include?(controller.request.method_symbol)
+          method_matches = request_methods.blank? || request_methods.include?(controller.request.request_method_symbol)
           if controller.api_request?
             true
           elsif SudoMode.possible? && method_matches
-            controller.require_sudo_mode( *parameters )
+            controller.require_sudo_mode(*parameters)
           else
             true
           end

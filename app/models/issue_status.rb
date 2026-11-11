@@ -20,12 +20,12 @@
 class IssueStatus < ApplicationRecord
   include Redmine::SafeAttributes
 
+  after_update :handle_is_closed_change
   before_destroy :check_integrity
   has_many :workflows, :class_name => 'WorkflowTransition', :foreign_key => "old_status_id"
   has_many :workflow_transitions_as_new_status, :class_name => 'WorkflowTransition', :foreign_key => "new_status_id"
   acts_as_positioned
 
-  after_update :handle_is_closed_change
   before_destroy :delete_workflow_rules
 
   validates_presence_of :name
@@ -114,9 +114,9 @@ class IssueStatus < ApplicationRecord
 
   def check_integrity
     if Issue.where(:status_id => id).any?
-      raise "This status is used by some issues"
+      raise l(:error_issue_status_in_use_by_issues)
     elsif Tracker.where(:default_status_id => id).any?
-      raise "This status is used as the default status by some trackers"
+      raise l(:error_issue_status_default_for_trackers)
     end
   end
 

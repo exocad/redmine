@@ -22,15 +22,6 @@ require_relative '../../../test_helper'
 class MenuManagerTest < Redmine::IntegrationTest
   include Redmine::I18n
 
-  fixtures :projects, :trackers, :issue_statuses, :issues,
-           :enumerations, :users, :issue_categories,
-           :projects_trackers,
-           :roles,
-           :member_roles,
-           :members,
-           :enabled_modules,
-           :repositories
-
   def test_project_menu_with_specific_locale
     get '/projects/ecookbook/issues',
         :headers => {'HTTP_ACCEPT_LANGUAGE' => 'fr,fr-fr;q=0.8,en-us;q=0.5,en;q=0.3'}
@@ -81,7 +72,9 @@ class MenuManagerTest < Redmine::IntegrationTest
     end
   end
 
-  def test_project_menu_should_display_repository_tab_when_exists_repository
+  def test_project_menu_should_display_repository_tab_when_enabled_repository
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
+
     project = Project.find('ecookbook')
     repos = project.repositories
     assert_equal true, repos.exists?
@@ -92,6 +85,13 @@ class MenuManagerTest < Redmine::IntegrationTest
     get '/projects/ecookbook'
     assert_select '#main-menu' do
       assert_select 'a.repository', :count => 1
+    end
+
+    with_settings :enabled_scm => ['Filesystem'] do
+      get '/projects/ecookbook'
+      assert_select '#main-menu' do
+        assert_select 'a.repository', :count => 0
+      end
     end
 
     repos.update_all(:is_default => false)

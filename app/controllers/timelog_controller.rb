@@ -43,6 +43,11 @@ class TimelogController < ApplicationController
 
   def index
     retrieve_time_entry_query
+    if request.format.csv? && !export_allowed?(:export_time_entries, @query.base_scope)
+      deny_access
+      return
+    end
+
     scope = time_entry_scope.
       preload(:issue => [:project, :tracker, :status, :assigned_to, :priority]).
       preload(:project, :user)
@@ -74,6 +79,11 @@ class TimelogController < ApplicationController
 
   def report
     retrieve_time_entry_query
+    if request.format.csv? && !export_allowed?(:export_time_entries, @query.base_scope)
+      deny_access
+      return
+    end
+
     scope = time_entry_scope
 
     @report = Redmine::Helpers::TimeReport.new(@project, params[:criteria], params[:columns], scope)
@@ -90,7 +100,7 @@ class TimelogController < ApplicationController
   def show
     respond_to do |format|
       # TODO: Implement html response
-      format.html {head 406}
+      format.html {head :not_acceptable}
       format.api
     end
   end
@@ -261,6 +271,8 @@ class TimelogController < ApplicationController
 
   def find_time_entry
     @time_entry = TimeEntry.find(params[:id])
+    raise Unauthorized unless @time_entry.visible?
+
     @project = @time_entry.project
   rescue ActiveRecord::RecordNotFound
     render_404
@@ -274,15 +286,12 @@ class TimelogController < ApplicationController
   end
 
   def find_time_entries
-    @time_entries = TimeEntry.where(:id => params[:id] || params[:ids]).
-      preload(:project => :time_entry_activities).
-      preload(:user).to_a
+    @time_entries = TimeEntry.find_with_preloads(params[:id] || params[:ids])
 
     raise ActiveRecord::RecordNotFound if @time_entries.empty?
     raise Unauthorized unless @time_entries.all? {|t| t.editable_by?(User.current)}
 
-    @projects = @time_entries.filter_map(&:project).uniq
-    @project = @projects.first if @projects.size == 1
+    find_project_from_items(@time_entries)
   rescue ActiveRecord::RecordNotFound
     render_404
   end

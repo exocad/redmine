@@ -1,0 +1,305 @@
+# frozen_string_literal: true
+
+# Redmine - project management software
+# Copyright (C) 2006-  Jean-Philippe Lang
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+require_relative '../test_helper'
+
+class IconsHelperTest < Redmine::HelperTest
+  include IconsHelper
+
+  def test_sprite_icon_should_return_svg_with_defaults
+    expected = %r{<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/icons-\w+.svg#icon--edit"></use></svg>$}
+    icon = sprite_icon('edit')
+
+    assert_match expected, icon
+  end
+
+  def test_sprite_icon_should_return_svg_with_label
+    expected = %r{<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/icons-\w+.svg#icon--edit"></use></svg><span class="icon-label">Edit</span>}
+    icon = sprite_icon('edit', 'Edit')
+
+    assert_match expected, icon
+  end
+
+  def test_sprite_icon_should_return_svg_with_hidden_label_when_icon_only_is_true
+    expected = %r{<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/icons-\w+.svg#icon--edit"></use></svg><span class="icon-label hidden">Edit</span>}
+    icon = sprite_icon('edit', 'Edit', icon_only: true)
+
+    assert_match expected, icon
+  end
+
+  def test_sprite_source_without_theme_should_return_default_sprite
+    stubs(:current_theme).returns(nil)
+
+    assert_equal "icons.svg", sprite_source('edit')
+  end
+
+  def test_sprite_source_with_theme_and_sprite_image_should_return_theme_path_if_icon_exists
+    theme = Redmine::Themes::Theme.new('/tmp/test')
+    theme.stubs(:id).returns('test')
+    theme.stubs(:image_path).with('icons.svg').returns('themes/test/icons.svg')
+
+    asset = mock('asset')
+    asset.stubs(:digest).returns('123456')
+    asset.stubs(:content).returns('<symbol id="icon--edit"></symbol>')
+    asset.stubs(:digested_path).returns('themes/test/icons-123456.svg')
+
+    Rails.application.assets.load_path.stubs(:find).with('themes/test/icons.svg').returns(asset)
+    stubs(:current_theme).returns(theme)
+
+    assert_equal "themes/test/icons.svg", sprite_source('edit')
+  end
+
+  def test_sprite_source_with_theme_without_sprite_image_should_return_default_sprite
+    theme = Redmine::Themes::Theme.new('/tmp/test')
+    theme.stubs(:image_path).with('icons.svg').returns('themes/test/icons.svg')
+
+    Rails.application.assets.load_path.stubs(:find).with('themes/test/icons.svg').returns(nil)
+    stubs(:current_theme).returns(theme)
+
+    assert_equal "icons.svg", sprite_source('edit')
+  end
+
+  def test_sprite_source_with_theme_and_sprite_image_but_missing_icon_should_fallback_to_default_sprite
+    theme = Redmine::Themes::Theme.new('/tmp/test')
+    theme.stubs(:id).returns('test')
+    theme.stubs(:image_path).with('icons.svg').returns('themes/test/icons.svg')
+
+    asset = mock('asset')
+    asset.stubs(:digest).returns('123456')
+    asset.stubs(:content).returns('<symbol id="icon--other"></symbol>')
+    asset.stubs(:digested_path).returns('themes/test/icons-123456.svg')
+
+    Rails.application.assets.load_path.stubs(:find).with('themes/test/icons.svg').returns(asset)
+    stubs(:current_theme).returns(theme)
+
+    assert_equal "icons.svg", sprite_source('edit')
+  end
+
+  def test_sprite_icon_with_theme_override_should_use_theme_sprite
+    theme = Redmine::Themes::Theme.new('/tmp/test')
+    theme.stubs(:id).returns('test')
+    theme.stubs(:image_path).with('icons.svg').returns('themes/test/icons.svg')
+
+    asset = mock('asset')
+    asset.stubs(:digest).returns('123456')
+    asset.stubs(:content).returns('<symbol id="icon--edit"></symbol>')
+    asset.stubs(:digested_path).returns('themes/test/icons-123456.svg')
+
+    Rails.application.assets.load_path.stubs(:find).with('themes/test/icons.svg').returns(asset)
+    stubs(:current_theme).returns(theme)
+
+    expected = %r{<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/themes/test/icons(-123456)?\.svg#icon--edit"></use></svg>$}
+    assert_match expected, sprite_icon('edit')
+  end
+
+  def test_sprite_source_should_resolve_theme_icons_only_once_per_sprite
+    theme = Redmine::Themes::Theme.new('/tmp/test')
+    theme.stubs(:image_path).with('icons.svg').returns('themes/test/icons.svg')
+    theme.stubs(:image_path).with('custom.svg').returns('themes/test/custom.svg')
+    theme.expects(:icons).with('icons').once.returns(['edit'])
+    theme.expects(:icons).with('custom').once.returns(['special'])
+    stubs(:current_theme).returns(theme)
+
+    3.times { sprite_source('edit') }
+    2.times { sprite_source('other') }
+    3.times { sprite_source('special', sprite: 'custom') }
+
+    assert_equal "themes/test/icons.svg", sprite_source('edit')
+    assert_equal "icons.svg", sprite_source('other')
+    assert_equal "themes/test/custom.svg", sprite_source('special', sprite: 'custom')
+  end
+
+  def test_sprite_icon_with_theme_missing_icon_should_fallback_to_default_sprite
+    theme = Redmine::Themes::Theme.new('/tmp/test')
+    theme.stubs(:id).returns('test')
+    theme.stubs(:image_path).with('icons.svg').returns('themes/test/icons.svg')
+
+    asset = mock('asset')
+    asset.stubs(:digest).returns('123456')
+    asset.stubs(:content).returns('<symbol id="icon--other"></symbol>')
+    asset.stubs(:digested_path).returns('themes/test/icons-123456.svg')
+
+    Rails.application.assets.load_path.stubs(:find).with('themes/test/icons.svg').returns(asset)
+
+    default_asset = mock('asset')
+    default_asset.stubs(:digested_path).returns('icons-default.svg')
+    Rails.application.assets.load_path.stubs(:find).with('icons.svg').returns(default_asset)
+
+    stubs(:current_theme).returns(theme)
+
+    expected = %r{<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/icons(-\w+)?\.svg#icon--edit"></use></svg>$}
+    assert_match expected, sprite_icon('edit')
+  end
+
+  def test_sprite_icon_should_return_svg_with_custom_size
+    expected = %r{<svg class="s24 icon-svg" aria-hidden="true"><use href="/assets/icons-\w+.svg#icon--edit"></use></svg>$}
+    icon = sprite_icon('edit', size: '24')
+
+    assert_match expected, icon
+  end
+
+  def test_sprite_icon_should_return_svg_with_custom_css_class
+    expected = %r{<svg class="s18 icon-svg custom-class" aria-hidden="true"><use href="/assets/icons-\w+.svg#icon--edit"></use></svg>$}
+    icon = sprite_icon('edit', css_class: 'custom-class')
+
+    assert_match expected, icon
+  end
+
+  def test_sprite_icon_should_resolve_each_sprite_path_once
+    expects(:asset_path).with('icons.svg').once.returns('/assets/icons-abc.svg')
+    expects(:asset_path).with('custom.svg').once.returns('/assets/custom.svg')
+
+    3.times { sprite_icon('edit') }
+    2.times { sprite_icon('edit', sprite: 'custom') }
+
+    assert_match %r{href="/assets/icons-abc.svg#icon--edit"}, sprite_icon('edit')
+    assert_match %r{href="/assets/custom.svg#icon--edit"}, sprite_icon('edit', sprite: 'custom')
+  end
+
+  def test_sprite_icon_should_return_svg_with_custom_sprite
+    expected = %r{<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/custom.svg#icon--edit"></use></svg>$}
+    icon = sprite_icon('edit', sprite: 'custom')
+
+    assert_match expected, icon
+  end
+
+  def test_sprite_icon_should_return_svg_with_plugin_sprite
+    expected = %r{<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/plugin_assets/my_plugin/icons.svg#icon--edit"></use></svg>$}
+    icon = sprite_icon('edit', plugin: 'my_plugin')
+
+    assert_match expected, icon
+  end
+
+  def test_sprite_icon_should_return_svg_with_filled_class_when_style_is_filled
+    expected = %r{<svg class="s18 icon-svg icon-svg-filled" aria-hidden="true"><use href="/assets/icons-\w+.svg#icon--edit"></use></svg>$}
+    icon = sprite_icon('edit', style: :filled)
+
+    assert_match expected, icon
+  end
+
+  def test_file_icon_should_return_folder_icon_for_directory
+    entry = stub(:is_dir? => true)
+    expected = %r{<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/icons-\w+.svg#icon--folder"></use></svg><span class="icon-label">folder_name</span>}
+    icon = file_icon(entry, "folder_name")
+
+    assert_match expected, icon
+  end
+
+  def test_file_icon_should_return_folder_icon_for_files
+    entry = stub(:is_dir? => false)
+    expected = %r{<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/icons-\w+.svg#icon--file"></use></svg><span class="icon-label">file_name</span>}
+    icon = file_icon(entry, "file_name")
+
+    assert_match expected, icon
+  end
+
+  def test_file_icon_should_return_file_type_icon_for_files
+    entry = stub(:is_dir? => false)
+    expected = %r{<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/icons-\w+.svg#icon--text-plain"></use></svg><span class="icon-label">text.txt</span>}
+    icon = file_icon(entry, "text.txt")
+
+    assert_match expected, icon
+  end
+
+  def test_principal_icon_should_return_group_icon_for_group_classes
+    expected = %r{<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/icons-\w+.svg#icon--group"></use></svg>}
+
+    [Principal.find(12), Principal.find(13), Principal.find(10)].each do |principal|
+      assert_match expected, principal_icon(principal)
+    end
+  end
+
+  def test_principal_icon_should_return_nil_for_non_group_classes
+    assert_nil principal_icon(Principal.find(1))
+  end
+
+  def test_activity_event_type_icon_should_return_correct_icon_for_reply_events
+    expected = %r{<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/icons-\w+.svg#icon--comments"></use></svg>}
+    assert_match expected, activity_event_type_icon('reply')
+  end
+
+  def test_activity_event_type_icon_should_return_correct_icon_for_time_entry_events
+    expected = %r{<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/icons-\w+.svg#icon--time"></use></svg>}
+    assert_match expected, activity_event_type_icon('time-entry')
+  end
+
+  def test_file_type_icon_should_return_specific_icon_for_known_mime_types
+    expected = %r{<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/icons-\w+.svg#icon--text-plain"></use></svg>}
+    assert_match expected, file_type_icon('text/plain')
+  end
+
+  def test_file_type_icon_should_return_generic_file_icon_for_unknown_mime_types
+    expected = %r{<svg class="s18 icon-svg" aria-hidden="true"><use href="/assets/icons-\w+.svg#icon--file"></use></svg>}
+    assert_match expected, file_type_icon('unknown-type/unknown-subtype')
+  end
+
+  def test_icon_for_mime_type_should_return_specific_icon_for_known_mime_types
+    assert_equal 'application-pdf', icon_for_mime_type('application/pdf')
+    assert_equal 'file-ai', icon_for_mime_type('application/illustrator')
+    assert_equal 'text-plain', icon_for_mime_type('text/markdown')
+    assert_equal 'text-plain', icon_for_mime_type('text/plain')
+    assert_equal 'file-type-docx',
+                 icon_for_mime_type('application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    assert_equal 'file-type-xls',
+                 icon_for_mime_type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    assert_equal 'file-type-ppt',
+                 icon_for_mime_type('application/vnd.openxmlformats-officedocument.presentationml.presentation')
+  end
+
+  def test_icon_for_mime_type_should_return_icon_for_top_level_types
+    assert_equal 'file-music', icon_for_mime_type('audio/aac')
+    assert_equal 'file-music', icon_for_mime_type('audio/mpeg')
+    assert_equal 'photo', icon_for_mime_type('image/jpeg')
+    assert_equal 'photo', icon_for_mime_type('image/png')
+    assert_equal 'movie', icon_for_mime_type('video/raw')
+    assert_equal 'movie', icon_for_mime_type('video/mp4')
+  end
+
+  def test_icon_for_mime_type_should_return_the_same_icon_for_equivalent_mime_types
+    # Types detected from the file contents and their Redmine::MimeType counterparts
+    {
+      'text/javascript' => 'application/javascript',
+      'application/xml' => 'text/xml',
+      'text/x-c++src' => 'text/x-c',
+      'text/x-java-source' => 'text/x-java',
+      'text/x-diff' => 'text/plain',
+      'application/sql' => 'text/plain'
+    }.each do |detected, counterpart|
+      assert_equal icon_for_mime_type(counterpart), icon_for_mime_type(detected),
+                   "#{detected} should get the same icon as #{counterpart}"
+    end
+  end
+
+  def test_icon_for_mime_type_should_fall_back_to_filename_only_when_type_is_undetermined
+    assert_equal 'text-plain', icon_for_mime_type('application/octet-stream', 'readme.textile')
+    assert_equal 'application-pdf', icon_for_mime_type(nil, 'document.pdf')
+    # A type detected from the file contents takes precedence over the filename
+    assert_equal 'text-html', icon_for_mime_type('text/html', 'not-really-an-image.png')
+  end
+
+  def test_icon_for_mime_type_should_return_generic_file_icon_for_unknown_mime_types
+    assert_equal 'file', icon_for_mime_type('unknown-type')
+  end
+
+  def test_scm_change_icon_should_set_default_size
+    expected = %r{<svg class="s14 icon-svg" aria-hidden="true"><use href="/assets/icons-\w+.svg#icon--add"></use></svg><span class="icon-label hidden">Added</span>}
+
+    assert_match expected, scm_change_icon('A', 'Added', icon_only: true)
+  end
+end

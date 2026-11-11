@@ -44,7 +44,7 @@ class UserPreference < ApplicationRecord
 
   TEXTAREA_FONT_OPTIONS = ['monospace', 'proportional']
   DEFAULT_TOOLBAR_LANGUAGE_OPTIONS = %w[c cpp csharp css diff go groovy html java javascript objc perl php python r ruby sass scala shell sql swift xml yaml]
-  AUTO_WATCH_ON_OPTIONS = %w[issue_created issue_contributed_to]
+  AUTO_WATCH_ON_OPTIONS = %w[issue_created issue_contributed_to issue_assigned_to_me]
 
   def initialize(attributes=nil, *args)
     super
@@ -59,7 +59,8 @@ class UserPreference < ApplicationRecord
         self.no_self_notified = Setting.default_users_no_self_notified
       end
       unless attributes && attributes.key?(:auto_watch_on)
-        self.auto_watch_on = AUTO_WATCH_ON_OPTIONS
+        value = Setting.default_users_auto_watch_on
+        self.auto_watch_on = value.nil? ? AUTO_WATCH_ON_OPTIONS : value
       end
     end
     self.others ||= {}
@@ -73,7 +74,7 @@ class UserPreference < ApplicationRecord
     if has_attribute? attr_name
       super
     else
-      others ? others[attr_name] : nil
+      others&.[](attr_name)
     end
   end
 

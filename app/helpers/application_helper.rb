@@ -28,6 +28,8 @@ module ApplicationHelper
   include Redmine::Themes::Helper
   include Redmine::Hook::Helper
   include Redmine::Helpers::URL
+  include IconsHelper
+  include WikiToolbarHelper
 
   extend Forwardable
   def_delegators :wiki_helper, :wikitoolbar_for, :heads_for_wiki_formatter
@@ -59,23 +61,37 @@ module ApplicationHelper
     only_path = options[:only_path].nil? ? true : options[:only_path]
     case principal
     when User
-      name = h(principal.name(options[:format]))
-      name = "@".html_safe + name if options[:mention]
+      name = principal.name(options[:format])
+      name = "@#{name}" if options[:mention]
       css_classes = ''
       if principal.active? || (User.current.admin? && principal.logged?)
         url = user_url(principal, :only_path => only_path)
         css_classes += principal.css_classes
       end
     when Group
-      name = h(principal.to_s)
+      name = principal.to_s
       url = group_url(principal, :only_path => only_path)
       css_classes = principal.css_classes
     else
-      name = h(principal.to_s)
+      name = principal.to_s
     end
 
     css_classes += " #{options[:class]}" if css_classes && options[:class].present?
-    url ? link_to(name, url, :class => css_classes) : name
+    url ? link_to(principal_icon(principal).to_s + name, url, :class => css_classes) : h(name)
+  end
+
+  def link_to_mention(user, object, options={})
+    css_classes = ['user-mention']
+    if user.is_a?(User)
+      css_classes << 'user-current' if user == User.current
+      if object.respond_to?(:visible?)
+        @mention_visible_cache ||= {}
+        is_visible = @mention_visible_cache[[object, user.id]] ||= object.visible?(user)
+        css_classes << 'user-mentionable' if is_visible
+      end
+    end
+
+    link_to_user(user, only_path: options[:only_path], class: css_classes.join(' '), mention: true)
   end
 
   # Displays a link to edit group page if current user is admin
@@ -125,8 +141,11 @@ module ApplicationHelper
   # Options:
   # * :text - Link text (default to attachment filename)
   # * :download - Force download (default: false)
+  # * :icon - Sprite icon name
   def link_to_attachment(attachment, options={})
     text = options.delete(:text) || attachment.filename
+    icon = options.delete(:icon)
+
     if options.delete(:download)
       route_method = :download_named_attachment_url
       options[:filename] = attachment.filename
@@ -136,9 +155,12 @@ module ApplicationHelper
       options.delete(:filename)
     end
     html_options = options.slice!(:only_path, :filename)
+
     options[:only_path] = true unless options.key?(:only_path)
     url = send(route_method, attachment, options)
-    link_to text, url, html_options
+
+    label = icon ? sprite_icon(icon, text) : text
+    link_to label, url, html_options
   end
 
   # Generates a link to a SCM revision
@@ -251,22 +273,42 @@ module ApplicationHelper
   end
 
   # Helper that formats object for html or text rendering
-  def format_object(object, html=true, &block)
+  # Options:
+  # * :html - If true, format the object as HTML (default: true)
+  # * :thousands_delimiter - If true, format the numeric object with thousands delimiter (default: false)
+  def format_object(object, *args, &block)
+    options =
+      if args.first.is_a?(Hash)
+        args.first
+      elsif !args.empty?
+        # Support the old syntax `format_object(object, html_flag)`
+        # TODO: Display a deprecation warning in a future version, then remove this
+        {:html => args.first}
+      else
+        {}
+      end
+
+    html = options.fetch(:html, true)
+    thousands_delimiter = options.fetch(:thousands_delimiter, false)
+    delimiter_char = thousands_delimiter ? ::I18n.t('number.format.delimiter') : nil
+
     if block
       object = yield object
     end
     case object
     when Array
-      formatted_objects = object.map {|o| format_object(o, html)}
+      formatted_objects = object.map do |o|
+        format_object(o, html: html, thousands_delimiter: thousands_delimiter)
+      end
       html ? safe_join(formatted_objects, ', ') : formatted_objects.join(', ')
     when Time, ActiveSupport::TimeWithZone
       format_time(object)
     when Date
       format_date(object)
     when Integer
-      object.to_s
+      number_with_delimiter(object, delimiter: delimiter_char)
     when Float
-      number_with_delimiter(sprintf('%.2f', object), delimiter: nil)
+      number_with_delimiter(sprintf('%.2f', object), delimiter: delimiter_char)
     when User, Group
       html ? link_to_principal(object) : object.to_s
     when Project
@@ -287,9 +329,11 @@ module ApplicationHelper
           link_to_attachment(
             object,
             :class => ['icon-only', 'icon-download'],
+            :icon => 'download',
             :title => l(:button_download),
             :download => true
-          )
+          ),
+          class: 'attachment-filename'
         )
       else
         object.filename
@@ -302,7 +346,7 @@ module ApplicationHelper
         if f.nil? || f.is_a?(String)
           f
         else
-          format_object(f, html, &block)
+          format_object(f, html: html, thousands_delimiter: object.custom_field.thousands_delimiter?, &block)
         end
       else
         object.value.to_s
@@ -320,26 +364,27 @@ module ApplicationHelper
   def thumbnail_tag(attachment)
     thumbnail_size = Setting.thumbnails_size.to_i
     thumbnail_path = thumbnail_path(attachment, :size => thumbnail_size * 2)
-    link_to(
-      image_tag(
-        thumbnail_path,
-        :srcset => "#{thumbnail_path} 2x",
-        :style => "max-width: #{thumbnail_size}px; max-height: #{thumbnail_size}px;",
-        :loading => "lazy"
-      ),
-      attachment_path(
-        attachment
-      ),
-      :title => attachment.filename
-    )
+    tag.div class: 'thumbnail', title: attachment.filename do
+      link_to(
+        image_tag(
+          thumbnail_path,
+          :srcset => "#{thumbnail_path} 2x",
+          :style => "max-width: #{thumbnail_size}px; max-height: #{thumbnail_size}px;",
+          :alt => attachment.filename,
+          :loading => "lazy"
+        ),
+        attachment_path(attachment)
+      )
+    end
   end
 
   def toggle_link(name, id, options={})
-    onclick = +"$('##{id}').toggle(); "
+    html_options = options.slice(:class)
+    onclick = "$('##{id}').toggle(); "
     onclick << (options[:focus] ? "$('##{options[:focus]}:visible').focus(); " : "this.blur(); ")
     onclick << "$(window).scrollTop($('##{options[:focus]}').position().top); " if options[:scroll]
     onclick << "return false;"
-    link_to(name, "#", :onclick => onclick)
+    link_to(name, "#", html_options.merge(:onclick => onclick))
   end
 
   def link_to_previous_month(year, month, options={})
@@ -388,8 +433,16 @@ module ApplicationHelper
   end
 
   def format_activity_description(text)
-    h(text.to_s.truncate(120).gsub(%r{[\r\n]*<(pre|code)>.*$}m, '...')).
-      gsub(/[\r\n]+/, "<br />").html_safe
+    h(
+      # Limit input to avoid regex performance issues
+      text.to_s.slice(0, 10240)
+      # Abbreviate consecutive quoted lines as '> ...', keeping the first line
+      .gsub(%r{(^>.*?(?:\r?\n))(?:>.*?(?:\r?\n)+)+}m, "\\1> ...\n")
+      # Remove all content following the first <pre> or <code> tag
+      .sub(%r{[\r\n]*<(pre|code)>.*$}m, '')
+      # Truncate the description to a specified length and append '...'
+      .truncate(240)
+    ).gsub(/[\r\n]+/, "<br>").html_safe
   end
 
   def format_version_name(version)
@@ -402,7 +455,7 @@ module ApplicationHelper
 
   def format_changeset_comments(changeset, options={})
     method = options[:short] ? :short_comments : :comments
-    textilizable changeset, method, :formatting => Setting.commit_logs_formatting?
+    textilizable changeset, method, project: changeset.project, formatting: Setting.commit_logs_formatting?
   end
 
   def due_date_distance_in_words(date)
@@ -423,10 +476,7 @@ module ApplicationHelper
     s = +''
     if projects.any?
       ancestors = []
-      original_project = @project
       projects.sort_by(&:lft).each do |project|
-        # set the project environment to please macros.
-        @project = project
         if ancestors.empty? || project.is_descendant_of?(ancestors.last)
           s << "<ul class='projects #{ancestors.empty? ? 'root' : nil}'>\n"
         else
@@ -445,7 +495,6 @@ module ApplicationHelper
         ancestors << project
       end
       s << ("</li></ul>\n" * ancestors.size)
-      @project = original_project
     end
     s.html_safe
   end
@@ -484,7 +533,9 @@ module ApplicationHelper
   def render_flash_messages
     s = +''
     flash.each do |k, v|
-      s << content_tag('div', v.html_safe, :class => "flash #{k}", :id => "flash_#{k}")
+      next unless v.is_a?(String)
+
+      s << content_tag('div', notice_icon(k) + v.html_safe, :class => "flash #{k}", :id => "flash_#{k}")
     end
     s.html_safe
   end
@@ -543,7 +594,7 @@ module ApplicationHelper
     s = (+'').html_safe
     build_project_link = lambda do |project, level = 0|
       padding = level * 16
-      text = content_tag('span', project.name, :style => "padding-left:#{padding}px;")
+      text = content_tag('span', project.name, :style => "padding-inline-start:#{padding}px;")
       s << link_to(text, project_path(project, :jump => jump),
                    :title => project.name,
                    :class => (project == selected ? 'selected' : nil))
@@ -584,7 +635,7 @@ module ApplicationHelper
                   :class => (@project.nil? && controller.class.main_menu ? 'selected' : nil))
     content =
       content_tag('div',
-                  content_tag('div', q, :class => 'quick-search') +
+                  content_tag('div', sprite_icon('search', icon_only: true, size: 18) + q, :class => 'quick-search') +
                     content_tag('div', render_projects_for_jump_box(projects, selected: @project),
                                 :class => 'drdn-items projects selection') +
                     content_tag('div', all, :class => 'drdn-items all-projects selection'),
@@ -618,8 +669,8 @@ module ApplicationHelper
   # Yields the given block for each project with its level in the tree
   #
   # Wrapper for Project#project_tree
-  def project_tree(projects, options={}, &block)
-    Project.project_tree(projects, options, &block)
+  def project_tree(projects, options={}, &)
+    Project.project_tree(projects, options, &)
   end
 
   def principals_check_box_tags(name, principals)
@@ -629,9 +680,9 @@ module ApplicationHelper
         content_tag(
           'label',
           check_box_tag(name, principal.id, false, :id => nil) +
-            (avatar(principal, :size => 16).presence ||
+            ((avatar(principal, :size => 16).presence if principal.is_a?(User)) ||
                content_tag(
-                 'span', nil,
+                 'span', principal_icon(principal),
                  :class => "name icon icon-#{principal.class.name.downcase}"
                )
             ) + principal.to_s
@@ -646,18 +697,82 @@ module ApplicationHelper
     if collection.include?(User.current)
       s << content_tag('option', "<< #{l(:label_me)} >>", :value => User.current.id)
     end
-    groups = +''
-    collection.sort.each do |element|
-      if option_value_selected?(element, selected) || element.id.to_s == selected
-        selected_attribute = ' selected="selected"'
-      end
-      (element.is_a?(Group) ? groups : s) <<
-        %(<option value="#{element.id}"#{selected_attribute}>#{h element.name}</option>)
+
+    involved_principals = []
+    # This optgroup is displayed only when editing a single issue
+    if @issue.present? && !@issue.new_record?
+      last_notes_author =
+        @issue.journals.visible(User.current).
+          where.not(:notes => '').
+          reorder(:id => :desc).
+          first&.user
+      involved_principals =
+        [
+          @issue.author,
+          @issue.prior_assigned_to,
+          last_notes_author
+        ].uniq.compact.map do |principal|
+          [principal, {:disabled => !collection.include?(principal)}]
+        end
     end
-    unless groups.empty?
-      s << %(<optgroup label="#{h(l(:label_group_plural))}">#{groups}</optgroup>)
+
+    users, groups = collection.sort.partition {|principal| principal.is_a?(User)}
+    if involved_principals.blank? && groups.blank?
+      s << principals_option_tags(users, selected)
+    else
+      optgroups = [[l(:label_involved_principals), involved_principals]]
+      optgroups.concat(
+        case Setting.assignee_dropdown_display_format.to_s
+        when 'groups_then_users'
+          [
+            [l(:label_group_plural), groups],
+            [l(:label_user_plural), users]
+          ]
+        when 'users_by_group'
+          principal_users_by_group_optgroups_for_select(users, groups)
+        else
+          # Default to 'users_then_groups'
+          [
+            [l(:label_user_plural), users],
+            [l(:label_group_plural), groups]
+          ]
+        end
+      )
+
+      optgroups.each do |label, principals|
+        options_html = principals_option_tags(principals, selected)
+        s << %(<optgroup label="#{h(label)}">#{options_html}</optgroup>) if options_html.present?
+      end
     end
     s.html_safe
+  end
+
+  # Renders option tags for users and groups, preserving per-option attributes.
+  def principals_option_tags(principals, selected)
+    principals.map do |principal, options|
+      options ||= {}
+      selected_attribute = %( selected="selected") if option_value_selected?(principal, selected) || principal.id.to_s == selected
+      disabled_attribute = %( disabled="disabled") if options[:disabled]
+
+      %(<option value="#{principal.id}"#{selected_attribute}#{disabled_attribute}>#{h principal.name}</option>)
+    end.join
+  end
+
+  # Builds optgroups that list groups first, then each group's users, then ungrouped users.
+  def principal_users_by_group_optgroups_for_select(users, groups)
+    users_by_group_optgroups =
+      groups.filter_map do |group|
+        group_user_ids = group.users.ids
+        group_users = users.select {|user| group_user_ids.include?(user.id)}
+        [group, group_users] if group_users.present?
+      end
+
+    users_by_group_ids = users_by_group_optgroups.flat_map {|_, principals| principals.map(&:id)}.uniq
+    ungrouped_users = users.reject {|user| users_by_group_ids.include?(user.id)}
+
+    [[l(:label_group_plural), groups]] +
+      users_by_group_optgroups.map {|group, principals| [group.name, principals]} +
+      [[l(:label_user_plural), ungrouped_users]]
   end
 
   def option_tag(name, text, value, selected=nil, options={})
@@ -716,7 +831,7 @@ module ApplicationHelper
 
   def to_path_param(path)
     str = path.to_s.split(%r{[/\\]}).select{|p| !p.blank?}.join("/")
-    str.blank? ? nil : str
+    (str.presence)
   end
 
   def reorder_handle(object, options={})
@@ -724,7 +839,7 @@ module ApplicationHelper
       :reorder_url => options[:url] || url_for(object),
       :reorder_param => options[:param] || object.class.name.underscore
     }
-    content_tag('span', '',
+    content_tag('span', sprite_icon('reorder', ''),
                 :class => "icon-only icon-sort-handle sort-handle",
                 :data => data,
                 :title => l(:button_sort))
@@ -735,8 +850,8 @@ module ApplicationHelper
     elements.any? ? content_tag('p', (args.join(" \xc2\xbb ") + " \xc2\xbb ").html_safe, :class => 'breadcrumb') : nil
   end
 
-  def other_formats_links(&block)
-    concat('<p class="other-formats">'.html_safe + l(:label_export_to))
+  def other_formats_links(&)
+    concat('<p class="other-formats hide-when-print">'.html_safe + l(:label_export_to))
     yield Redmine::Views::OtherFormatsBuilder.new(self)
     concat('</p>'.html_safe)
   end
@@ -800,16 +915,18 @@ module ApplicationHelper
     end
   end
 
-  def actions_dropdown(&block)
-    content = capture(&block)
+  def actions_dropdown(&)
+    content = capture(&)
     if content.present?
       trigger =
-        content_tag('span', l(:button_actions), :class => 'icon-only icon-actions',
-                    :title => l(:button_actions))
-      trigger = content_tag('span', trigger, :class => 'drdn-trigger')
-      content = content_tag('div', content, :class => 'drdn-items')
-      content = content_tag('div', content, :class => 'drdn-content')
-      content_tag('span', trigger + content, :class => 'drdn')
+        content_tag('span', sprite_icon('3-bullets', l(:button_actions)),
+                    :class => 'icon-only icon-actions dropdown-trigger',
+                    :title => l(:button_actions),
+                    :data => {:action => "click->dropdown#toggle"})
+      items = content_tag('span', content, :class => 'dropdown-items')
+      content = content_tag('span', items, :class => 'dropdown-content hidden', :data => {:dropdown_target => "content"})
+      content_tag('span', trigger + content, :class => 'dropdown',
+                  :data => {:controller => "dropdown", :action => "clipboard:copied->dropdown#hide"})
     end
   end
 
@@ -818,14 +935,13 @@ module ApplicationHelper
   def body_css_classes
     css = []
     if theme = Redmine::Themes.theme(Setting.ui_theme)
-      css << 'theme-' + theme.name
+      css << 'theme-' + theme.name.tr(' ', '_')
     end
 
     css << 'project-' + @project.identifier if @project && @project.identifier.present?
     css << 'has-main-menu' if display_main_menu?(@project)
     css << 'controller-' + controller_name
     css << 'action-' + action_name
-    css << 'avatars-' + (Setting.gravatar_enabled? ? 'on' : 'off')
     if UserPreference::TEXTAREA_FONT_OPTIONS.include?(User.current.pref.textarea_font)
       css << "textarea-#{User.current.pref.textarea_font}"
     end
@@ -846,7 +962,7 @@ module ApplicationHelper
   # * with a String: textilizable(text, options)
   # * with an object and one of its attribute: textilizable(issue, :description, options)
   def textilizable(*args)
-    options = args.last.is_a?(Hash) ? args.pop : {}
+    options = args.extract_options!
     case args.size
     when 1
       obj = options[:object]
@@ -860,8 +976,8 @@ module ApplicationHelper
     end
     return '' if text.blank?
 
-    project = options[:project] || @project || (obj && obj.respond_to?(:project) ? obj.project : nil)
-    @only_path = only_path = options.delete(:only_path) == false ? false : true
+    project = options[:project] || @project || obj.try(:project)
+    @only_path = only_path = options[:only_path] = (options[:only_path] != false)
 
     text = text.dup
     macros = catch_macros(text)
@@ -870,19 +986,29 @@ module ApplicationHelper
       text = h(text)
     else
       formatting = Setting.text_formatting
-      text = Redmine::WikiFormatting.to_html(formatting, text, :object => obj, :attribute => attr)
+      text = Redmine::WikiFormatting.to_html(formatting, text, options.merge(:object => obj, :attribute => attr, :view => self))
     end
 
     @parsed_headings = []
     @heading_anchors = {}
-    @current_section = 0 if options[:edit_section_links]
-
-    parse_sections(text, project, obj, attr, only_path, options)
-    text = parse_non_pre_blocks(text, obj, macros, options) do |txt|
-      [:parse_inline_attachments, :parse_hires_images, :parse_wiki_links, :parse_redmine_links].each do |method_name|
-        send method_name, txt, project, obj, attr, only_path, options
-      end
+    if options[:edit_section_links]
+      @current_section = 0
+      # Output of macros whose headings are not sections of the page (eg. include)
+      # is hidden while parsing sections so that it does not get edit links
+      hidden_macros = @hidden_macros = []
     end
+
+    begin
+      text = parse_non_pre_blocks(text, obj, macros, options) do |txt|
+        [:parse_wiki_links, :parse_redmine_links].each do |method_name|
+          send method_name, txt, project, obj, attr, only_path, options
+        end
+      end
+      parse_sections(text, project, obj, attr, only_path, options)
+    ensure
+      @hidden_macros = nil if hidden_macros
+    end
+    text = restore_hidden_macros(text, hidden_macros) if hidden_macros
     parse_headings(text, project, obj, attr, only_path, options)
 
     if @parsed_headings.any?
@@ -896,7 +1022,7 @@ module ApplicationHelper
     s = StringScanner.new(text)
     tags = []
     parsed = +''
-    while !s.eos?
+    until s.eos?
       s.scan(/(.*?)(<(\/)?(pre|code)(.*?)>|\z)/im)
       text, full_tag, closing, tag = s[1], s[2], s[3], s[4]
       if tags.empty?
@@ -922,43 +1048,6 @@ module ApplicationHelper
       parsed << "</#{tag}>"
     end
     parsed
-  end
-
-  # add srcset attribute to img tags if filename includes @2x, @3x, etc.
-  # to support hires displays
-  def parse_hires_images(text, project, obj, attr, only_path, options)
-    text.gsub!(/src="([^"]+@(\dx)\.(bmp|gif|jpg|jpe|jpeg|png))"/i) do |m|
-      filename, dpr = $1, $2
-      m + " srcset=\"#{filename} #{dpr}\""
-    end
-  end
-
-  def parse_inline_attachments(text, project, obj, attr, only_path, options)
-    return if options[:inline_attachments] == false
-
-    # when using an image link, try to use an attachment, if possible
-    attachments = options[:attachments] || []
-    if obj.is_a?(Journal)
-      attachments += obj.journalized.attachments if obj.journalized.respond_to?(:attachments)
-    else
-      attachments += obj.attachments if obj.respond_to?(:attachments)
-    end
-    if attachments.present?
-      text.gsub!(/src="([^\/"]+\.(bmp|gif|jpg|jpe|jpeg|png|webp))"(\s+alt="([^"]*)")?/i) do |m|
-        filename, ext, alt, alttext = $1, $2, $3, $4
-        # search for the picture in attachments
-        if found = Attachment.latest_attach(attachments, CGI.unescape(filename))
-          image_url = download_named_attachment_url(found, found.filename, :only_path => only_path)
-          desc = found.description.to_s.delete('"')
-          if !desc.blank? && alttext.blank?
-            alt = " title=\"#{desc}\" alt=\"#{desc}\""
-          end
-          "src=\"#{image_url}\"#{alt} loading=\"lazy\""
-        else
-          m
-        end
-      end
-    end
   end
 
   # Wiki links
@@ -1269,13 +1358,14 @@ module ApplicationHelper
                 link = link_to_project(p, {:only_path => only_path}, :class => 'project')
               end
             when 'user'
-              u = User.visible.find_by("LOWER(login) = :s AND type = 'User'", :s => name.downcase)
+              u = User.visible.find_by_login(name.downcase)
               link = link_to_user(u, :only_path => only_path) if u
             end
           elsif sep == "@"
             name = remove_double_quotes(identifier)
-            u = User.visible.find_by("LOWER(login) = :s AND type = 'User'", :s => name.downcase)
-            link = link_to_user(u, :only_path => only_path, :class => 'user-mention', :mention => true) if u
+            @users_by_login ||= {}
+            u = @users_by_login.fetch(name.downcase) { |k| @users_by_login[k] = User.visible.find_by_login(k) }
+            link = link_to_mention(u, obj, only_path: only_path) if u
           end
         end
         (leading + (link || "#{project_prefix}#{prefix}#{repo_prefix}#{sep}#{identifier}#{comment_suffix}"))
@@ -1322,7 +1412,7 @@ module ApplicationHelper
               <|
               $)
     }x
-  HEADING_RE = /(<h(\d)( [^>]+)?>(.+?)<\/h(\d)>)/i unless const_defined?(:HEADING_RE)
+  HEADING_RE = /(<h(\d)( [^>]+)?>(.+?)<\/h(\d)>)/im unless const_defined?(:HEADING_RE)
 
   def parse_sections(text, project, obj, attr, only_path, options)
     return unless options[:edit_section_links]
@@ -1334,7 +1424,7 @@ module ApplicationHelper
         content_tag(
           'div',
           link_to(
-            l(:button_edit_section),
+            sprite_icon('edit', l(:button_edit_section)),
             options[:edit_section_links].merge(
               :section => @current_section),
             :class => 'icon-only icon-edit'),
@@ -1354,7 +1444,10 @@ module ApplicationHelper
 
     text.gsub!(HEADING_RE) do
       level, attrs, content = $2.to_i, $3, $4
-      item = strip_tags(content).strip
+      # Remove HTML tags using the same sanitizer as strip_tags, without escaping quotes.
+      # Keep quotes literal so sanitize_anchor_name removes them rather than leaving
+      # parts of HTML entities in the anchor (e.g. &#39; becoming 39).
+      item = self.class.full_sanitizer.sanitize(content).strip
       anchor = sanitize_anchor_name(item)
       # used for single-file wiki export
       if options[:wiki_links] == :anchor && (obj.is_a?(WikiContent) ||
@@ -1366,10 +1459,22 @@ module ApplicationHelper
       if idx > 1
         anchor = "#{anchor}-#{idx}"
       end
-      @parsed_headings << [level, anchor, item]
+      @parsed_headings << [level, anchor, ERB::Util.html_escape_once(item)]
       "<a name=\"#{anchor}\"></a>\n<h#{level} #{attrs}>#{content}" \
         "<a href=\"##{anchor}\" class=\"wiki-anchor\">&para;</a></h#{level}>"
     end
+  end
+
+  def wiki_textarea_stimulus_attributes
+    return {} if Setting.text_formatting.blank?
+
+    {
+      controller: 'list-autofill selection-indent table-paste',
+      action: 'beforeinput->list-autofill#handleBeforeInput keydown.tab->selection-indent#run keydown.shift+tab->selection-indent#run paste->table-paste#handlePaste',
+      list_autofill_text_formatting_param: Setting.text_formatting,
+      selection_indent_text_formatting_param: Setting.text_formatting,
+      table_paste_text_formatting_param: Setting.text_formatting
+    }
   end
 
   unless const_defined?(:MACROS_RE)
@@ -1377,7 +1482,7 @@ module ApplicationHelper
                   (!)?                        # escaping
                   (
                   \{\{                        # opening tag
-                  ([\w]+)                     # macro name
+                  (\w+)                       # macro name
                   (\(([^\n\r]*?)\))?          # optional arguments
                   ([\n\r].*?[\n\r])?          # optional block of text
                   \}\}                        # closing tag
@@ -1416,7 +1521,7 @@ module ApplicationHelper
       if execute && orig && orig =~ MACROS_RE
         esc, all, macro, args, block = $2, $3, $4.downcase, $6.to_s, $7.try(:strip)
         if esc.nil?
-          h(exec_macro(macro, obj, args, block, options) || all)
+          hide_macro_output(macro) {h(exec_macro(macro, obj, args, block, options) || all)}
         else
           h(all)
         end
@@ -1426,6 +1531,29 @@ module ApplicationHelper
         h(all)
       end
     end
+  end
+
+  HIDDEN_MACRO_RE = /\0(\d+)\0/ unless const_defined?(:HIDDEN_MACRO_RE)
+
+  # Replaces the output of a macro with a placeholder while sections are parsed,
+  # unless the headings it contains are sections of the page (eg. collapse)
+  def hide_macro_output(macro)
+    hidden_macros = @hidden_macros
+    if hidden_macros.nil? || Redmine::WikiFormatting::Macros.available_macros.dig(macro.to_sym, :sections)
+      return yield
+    end
+
+    # The whole output is hidden, macros nested in this one don't need to be
+    @hidden_macros = nil
+    hidden_macros << yield.to_str
+    "\0#{hidden_macros.size - 1}\0"
+  ensure
+    @hidden_macros = hidden_macros
+  end
+
+  # Puts back the output of the macros hidden by hide_macro_output
+  def restore_hidden_macros(text, outputs)
+    text.gsub(HIDDEN_MACRO_RE) {outputs[$1.to_i] || $&}
   end
 
   TOC_RE = /<p>\{\{((<|&lt;)|(>|&gt;))?toc\}\}<\/p>/i unless const_defined?(:TOC_RE)
@@ -1442,7 +1570,7 @@ module ApplicationHelper
         div_class = +'toc'
         div_class << ' right' if right_align
         div_class << ' left' if left_align
-        out = +"<ul class=\"#{div_class}\"><li><strong>#{l :label_table_of_contents}</strong></li><li>"
+        out = "<ul class=\"#{div_class}\"><li><strong>#{l :label_table_of_contents}</strong></li><li>"
         root = headings.map(&:first).min
         current = root
         started = false
@@ -1477,28 +1605,21 @@ module ApplicationHelper
     (blank ? [["(#{l('label_option_auto_lang')})", ""]] : []) + languages_options
   end
 
-  def labelled_form_for(*args, &proc)
+  def labelled_form_for(*args, &)
     args << {} unless args.last.is_a?(Hash)
     options = args.last
     if args.first.is_a?(Symbol)
       options[:as] = args.shift
     end
     options[:builder] = Redmine::Views::LabelledFormBuilder
-    form_for(*args, &proc)
+    form_for(*args, &)
   end
 
-  def labelled_fields_for(*args, &proc)
+  def labelled_fields_for(*args, &)
     args << {} unless args.last.is_a?(Hash)
     options = args.last
     options[:builder] = Redmine::Views::LabelledFormBuilder
-    fields_for(*args, &proc)
-  end
-
-  def form_tag_html(html_options)
-    # Set a randomized name attribute on all form fields by default
-    # as a workaround to https://bugzilla.mozilla.org/show_bug.cgi?id=1279253
-    html_options['name'] ||= "#{html_options['id'] || 'form'}-#{SecureRandom.hex(4)}"
-    super
+    fields_for(*args, &)
   end
 
   # Render the error messages for the given objects
@@ -1512,7 +1633,9 @@ module ApplicationHelper
   def render_error_messages(errors)
     html = +""
     if errors.present?
-      html << "<div id='errorExplanation'><ul>\n"
+      html << "<div id='errorExplanation'>\n"
+      html << notice_icon('error')
+      html << "<ul>\n"
       errors.each do |error|
         html << "<li>#{h error}</li>\n"
       end
@@ -1528,7 +1651,17 @@ module ApplicationHelper
       :class => 'icon icon-del'
     }.merge(options)
 
-    link_to button_name, url, options
+    link_to sprite_icon('del', button_name), url, options
+  end
+
+  def remove_link(url, options={})
+    options = {
+      :method => :delete,
+      :data => {:confirm => l(:text_are_you_sure)},
+      :class => 'icon icon-link-break'
+    }.merge(options)
+
+    link_to sprite_icon('link-break', l(:button_remove)), url, options
   end
 
   def link_to_function(name, function, html_options={})
@@ -1536,12 +1669,12 @@ module ApplicationHelper
   end
 
   def link_to_context_menu
-    link_to l(:button_actions), '#', title: l(:button_actions), class: 'icon-only icon-actions js-contextmenu'
+    link_to sprite_icon('3-bullets', l(:button_actions)), '#', title: l(:button_actions), class: 'icon-only icon-actions js-contextmenu '
   end
 
   # Helper to render JSON in views
   def raw_json(arg)
-    arg.to_json.to_s.gsub('/', '\/').html_safe
+    arg.to_json.gsub('/', '\/').html_safe
   end
 
   def back_url_hidden_field_tag
@@ -1560,11 +1693,13 @@ module ApplicationHelper
     link_to_function(l(:button_uncheck_all), "checkAll('#{form_name}', false)")
   end
 
-  def toggle_checkboxes_link(selector)
-    link_to_function '',
+  def toggle_checkboxes_link(selector, options={})
+    css_classes = 'icon icon-checked'
+    css_classes += ' ' + options[:class] if options[:class]
+    link_to_function sprite_icon('checked', ''),
                      "toggleCheckboxesBySelector('#{selector}')",
                      :title => "#{l(:button_check_all)} / #{l(:button_uncheck_all)}",
-                     :class => 'icon icon-checked'
+                     :class => css_classes
   end
 
   def progress_bar(pcts, options={})
@@ -1603,7 +1738,7 @@ module ApplicationHelper
 
   def checked_image(checked=true)
     if checked
-      @checked_image_tag ||= content_tag(:span, nil, :class => 'icon-only icon-checked')
+      @checked_image_tag ||= content_tag(:span, sprite_icon("checked"), :class => 'icon-only icon-checked')
     end
   end
 
@@ -1612,11 +1747,6 @@ module ApplicationHelper
       content_for :header_tags do
         javascript_include_tag('context_menu') +
           stylesheet_link_tag('context_menu')
-      end
-      if l(:direction) == 'rtl'
-        content_for :header_tags do
-          stylesheet_link_tag('context_menu_rtl')
-        end
       end
       @context_menu_included = true
     end
@@ -1664,7 +1794,8 @@ module ApplicationHelper
   #   stylesheet_link_tag('styles', :plugin => 'foo) # => picks styles.css from plugin's assets
   #
   def stylesheet_link_tag(*sources)
-    options = sources.last.is_a?(Hash) ? sources.pop : {}
+    # option keys is converted to a string in Propshaft::Helper.
+    options = sources.last.is_a?(Hash) ? sources.pop.symbolize_keys : {}
     plugin = options.delete(:plugin)
     sources = sources.map do |source|
       if plugin
@@ -1689,7 +1820,7 @@ module ApplicationHelper
     elsif current_theme && current_theme.images.include?(source)
       source = current_theme.image_path(source)
     end
-    super(source, options)
+    super
   end
 
   # Overrides Rails' javascript_include_tag with plugins support
@@ -1698,7 +1829,8 @@ module ApplicationHelper
   #   javascript_include_tag('scripts', :plugin => 'foo) # => picks scripts.js from plugin's assets
   #
   def javascript_include_tag(*sources)
-    options = sources.last.is_a?(Hash) ? sources.pop : {}
+    # option keys is converted to a string in Propshaft::Helper.
+    options = sources.last.is_a?(Hash) ? sources.pop.symbolize_keys : {}
     if plugin = options.delete(:plugin)
       sources = sources.map do |source|
         if plugin
@@ -1730,13 +1862,25 @@ module ApplicationHelper
   # Returns the javascript tags that are included in the html layout head
   def javascript_heads
     tags = javascript_include_tag(
-      'jquery-3.6.1-ui-1.13.2',
+      'jquery-3.7.1-ui-1.13.3',
       'rails-ujs',
-      'tribute-5.1.3.min',
-      'tablesort-5.2.1.min.js',
-      'tablesort-5.2.1.number.min.js',
-      'application',
-      'responsive')
+      'tribute-5.1.3.min'
+    )
+    tags << javascript_include_tag('application-legacy', 'responsive')
+    # Mermaid.js is installed by the redmine:mermaid:install task and is
+    # several MB, so it is not part of every page load. When it is available,
+    # its URL is exposed here and the mermaid Stimulus controller loads it
+    # only when a Mermaid code block is actually present on the page.
+    # The mermaid-available class hides Mermaid code blocks from the first
+    # paint so that their source does not flash before the diagram replaces
+    # it. It is set by JavaScript so that the blocks stay visible without it.
+    if Redmine::Mermaid.available?
+      tags <<
+        javascript_tag(
+          "window.MermaidAssetUrl = #{asset_path(Redmine::Mermaid::FILENAME).to_json};" \
+          "document.documentElement.classList.add('mermaid-available');"
+        )
+    end
     unless User.current.pref.warn_on_leaving_unsaved == '0'
       warn_text = escape_javascript(l(:text_warn_on_leaving_unsaved))
       tags <<
@@ -1749,11 +1893,15 @@ module ApplicationHelper
   end
 
   def favicon
-    favicon_link_tag(favicon_path, rel: "shortcut icon")
+    options = {rel: "shortcut icon"}
+    options[:type] = Setting.favicon['content_type'] if Setting.favicon.present?
+    favicon_link_tag(favicon_path, options)
   end
 
   # Returns the path to the favicon
   def favicon_path
+    return custom_favicon_path(Setting.favicon['digest']) if Setting.favicon.present?
+
     icon = (current_theme && current_theme.favicon?) ? current_theme.favicon_path : 'favicon.ico'
     image_path(icon)
   end
@@ -1792,12 +1940,12 @@ module ApplicationHelper
   def export_csv_encoding_select_tag
     return if l(:general_csv_encoding).casecmp('UTF-8') == 0
 
-    options = [l(:general_csv_encoding), 'UTF-8']
+    options = ['UTF-8', l(:general_csv_encoding)]
     content_tag(:p) do
       concat(
         content_tag(:label) do
-          concat l(:label_encoding) + ' '
-          concat select_tag('encoding', options_for_select(options, l(:general_csv_encoding)))
+          concat "#{l(:label_encoding)} "
+          concat select_tag('encoding', options_for_select(options, 'UTF-8'))
         end
       )
     end
@@ -1834,18 +1982,12 @@ module ApplicationHelper
     end
   end
 
-  def render_if_exist(options = {}, locals = {}, &block)
-    # Remove test_render_if_exist_should_be_render_partial and test_render_if_exist_should_be_render_nil
-    # along with this method in Redmine 7.0
-    ActiveSupport::Deprecation.warn 'ApplicationHelper#render_if_exist is deprecated and will be removed in Redmine 7.0.'
-
-    if options[:partial]
-      if lookup_context.exists?(options[:partial], lookup_context.prefixes, true)
-        render(options, locals, &block)
-      end
-    else
-      render(options, locals, &block)
-    end
+  def heads_for_i18n
+    javascript_tag(
+      "rm = window.rm || {};" \
+      "rm.I18n = rm.I18n || {};" \
+      "rm.I18n = Object.freeze({buttonCopy: '#{l(:button_copy)}', buttonDownload: '#{l(:button_download)}'});"
+    )
   end
 
   def heads_for_auto_complete(project)
@@ -1864,21 +2006,10 @@ module ApplicationHelper
   end
 
   def copy_object_url_link(url)
-    link_to_function(
-      l(:button_copy_link), 'copyTextToClipboard(this);',
-      class: 'icon icon-copy-link',
-      data: {'clipboard-text' => url}
-    )
-  end
-
-  # Returns the markdown formatter: markdown or common_mark
-  # ToDo: Remove this when markdown will be removed
-  def markdown_formatter
-    if Setting.text_formatting == "markdown"
-      "markdown"
-    else
-      "common_mark"
-    end
+    link_to sprite_icon('copy-link', l(:button_copy_link)),
+            '#',
+            class: 'icon icon-copy-link',
+            data: {clipboard_text: url, controller: 'clipboard', action: 'clipboard#copyText'}
   end
 
   private

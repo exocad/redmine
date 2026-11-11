@@ -56,7 +56,7 @@ module RepositoriesHelper
       case change.action
       when 'A'
         # Detects moved/copied files
-        if !change.from_path.blank?
+        if change.from_path.present?
           change.action =
             @changeset.filechanges.detect {|c| c.action == 'D' && c.path == change.from_path} ? 'R' : 'C'
         end
@@ -96,7 +96,7 @@ module RepositoriesHelper
       if s = tree[file][:s]
         style << ' folder'
         path_param = to_path_param(@repository.relative_path(file))
-        text = link_to(h(text), :controller => 'repositories',
+        text = link_to(sprite_icon("folder-open", h(text)), :controller => 'repositories',
                              :action => 'show',
                              :id => @project,
                              :repository_id => @repository.identifier_param,
@@ -108,7 +108,7 @@ module RepositoriesHelper
       elsif c = tree[file][:c]
         style << " change-#{c.action}"
         path_param = to_path_param(@repository.relative_path(c.path))
-        text = link_to(h(text), :controller => 'repositories',
+        text = link_to(scm_change_icon(c.action, h(text)), :controller => 'repositories',
                              :action => 'entry',
                              :id => @project,
                              :repository_id => @repository.identifier_param,
@@ -298,14 +298,27 @@ module RepositoriesHelper
       }
     end
     heads.sort_by!(&:to_s)
-    space = nil
+    # Process commits starting from the latest
+    space = index_head(0, commits.first, commits_by_scmid)
+    # Process commits from heads
     heads.each do |head|
-      if commits_by_scmid.include? head.scmid
-        space = index_head((space || -1) + 1, head, commits_by_scmid)
+      if commits_by_scmid.include?(head.scmid) && commits_by_scmid[head.scmid][:space].nil?
+        space = index_head(space + 1, head, commits_by_scmid)
       end
     end
-    # when no head matched anything use first commit
-    space ||= index_head(0, commits.first, commits_by_scmid)
+    # Process orphan commits
+    while (commit = commits.find { |commit| commits_by_scmid[commit.scmid][:space].nil? })
+      space = index_head(space + 1, commit, commits_by_scmid)
+    end
+    # Set vertical_children flag for commits that have children in the same column
+    # for S-style connections between commits
+    commits_by_scmid.each_value do |commit|
+      commit[:parent_scmids].each do |scmid|
+        if (parent = commits_by_scmid[scmid]) && parent[:space] == commit[:space]
+          parent[:vertical_children] = true
+        end
+      end
+    end
     return commits_by_scmid, space
   end
 

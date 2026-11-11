@@ -190,12 +190,18 @@ parent_issue_done_ratio:
   default: 'derived'
 link_copied_issue:
   default: 'ask'
+copy_attachments_on_issue_copy:
+  default: 'ask'
 close_duplicate_issues:
   default: 1
 issue_group_assignment:
   default: 0
+assignee_dropdown_display_format:
+  default: users_then_groups
 default_issue_start_date_to_creation_date:
-  default: 1
+  default: 0
+default_issue_due_date_offset:
+  default: ''
 notified_events:
   serialized: true
   default:
@@ -229,6 +235,16 @@ issue_list_default_columns:
 issue_list_default_totals:
   serialized: true
   default: []
+related_issues_default_columns:
+  serialized: true
+  default:
+  - status
+  - assigned_to
+  - start_date
+  - due_date
+  - done_ratio
+display_related_issues_table_headers:
+  default: 0
 display_subprojects_issues:
   default: 1
 time_entry_list_defaults:
@@ -256,6 +272,9 @@ default_project_query:
   default: ''
 issue_done_ratio:
   default: 'issue_field'
+issue_done_ratio_interval:
+  format: int
+  default: 10
 default_projects_public:
   default: 1
 default_projects_modules:
@@ -286,6 +305,11 @@ default_users_no_self_notified:
   default: 1
 default_users_time_zone:
   default: ""
+default_users_auto_watch_on:
+  serialized: true
+  default:
+  - issue_created
+  - issue_contributed_to
 # encodings used to convert files content to UTF-8
 # multiple values accepted, comma separated
 repositories_encodings:
@@ -300,20 +324,28 @@ repository_log_display_limit:
   default: 100
 ui_theme:
   default: ''
+favicon:
+  serialized: true
+  default: {}
 emails_footer:
   default: |-
     You have received this notification because you have either subscribed to it, or are involved in it.
     To change your notification preferences, please click here: http://hostname/my/account
+avatar_enabled:
+  default: 1
 gravatar_enabled:
   default: 0
 gravatar_default:
-  default: 'identicon'
+  default: ''
 start_of_week:
   default: ''
 rest_api_enabled:
   default: 0
   security_notifications: 1
 jsonp_enabled:
+  default: 0
+  security_notifications: 1
+webhooks_enabled:
   default: 0
   security_notifications: 1
 default_notification_option:
@@ -342,5 +374,11 @@ timelog_max_hours_per_day:
   default: 999
 timelog_accept_future_dates:
   default: 1
+timelog_accept_closed_issues:
+  default: 1
 show_status_changes_in_mail_subject:
+  default: 1
+wiki_tablesort_enabled:
+  default: 0
+reactions_enabled:
   default: 1

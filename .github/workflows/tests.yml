@@ -1,0 +1,103 @@
+name: Tests
+
+on:
+  push:
+
+jobs:
+  tests:
+    name: test ${{matrix.db}} ruby-${{ matrix.ruby }}
+    runs-on: ubuntu-26.04
+
+    strategy:
+      matrix:
+        ruby: ['3.3', '3.4', '4.0']
+        db: ['postgresql', 'mysql2', 'sqlite3']
+      fail-fast: false
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_DB: redmine_test
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: root
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: redmine_test
+          MYSQL_ROOT_PASSWORD: 'root'
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Redmine test environment
+        uses: ./.github/actions/setup-redmine
+        with:
+          db-type: ${{ matrix.db }}
+          ruby-version: ${{ matrix.ruby }}
+
+      - name: Run tests
+        run: |
+          bin/rails test
+
+      - name: Run bazaar non ascii test
+        env:
+          LANG: en_US.ISO8859-1
+          LC_ALL: en_US.ISO8859-1
+        run: |
+          bin/rails test test/unit/repository_bazaar_test.rb
+
+      - name: Run autoload test
+        run: |
+          bin/rails test:autoload
+
+  system-tests:
+    name: system test
+    runs-on: ubuntu-26.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Redmine test environment
+        uses: ./.github/actions/setup-redmine
+        with:
+          db-type: sqlite3
+          ruby-version: '4.0'
+
+      # System tests use Chrome and ChromeDriver installed on the GitHub Actions Ubuntu image.
+      # They are generally updated to the latest stable versions.
+      - name: Display Chrome version
+        run: google-chrome --version
+
+      - name: Install Mermaid.js for the mermaid rendering tests
+        run: bin/rails redmine:mermaid:install RAILS_ENV=test
+
+      - name: Run system tests
+        run: bin/rails test:system
+        env:
+          GOOGLE_CHROME_OPTS_ARGS: headless,disable-gpu,no-sandbox,disable-dev-shm-usage
+
+      - name: Upload system test screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: system-test-screenshots
+          path: tmp/screenshots
+          if-no-files-found: ignore

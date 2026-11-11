@@ -20,8 +20,6 @@
 require_relative '../test_helper'
 
 class PrincipalMembershipsControllerTest < Redmine::ControllerTest
-  fixtures :projects, :users, :members, :member_roles, :roles, :groups_users
-
   def setup
     @request.session[:user_id] = 1
   end
@@ -64,7 +62,7 @@ class PrincipalMembershipsControllerTest < Redmine::ControllerTest
       )
     end
     assert_redirected_to '/users/7/edit?tab=memberships'
-    member = Member.order('id DESC').first
+    member = Member.order(id: :desc).first
     assert_equal User.find(7), member.principal
     assert_equal [2], member.role_ids
     assert_equal 3, member.project_id
@@ -83,7 +81,7 @@ class PrincipalMembershipsControllerTest < Redmine::ControllerTest
         }
       )
     end
-    member = Member.order('id DESC').first
+    member = Member.order(id: :desc).first
     assert_equal User.find(7), member.principal
     assert_equal [2, 3], member.role_ids.sort
     assert_equal 3, member.project_id
@@ -102,7 +100,7 @@ class PrincipalMembershipsControllerTest < Redmine::ControllerTest
         }
       )
     end
-    members = Member.order('id DESC').limit(2).sort_by(&:project_id)
+    members = Member.order(id: :desc).limit(2).sort_by(&:project_id)
     assert_equal 1, members[0].project_id
     assert_equal 3, members[1].project_id
     members.each do |member|
@@ -128,7 +126,7 @@ class PrincipalMembershipsControllerTest < Redmine::ControllerTest
       assert_response :success
       assert_equal 'text/javascript', response.media_type
     end
-    member = Member.order('id DESC').first
+    member = Member.order(id: :desc).first
     assert_equal User.find(7), member.principal
     assert_equal [2], member.role_ids
     assert_equal 3, member.project_id

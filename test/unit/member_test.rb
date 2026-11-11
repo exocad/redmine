@@ -20,20 +20,6 @@
 require_relative '../test_helper'
 
 class MemberTest < ActiveSupport::TestCase
-  fixtures :projects, :trackers, :issue_statuses, :issues,
-           :enumerations, :users, :issue_categories,
-           :projects_trackers,
-           :roles,
-           :member_roles,
-           :members,
-           :enabled_modules,
-           :groups_users,
-           :watchers,
-           :journals, :journal_details,
-           :messages,
-           :wikis, :wiki_pages, :wiki_contents, :wiki_content_versions,
-           :boards
-
   include Redmine::I18n
 
   def setup
@@ -41,10 +27,69 @@ class MemberTest < ActiveSupport::TestCase
     @jsmith = Member.find(1)
   end
 
+  def test_visible_scope_should_only_include_memberships_in_projects_visible_to_the_user
+    # dlopper is a member of project 1 only and can not see the private project 5
+    user = User.find(3)
+    memberships = Member.visible(user).to_a
+
+    assert_include Member.find(1), memberships
+    assert_equal [], memberships.select {|m| m.project_id == 5}
+    assert memberships.all? {|m| m.project.visible?(user)}
+  end
+
+  def test_visible_scope_should_default_to_current_user
+    User.current = User.find(3)
+    assert_equal Member.visible(User.find(3)).to_a, Member.visible.to_a
+  end
+
+  def test_visible_scope_should_include_all_memberships_in_active_projects_for_admin
+    assert_equal Member.count, Member.visible(User.find(1)).count
+  end
+
+  def test_visible_scope_should_exclude_memberships_in_archived_projects
+    Project.find(1).update_column :status, Project::STATUS_ARCHIVED
+    assert_not_include Member.find(1), Member.visible(User.find(1)).to_a
+  end
+
   def test_sorted_scope_on_project_members
     members = Project.find(1).members.sorted.to_a
     roles = members.map {|m| m.roles.sort.first}
     assert_equal roles, roles.sort
+  end
+
+  def test_like_scope_should_match_users_and_groups
+    assert_equal [1], Project.find(1).memberships.like('Smith').ids
+    assert_equal [9], Project.find(2).memberships.like('B Team').ids
+  end
+
+  def test_like_scope_with_blank_value_should_return_all_the_members
+    project = Project.find(1)
+    assert_equal project.memberships.ids.sort, project.memberships.like('').ids.sort
+  end
+
+  def test_with_role_scope_should_return_the_members_having_the_role
+    assert_equal [2, 4], Project.find(1).memberships.with_role(2).ids.sort
+  end
+
+  def test_with_role_scope_should_return_the_members_having_the_role_inherited
+    # Member 7 has the role 1 inherited from the member 6
+    assert_include 7, Project.find(5).memberships.with_role(1).ids
+  end
+
+  def test_with_role_scope_with_blank_value_should_return_all_the_members
+    project = Project.find(1)
+    assert_equal project.memberships.ids.sort, project.memberships.with_role(nil).ids.sort
+  end
+
+  def test_status_scope_should_filter_by_status
+    assert_equal [1, 2], Project.find(1).memberships.status(User::STATUS_ACTIVE).ids.sort
+    assert_equal [4], Project.find(1).memberships.status(User::STATUS_LOCKED).ids.sort
+  end
+
+  def test_status_scope_with_all_or_blank_should_return_all_the_members
+    project = Project.find(1)
+    assert_equal project.memberships.ids.sort, project.memberships.status('all').ids.sort
+    assert_equal project.memberships.ids.sort, project.memberships.status(nil).ids.sort
   end
 
   def test_create
@@ -72,6 +117,39 @@ class MemberTest < ActiveSupport::TestCase
     assert_equal 2, @jsmith.reload.roles.size
   end
 
+  def test_update_roles_with_inherited_roles
+    User.current = User.find(1)
+
+    project = Project.find(1)
+    group_a = Group.generate!
+    group_b = Group.generate!
+    test_user = User.generate!
+    group_a.users << test_user
+    group_b.users << test_user
+
+    # Verify that inherited roles are correctly assigned
+    group_a_member = Member.new(project: project, user_id: group_a.id)
+    group_a_member.set_editable_role_ids([1]) # Add Manager role to Group A
+    group_b_member = Member.new(project: project, user_id: group_b.id)
+    group_b_member.set_editable_role_ids([1, 2]) # Add Manager and Developer roles to Group B
+    project.members << [group_a_member, group_b_member]
+    test_user_member = test_user.members.find_by(project_id: project.id)
+    assert_equal [ # [role_id, inherited_from]
+      [1, group_a_member.member_roles.find_by(role_id: 1).id],
+      [1, group_b_member.member_roles.find_by(role_id: 1).id],
+      [2, group_b_member.member_roles.find_by(role_id: 2).id],
+    ].sort, test_user_member.member_roles.map{|r| [r.role_id, r.inherited_from]}.sort
+
+    # Verify that a new non-inherited role is added and inherited roles are maintained
+    test_user_member.set_editable_role_ids([3]) # Add Reporter role to test_user
+    assert_equal [ # [role_id, inherited_from]
+      [1, group_a_member.member_roles.find_by(role_id: 1).id],
+      [1, group_b_member.member_roles.find_by(role_id: 1).id],
+      [2, group_b_member.member_roles.find_by(role_id: 2).id],
+      [3, nil]
+    ].sort, test_user_member.member_roles.map{|r| [r.role_id, r.inherited_from]}.sort
+  end
+
   def test_validate
     member = Member.new(:project_id => 1, :user_id => 2, :role_ids => [2])
     # same use cannot have more than one membership for a project
@@ -89,7 +167,7 @@ class MemberTest < ActiveSupport::TestCase
     assert !member.save
     assert_include I18n.translate('activerecord.errors.messages.empty'), member.errors[:role]
     assert_equal 'Rôle doit être renseigné(e)',
-                 [member.errors.full_messages].flatten.join
+                 [member.errors.full_messages].join
   end
 
   def test_validate_member_role

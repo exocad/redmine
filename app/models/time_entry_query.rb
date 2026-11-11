@@ -25,6 +25,7 @@ class TimeEntryQuery < Query
     QueryColumn.new(:project, :sortable => "#{Project.table_name}.name", :groupable => true),
     QueryColumn.new(:spent_on, :sortable => ["#{TimeEntry.table_name}.spent_on", "#{TimeEntry.table_name}.created_on"], :default_order => 'desc', :groupable => true),
     TimestampQueryColumn.new(:created_on, :sortable => "#{TimeEntry.table_name}.created_on", :default_order => 'desc', :groupable => true),
+    TimestampQueryColumn.new(:updated_on, :sortable => "#{TimeEntry.table_name}.updated_on", :default_order => 'desc', :groupable => true),
     QueryColumn.new(:tweek, :sortable => ["#{TimeEntry.table_name}.tyear", "#{TimeEntry.table_name}.tweek"], :caption => :label_week),
     QueryColumn.new(:author, :sortable => lambda {User.fields_for_order_statement}),
     QueryColumn.new(:user, :sortable => lambda {User.fields_for_order_statement}, :groupable => true),
@@ -92,6 +93,18 @@ class TimeEntryQuery < Query
       :type => :list_optional, :values => lambda {author_values}
     )
     add_available_filter(
+      "user.group",
+      :type => :list_optional,
+      :name => l("label_attribute_of_user", :name => l(:label_group)),
+      :values => lambda {Group.givable.visible.pluck(:name, :id).map {|name, id| [name, id.to_s]}}
+    )
+    add_available_filter(
+      "user.role",
+      :type => :list_optional,
+      :name => l("label_attribute_of_user", :name => l(:field_role)),
+      :values => lambda {Role.givable.pluck(:name, :id).map {|name, id| [name, id.to_s]}}
+    )
+    add_available_filter(
       "author_id",
       :type => :list_optional, :values => lambda {author_values}
     )
@@ -108,7 +121,7 @@ class TimeEntryQuery < Query
     ) if project.nil? || !project.leaf?
 
     add_available_filter "comments", :type => :text
-    add_available_filter "hours", :type => :float
+    add_available_filter "hours", :type => :hour
 
     add_custom_fields_filters(time_entry_custom_fields)
     add_associations_custom_fields_filters :project
@@ -152,12 +165,19 @@ class TimeEntryQuery < Query
   end
 
   def base_scope
-    TimeEntry.visible.
-      joins(:project, :user).
-      includes(:activity).
-      references(:activity).
-      left_join_issue.
-      where(statement)
+    scope = TimeEntry.visible
+                     .joins(:project, :user)
+                     .includes(:activity)
+                     .references(:activity)
+                     .left_join_issue
+                     .where(statement)
+
+    if Redmine::Database.mysql? && ActiveRecord::Base.connection.supports_optimizer_hints?
+      # Provides MySQL with a hint to use a better join order and avoid slow response times
+      scope.optimizer_hints('JOIN_ORDER(time_entries, projects, users)')
+    else
+      scope
+    end
   end
 
   def results_scope(options={})
@@ -234,6 +254,10 @@ class TimeEntryQuery < Query
     end
   end
 
+  def sql_for_hours_field(field, operator, value)
+    sql_for_field("hours", operator, value.map(&:to_hours), TimeEntry.table_name, "hours")
+  end
+
   def sql_for_activity_id_field(field, operator, value)
     ids = value.map(&:to_i).join(',')
     table_name = Enumeration.table_name
@@ -262,6 +286,53 @@ class TimeEntryQuery < Query
 
   def sql_for_project_status_field(field, operator, value, options={})
     sql_for_field(field, operator, value, Project.table_name, "status")
+  end
+
+  def sql_for_user_group_field(field, operator, value)
+    if operator == '*' # Any group
+      groups = Group.givable
+      operator = '='
+    elsif operator == '!*'
+      groups = Group.givable
+      operator = '!'
+    else
+      groups = Group.where(:id => value).to_a
+    end
+    groups ||= []
+
+    members_of_groups = groups.inject([]) do |user_ids, group|
+      user_ids + group.user_ids
+    end.uniq.compact.sort.collect(&:to_s)
+
+    '(' + sql_for_field('user_id', operator, members_of_groups, TimeEntry.table_name, "user_id", false) + ')'
+  end
+
+  def sql_for_user_role_field(field, operator, value)
+    case operator
+    when "*", "!*"
+      sw = operator == "!*" ? "NOT" : ""
+      nl = operator == "!*" ? "#{TimeEntry.table_name}.user_id IS NULL OR" : ""
+
+      subquery =
+        "SELECT 1" +
+        " FROM #{Member.table_name}" +
+        " WHERE #{TimeEntry.table_name}.project_id = #{Member.table_name}.project_id AND #{Member.table_name}.user_id = #{TimeEntry.table_name}.user_id"
+      "(#{nl} #{sw} EXISTS (#{subquery}))"
+    when "=", "!"
+      role_cond =
+        if value.any?
+          "#{MemberRole.table_name}.role_id IN (" + value.collect{|val| "'#{self.class.connection.quote_string(val)}'"}.join(",") + ")"
+        else
+          "1=0"
+        end
+      sw = operator == "!" ? 'NOT' : ''
+      nl = operator == "!" ? "#{TimeEntry.table_name}.user_id IS NULL OR" : ''
+      subquery =
+        "SELECT 1" +
+        " FROM #{Member.table_name} inner join #{MemberRole.table_name} on members.id = member_roles.member_id" +
+        " WHERE #{TimeEntry.table_name}.project_id = #{Member.table_name}.project_id AND #{Member.table_name}.user_id = #{TimeEntry.table_name}.user_id AND #{role_cond}"
+      "(#{nl} #{sw} EXISTS (#{subquery}))"
+    end
   end
 
   # Accepts :from/:to params as shortcut filters

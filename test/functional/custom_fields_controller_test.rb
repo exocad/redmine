@@ -20,19 +20,6 @@
 require_relative '../test_helper'
 
 class CustomFieldsControllerTest < Redmine::ControllerTest
-  fixtures :custom_fields, :custom_values,
-           :custom_fields_projects, :custom_fields_trackers,
-           :roles, :users,
-           :members, :member_roles,
-           :groups_users,
-           :trackers, :projects_trackers,
-           :enabled_modules,
-           :projects, :issues,
-           :issue_statuses,
-           :issue_categories,
-           :enumerations,
-           :workflows
-
   def setup
     @request.session[:user_id] = 1
   end
@@ -295,6 +282,23 @@ class CustomFieldsControllerTest < Redmine::ControllerTest
     assert_select '[name=?]', 'custom_field[full_width_layout]', 0
   end
 
+  def test_setting_ratio_interval_should_be_present_only_for_progressbar_format
+    get(
+      :new,
+      :params => {
+        :type => 'IssueCustomField',
+          :custom_field => {
+            :field_format => 'progressbar'
+          }
+      }
+    )
+    assert_response :success
+    assert_select '[name=?]', 'custom_field[ratio_interval]' do
+      assert_select 'option[value=?]', '5'
+      assert_select 'option[value=?][selected=?]', '10', 'selected'
+    end
+  end
+
   def test_new_js
     get(
       :new,
@@ -445,10 +449,29 @@ class CustomFieldsControllerTest < Redmine::ControllerTest
           }
         }
       )
-      assert_response 302
+      assert_response :found
     end
-    field = IssueCustomField.order("id desc").first
+    field = IssueCustomField.order(id: :desc).first
     assert_equal [1, 3], field.projects.map(&:id).sort
+  end
+
+  def test_create_user_custom_field
+    assert_difference 'CustomField.count' do
+      post(
+        :create,
+        :params => {
+          :type => "IssueCustomField",
+          :custom_field => {
+            :name => "foo",
+            :field_format => "user",
+            :possible_principals => "user_group"
+          }
+        }
+      )
+      assert_response :found
+    end
+    field = IssueCustomField.order(id: :desc).first
+    assert_equal 'user_group', field.possible_principals
   end
 
   def test_create_with_continue_params
@@ -514,9 +537,9 @@ class CustomFieldsControllerTest < Redmine::ControllerTest
           :custom_field => {:name => 'Copy'}
         }
       )
-      assert_response 302
+      assert_response :found
     end
-    field = IssueCustomField.order('id desc').first
+    field = IssueCustomField.order(id: :desc).first
     assert_equal 'Copy', field.name
     assert_equal ['enumeration1', 'enumeration2'], field.enumerations.pluck(:name).sort
     assert_equal [1, 2], field.enumerations.pluck(:position).sort
@@ -540,7 +563,7 @@ class CustomFieldsControllerTest < Redmine::ControllerTest
         :id => 99
       }
     )
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_update

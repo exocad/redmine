@@ -1,0 +1,189 @@
+# frozen_string_literal: true
+
+# Redmine - project management software
+# Copyright (C) 2006-  Jean-Philippe Lang
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+require_relative '../application_system_test_case'
+
+class MermaidRenderingTest < ApplicationSystemTestCase
+  fixtures :projects, :trackers, :issue_statuses, :issues,
+           :enumerations, :users, :issue_categories,
+           :projects_trackers, :roles, :member_roles, :members,
+           :enabled_modules, :workflows, :journals, :journal_details
+
+  def test_should_not_load_mermaid_js_on_pages_without_mermaid_blocks
+    skip unless mermaid_installed?
+
+    issue = Issue.find(1)
+    issue.update_column(:description, "Unable to print recipes")
+
+    log_user('jsmith', 'jsmith')
+    visit "/issues/#{issue.id}"
+
+    # Mermaid.js is several MB; it must stay unloaded unless a Mermaid code
+    # block is actually present, even though its URL is always exposed.
+    assert_equal 'undefined', page.evaluate_script('typeof mermaid')
+    assert page.evaluate_script('!!window.MermaidAssetUrl')
+  end
+
+  def test_should_render_mermaid_code_block_as_diagram
+    skip unless mermaid_installed?
+
+    issue = Issue.find(1)
+    issue.update_column(:description, "```mermaid\ngraph TD;\nA-->B;\n```")
+
+    log_user('jsmith', 'jsmith')
+    visit "/issues/#{issue.id}"
+
+    within('div.description') do
+      assert_selector 'code[data-controller=mermaid]', visible: :all
+      assert_selector 'div.mermaid svg'
+      assert_no_selector 'svg .error-icon'
+    end
+  end
+
+  def test_should_render_multiple_mermaid_diagrams_with_unique_ids
+    skip unless mermaid_installed?
+
+    issue = Issue.find(1)
+    issue.update_column(
+      :description,
+      [
+        "graph TD;\nA-->B;", "graph TD;\nC-->D;",
+        "sequenceDiagram\nAlice->>Bob: Hi", "sequenceDiagram\nBob->>Alice: Hello",
+        "pie\n\"X\" : 1\n\"Y\" : 2", "classDiagram\nclass Foo"
+      ].map {|source| "```mermaid\n#{source}\n```"}.join("\n\n")
+    )
+
+    log_user('jsmith', 'jsmith')
+    visit "/issues/#{issue.id}"
+
+    within('div.description') do
+      assert_selector 'div.mermaid svg', count: 6
+    end
+    ids = page.evaluate_script("Array.from(document.querySelectorAll('div.mermaid svg')).map(svg => svg.id)")
+    assert_equal ids.uniq, ids
+  end
+
+  def test_should_render_indented_mermaid_code_block_with_front_matter
+    skip unless mermaid_installed?
+
+    issue = Issue.find(1)
+    issue.update_column(:description, "```mermaid\n  ---\n  title: Foo\n  ---\n  graph TD;\n  A-->B;\n```")
+
+    log_user('jsmith', 'jsmith')
+    visit "/issues/#{issue.id}"
+
+    within('div.description') do
+      assert_selector 'div.mermaid svg', text: 'Foo'
+    end
+  end
+
+  def test_should_show_flash_message_for_invalid_mermaid_diagram
+    skip unless mermaid_installed?
+
+    issue = Issue.find(1)
+    issue.update_column(:description, "```mermaid\nthis is not a valid mermaid diagram(((\n```")
+
+    log_user('jsmith', 'jsmith')
+    visit "/issues/#{issue.id}"
+
+    within('div.description') do
+      assert_selector '.flash.error', text: 'Failed to render mermaid diagram'
+      assert_selector 'pre'
+      assert_no_selector 'div.mermaid svg'
+      assert_no_selector 'a.mermaid-download-link', visible: :all
+    end
+  end
+
+  def test_should_download_mermaid_diagram_as_png
+    skip unless mermaid_installed?
+
+    issue = Issue.find(1)
+    issue.update_column(:description, "```mermaid\ngraph TD;\nA-->B;\n```")
+
+    log_user('jsmith', 'jsmith')
+    visit "/issues/#{issue.id}"
+
+    within('div.description') do
+      find('div.mermaid svg').hover
+      find('a.mermaid-download-link').click
+    end
+
+    png_signature = "\x89PNG\r\n\x1A\n".b
+    assert_equal png_signature, File.binread(downloaded_file('mermaid-flowchart@2x.png'))[0, 8]
+  end
+
+  def test_should_render_mermaid_in_description_preview
+    skip unless mermaid_installed?
+
+    log_user('jsmith', 'jsmith')
+    visit '/projects/ecookbook/issues/new'
+    within('form#issue-form') do
+      fill_in 'Subject', :with => 'mermaid preview test'
+      fill_in 'Description', :with => "```mermaid\ngraph TD;\nA-->B;\n```"
+      click_link 'Preview'
+
+      within('div.wiki-preview') do
+        assert_selector 'div.mermaid svg'
+      end
+    end
+  end
+
+  def test_should_show_mermaid_source_when_mermaid_js_fails_to_load
+    skip unless mermaid_installed?
+
+    log_user('jsmith', 'jsmith')
+    visit '/projects/ecookbook/issues/new'
+    # The source of Mermaid code blocks is hidden until rendered; it must be
+    # shown again if Mermaid.js cannot be loaded.
+    page.execute_script("window.MermaidAssetUrl = '/nonexistent-mermaid.js';")
+    within('form#issue-form') do
+      fill_in 'Subject', :with => 'mermaid load failure test'
+      fill_in 'Description', :with => "```mermaid\ngraph TD;\nA-->B;\n```"
+      click_link 'Preview'
+
+      within('div.wiki-preview') do
+        assert_selector 'pre.mermaid-failed', text: 'graph TD;'
+        assert_no_selector 'div.mermaid'
+      end
+    end
+  end
+
+  def test_should_not_execute_script_from_malicious_mermaid_syntax
+    skip unless mermaid_installed?
+
+    issue = Issue.find(1)
+    issue.update_column(
+      :description,
+      "```mermaid\ngraph TD;\nA[\"<img src=x onerror=alert(1)>\"]-->B;\nclick A call alert(2)\n```"
+    )
+
+    log_user('jsmith', 'jsmith')
+    visit "/issues/#{issue.id}"
+    assert_selector 'div.mermaid svg'
+
+    # Any inline event handler that slipped through would fire on render;
+    # if it did, alert() would block the driver instead of reaching here.
+    assert_nil page.evaluate_script("document.querySelector('div.mermaid img')?.getAttribute('onerror')")
+    assert_not page.evaluate_script("!!document.querySelector('div.mermaid script')")
+
+    page.execute_script('window.__alertCalled = 0; window.alert = function(){ window.__alertCalled++; };')
+    find('div.mermaid svg .node', match: :first).click
+    assert_equal 0, page.evaluate_script('window.__alertCalled')
+  end
+end

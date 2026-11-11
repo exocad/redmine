@@ -72,7 +72,7 @@ module Redmine
           @formatter = formatter
         end
 
-        def stream(tokens, &b)
+        def stream(tokens, &)
           token_lines(tokens) do |line|
             line.each do |tok, val|
               yield @formatter.span(tok, val)
@@ -125,6 +125,7 @@ module Redmine
           'java_script' => 'javascript',
           'xhtml' => 'html'
         }
+        private_constant :LANG_ALIASES
 
         def find_lexer(language)
           ::Rouge::Lexer.find(language) ||

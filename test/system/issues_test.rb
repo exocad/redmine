@@ -20,13 +20,6 @@
 require_relative '../application_system_test_case'
 
 class IssuesSystemTest < ApplicationSystemTestCase
-  fixtures :projects, :users, :email_addresses, :roles, :members, :member_roles,
-           :trackers, :projects_trackers, :enabled_modules,
-           :issue_statuses, :issues, :issue_categories,
-           :enumerations, :custom_fields, :custom_values, :custom_fields_trackers,
-           :watchers, :journals, :journal_details, :versions,
-           :workflows
-
   def test_create_issue
     log_user('jsmith', 'jsmith')
     visit '/projects/ecookbook/issues/new'
@@ -40,6 +33,8 @@ class IssuesSystemTest < ApplicationSystemTestCase
       # click_button 'Create' would match both 'Create' and 'Create and continue' buttons
       find('input[name=commit]').click
     end
+
+    assert_text /Issue #\d+ created./
 
     # find created issue
     issue = Issue.find_by_subject("new test issue")
@@ -93,9 +88,10 @@ class IssuesSystemTest < ApplicationSystemTestCase
     fill_in field2.name, :with => 'CF2 value'
     assert_difference 'Issue.count' do
       page.first(:button, 'Create').click
+      assert_text /Issue #\d+ created./
     end
 
-    issue = Issue.order('id desc').first
+    issue = Issue.order(id: :desc).first
     assert_equal 'New test issue', issue.subject
     assert_equal 'New test issue description', issue.description
     assert_equal 'Low', issue.priority.name
@@ -132,9 +128,10 @@ class IssuesSystemTest < ApplicationSystemTestCase
     end
     assert_difference 'Issue.count' do
       find('input[name=commit]').click
+      assert_text /Issue #\d+ created./
     end
 
-    issue = Issue.order('id desc').first
+    issue = Issue.order(id: :desc).first
     assert_equal ['Dave Lopper', 'Some Watcher'], issue.watcher_users.map(&:name).sort
   end
 
@@ -148,6 +145,7 @@ class IssuesSystemTest < ApplicationSystemTestCase
       attach_file 'attachments[dummy][file]', Rails.root.join('test/fixtures/files/testfile.txt')
       fill_in 'attachments[1][description]', :with => 'Some description'
       click_on 'Create'
+      assert_text /Issue #\d+ created./
     end
     assert_equal 1, issue.attachments.count
     assert_equal 'Some description', issue.attachments.first.description
@@ -170,9 +168,74 @@ class IssuesSystemTest < ApplicationSystemTestCase
       attach_file 'attachments[dummy][file]', Rails.root.join('test/fixtures/files/testfile.txt')
       fill_in 'attachments[1][description]', :with => 'Some description'
       click_on 'Create'
+      assert_text /Issue #\d+ created./
     end
     assert_equal 1, issue.attachments.count
     assert_equal 'Some description', issue.attachments.first.description
+  end
+
+  def test_attachment_form_should_respect_max_attachments_at_once
+    set_tmp_attachments_directory
+    log_user('jsmith', 'jsmith')
+
+    Redmine::Configuration.with('max_attachments_at_once' => 3) do
+      visit '/projects/ecookbook/issues/new'
+    end
+    files = %w(testfile.txt hello.pdf japanese-utf-8.txt iso8859-1.txt).map do |name|
+      Rails.root.join('test/fixtures/files', name)
+    end
+    accept_alert(/maximum number of files that can be attached simultaneously \(3\)/) do
+      attach_file 'attachments[dummy][file]', files
+    end
+    assert_selector '.attachments_fields > span', :count => 3
+    assert_no_selector '.add_attachment', :visible => true
+  end
+
+  def test_paste_image_from_clipboard
+    set_tmp_attachments_directory
+    log_user('jsmith', 'jsmith')
+    visit '/projects/ecookbook/issues/new'
+
+    page.execute_script(<<~JS)
+      // The display width of a pasted image is its width divided by devicePixelRatio
+      Object.defineProperty(window, 'devicePixelRatio', { value: 1 });
+      // 1x1 1-bit grayscale PNG image
+      const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR42mNgAAAAAgAB5Sfe/AAAAABJRU5ErkJggg=='), c => c.charCodeAt(0));
+      const clipboardData = new DataTransfer();
+      clipboardData.items.add(new File([png], 'image.png', { type: 'image/png' }));
+      const event = new Event('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'clipboardData', { value: clipboardData });
+      document.getElementById('issue_description').dispatchEvent(event);
+    JS
+    filename = find('.attachments_fields input.filename').value
+    assert_match /\Aclipboard-\d{14}-[a-z0-9]{5}\.png\z/, filename
+    assert_field 'issue_description', :with => %(<img style="width: 1px;" src="#{filename}"><br>\n)
+  end
+
+  def test_pasting_image_beyond_max_attachments_at_once_should_show_error
+    set_tmp_attachments_directory
+    log_user('jsmith', 'jsmith')
+
+    Redmine::Configuration.with('max_attachments_at_once' => 2) do
+      visit '/projects/ecookbook/issues/new'
+    end
+    paste_image = lambda do
+      page.execute_script(<<~JS)
+        // 1x1 1-bit grayscale PNG image
+        const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR42mNgAAAAAgAB5Sfe/AAAAABJRU5ErkJggg=='), c => c.charCodeAt(0));
+        const clipboardData = new DataTransfer();
+        clipboardData.items.add(new File([png], 'image.png', { type: 'image/png' }));
+        const event = new Event('paste', { bubbles: true, cancelable: true });
+        Object.defineProperty(event, 'clipboardData', { value: clipboardData });
+        document.getElementById('issue_description').dispatchEvent(event);
+      JS
+    end
+    2.times { paste_image.call }
+    assert_selector '.attachments_fields > span', :count => 2
+    accept_alert(/maximum number of files that can be attached simultaneously \(2\)/) do
+      paste_image.call
+    end
+    assert_selector '.attachments_fields > span', :count => 2
   end
 
   def test_create_issue_with_new_target_version
@@ -188,10 +251,11 @@ class IssuesSystemTest < ApplicationSystemTestCase
           click_on 'Create'
         end
         click_on 'Create'
+        assert_text /Issue #\d+ created./
       end
     end
 
-    issue = Issue.order('id desc').first
+    issue = Issue.order(id: :desc).first
     assert_not_nil issue.fixed_version
     assert_equal '4.0', issue.fixed_version.name
   end
@@ -207,9 +271,10 @@ class IssuesSystemTest < ApplicationSystemTestCase
     end
     assert_difference 'Issue.count' do
       click_button('Create')
+      assert_text /Issue #\d+ created./
     end
 
-    issue = Issue.order('id desc').first
+    issue = Issue.order(id: :desc).first
     assert_equal 'new issue description', issue.description
   end
 
@@ -237,6 +302,7 @@ class IssuesSystemTest < ApplicationSystemTestCase
     fill_in 'Form update CF', :with => 'CF value'
     assert_no_difference 'Issue.count' do
       page.first(:button, 'Submit').click
+      assert_text 'Successful update.'
     end
     assert page.has_css?('#flash_notice')
     issue = Issue.find(1)
@@ -252,6 +318,7 @@ class IssuesSystemTest < ApplicationSystemTestCase
     page.find("#issue_status_id").select("Closed")
     assert_no_difference 'Issue.count' do
       page.first(:button, 'Submit').click
+      assert_text 'Successful update.'
     end
     assert page.has_css?('#flash_notice')
     assert_equal 5, issue.reload.status.id
@@ -274,7 +341,8 @@ class IssuesSystemTest < ApplicationSystemTestCase
 
     click_on 'Submit'
 
-    assert_equal 1, Issue.find(2).attachments.count
+    assert_text 'Successful update.'
+    assert_equal 3, Issue.find(2).attachments.count
   end
 
   test "removing issue shows confirm dialog" do
@@ -284,6 +352,7 @@ class IssuesSystemTest < ApplicationSystemTestCase
       first('#content span.icon-actions').click
       first('#content a.icon-del').click
     end
+    assert_selector 'h2', text: 'Confirmation'
   end
 
   def test_remove_issue_watcher_from_sidebar
@@ -487,7 +556,7 @@ class IssuesSystemTest < ApplicationSystemTestCase
       assert_current_path '/issues', :ignore_query => true
     end
 
-    copies = Issue.order('id DESC').limit(2)
+    copies = Issue.order(id: :desc).limit(2)
     assert_equal 4, copies[0].priority.id
     assert_equal 4, copies[1].priority.id
 
@@ -504,8 +573,9 @@ class IssuesSystemTest < ApplicationSystemTestCase
     assert_equal 'Copy', submit_buttons[0].value
 
     page.find('#issue_project_id').select('OnlineStore')
-    # wait for ajax response
-    assert page.has_select?('issue_project_id', selected: 'OnlineStore')
+    # Verify that the target version field has been rewritten by the OnlineStore project settings
+    # and wait for the project change to complete.
+    assert_select 'issue_fixed_version_id', options: ['(No change)', 'none', 'Alpha', 'Systemwide visible version']
 
     assert_selector 'input[type=submit]', count: 2
     submit_buttons = page.all('input[type=submit]')
@@ -520,7 +590,7 @@ class IssuesSystemTest < ApplicationSystemTestCase
       assert_current_path '/projects/onlinestore/issues', :ignore_query => true
     end
 
-    copies = Issue.order('id DESC').limit(2)
+    copies = Issue.order(id: :desc).limit(2)
     assert_equal 2, copies[0].project.id
     assert_equal 6, copies[0].priority.id
     assert_equal 2, copies[1].project.id
@@ -542,8 +612,8 @@ class IssuesSystemTest < ApplicationSystemTestCase
         click_link 'Apply'
       end
       # Check that Totals are not present in the reloaded page
-      assert !page.has_css?('p.query-totals')
-      assert !page.has_css?('span.total-for-estimated-hours')
+      assert page.has_no_css?('p.query-totals')
+      assert page.has_no_css?('span.total-for-estimated-hours')
     end
   end
 
@@ -597,7 +667,7 @@ class IssuesSystemTest < ApplicationSystemTestCase
       click_link('Feature')
     end
 
-    assert !page.has_css?('#trackers_description')
+    assert page.has_no_css?('#trackers_description')
     assert_equal "2", page.find('select#issue_tracker_id').value
   end
 
@@ -667,5 +737,57 @@ class IssuesSystemTest < ApplicationSystemTestCase
 
     # assert add notes form does not exist anymore for user without required permissions on the new project
     assert page.has_no_css?('#add_notes')
+  end
+
+  def test_attachment_note_link_should_show_history_tab_if_note_is_hidden
+    # Journal 3 added attachment 4 to issue 2. Without notes, it is hidden in the notes tab
+    Journal.find(3).update_column(:notes, '')
+    Journal.create!(:journalized => Issue.find(2), :user_id => 2, :notes => 'A note')
+
+    log_user('jsmith', 'jsmith')
+    visit '/issues/2?tab=notes'
+
+    assert_selector '#tab-notes.selected'
+    assert_no_selector '#note-1'
+
+    find('div.attachments span.attachment-journal a').click
+
+    assert_selector '#tab-history.selected'
+    assert_selector '#note-1'
+  end
+
+  def test_preview_custom_field_on_bulk_edit_across_projects
+    field = IssueCustomField.create!(
+      :field_format => 'text',
+      :name => 'Long text with formatting',
+      :is_for_all => true,
+      :text_formatting => 'full',
+      :full_width_layout => '1',
+      :trackers => Tracker.all
+    )
+
+    log_user('admin', 'admin')
+
+    visit '/issues'
+    issue1 = Issue.find(1)
+    issue4 = Issue.find(4)
+    assert_not_equal issue1.project_id, issue4.project_id
+
+    find('tr#issue-1 input[type=checkbox]').click
+    find('tr#issue-4 input[type=checkbox]').click
+    find('tr#issue-1 td.updated_on').right_click
+    within('#context-menu') do
+      click_link 'Bulk edit'
+    end
+
+    assert_current_path '/issues/bulk_edit', :ignore_query => true
+
+    fill_in "issue_custom_field_values_#{field.id}", :with => 'Previewing **custom field** text'
+    first(:link, 'Preview').click
+
+    within("div#preview_issue_custom_field_values_#{field.id}") do
+      assert page.has_css?('strong', text: 'custom field')
+      assert page.has_content?('Previewing custom field text')
+    end
   end
 end

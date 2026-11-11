@@ -18,7 +18,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 module AttachmentsHelper
-
   def container_attachments_edit_path(container)
     object_attachments_edit_path container.class.name.underscore.pluralize, container.id
   end
@@ -35,8 +34,10 @@ module AttachmentsHelper
   # Options:
   #   :author -- author names are not displayed if set to false
   #   :thumbails -- display thumbnails if enabled in settings
+  #   :journals -- hash of journals keyed by attachment id, used to display
+  #                a link to the journal that added each attachment
   def link_to_attachments(container, options = {})
-    options.assert_valid_keys(:author, :thumbnails)
+    options.assert_valid_keys(:author, :thumbnails, :journals)
     attachments =
       if container.attachments.loaded?
         container.attachments
@@ -67,10 +68,9 @@ module AttachmentsHelper
     end if @paginator
   end
 
-  def render_api_attachment(attachment, api, options={})
+  def render_api_attachment(attachment, api, _options={})
     api.attachment do
       render_api_attachment_attributes(attachment, api)
-      options.each_key {|key| eval("api.#{key} value")}
     end
   end
 
@@ -90,9 +90,27 @@ module AttachmentsHelper
     api.created_on attachment.created_on
   end
 
+  # Returns a span tag that contains the name of the content type of the
+  # attachment, or nil if the content type is blank.
+  #
+  # When a friendly name such as "OpenDocument Text" is displayed, the
+  # MIME type is set as the title attribute.
+  def attachment_content_type_tag(attachment)
+    content_type = attachment.content_type
+    return if content_type.blank?
+
+    friendly_name = Redmine::MimeType.friendly_name_for(content_type)
+    content_tag(
+      :span,
+      friendly_name || content_type,
+      :class => 'content-type',
+      :title => (content_type if friendly_name)
+    )
+  end
+
   def render_file_content(attachment, content)
     if attachment.is_markdown?
-      render :partial => 'common/markup', :locals => {:markup_text_formatting => markdown_formatter, :markup_text => content}
+      render :partial => 'common/markup', :locals => {:markup_text_formatting => 'common_mark', :markup_text => content}
     elsif attachment.is_textile?
       render :partial => 'common/markup', :locals => {:markup_text_formatting => 'textile', :markup_text => content}
     else

@@ -17,60 +17,83 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-require 'html/pipeline'
-require 'task_list/filter'
-
 module Redmine
   module WikiFormatting
     module CommonMark
       # configuration of the rendering pipeline
       PIPELINE_CONFIG = {
         # https://github.com/gjtorikian/commonmarker#extension-options
-        commonmarker_extensions: [
-          :table,
-          :strikethrough,
-          :tagfilter,
-          :autolink
-        ].freeze,
+        commonmarker_extensions: {
+          table: true,
+          strikethrough: true,
+          autolink: true,
+          footnotes: true,
+          header_ids: nil,
+          tasklist: true,
+          shortcodes: false,
+          alerts: true,
+          cjk_friendly_emphasis: true,
+        }.freeze,
 
         # https://github.com/gjtorikian/commonmarker#parse-options
-        commonmarker_parse_options: [
-          :FOOTNOTES,
-          :STRIKETHROUGH_DOUBLE_TILDE,
-          :UNSAFE,
-          :VALIDATE_UTF8
-        ].freeze,
+        commonmarker_parse_options: {
+        }.freeze,
 
         # https://github.com/gjtorikian/commonmarker#render-options
-        commonmarker_render_options: [
-          :UNSAFE
-        ],
+        commonmarker_render_options: {
+          unsafe: true,
+          github_pre_lang: false,
+          hardbreaks: Redmine::Configuration['common_mark_enable_hardbreaks'] == true,
+          tasklist_classes: true,
+        }.freeze,
+        commonmarker_plugins: {
+          syntax_highlighter: nil
+        }.freeze,
       }.freeze
 
-      if Redmine::Configuration['common_mark_enable_hardbreaks'] == true
-        PIPELINE_CONFIG[:commonmarker_render_options].push(:HARDBREAKS)
-      end
-      PIPELINE_CONFIG[:commonmarker_render_options].freeze
-
-      MarkdownPipeline = HTML::Pipeline.new [
-        MarkdownFilter,
-        SanitizationFilter,
-        SyntaxHighlightFilter,
-        FixupAutoLinksFilter,
-        ExternalLinksFilter,
-        TaskList::Filter
-      ], PIPELINE_CONFIG
+      SANITIZER = SanitizationFilter.new
+      SCRUBBERS = [
+        Redmine::WikiFormatting::CopypreScrubber.new,
+        SyntaxHighlightScrubber.new,
+        Redmine::WikiFormatting::TablesortScrubber.new,
+        FixupAutoLinksScrubber.new,
+        ExternalLinksScrubber.new,
+        AlertsIconsScrubber.new
+      ]
 
       class Formatter
         include Redmine::WikiFormatting::SectionHelper
 
-        def initialize(text)
+        def initialize(text, options = {})
           @text = text
+          @options = options
         end
 
         def to_html(*args)
-          result = MarkdownPipeline.call @text
-          result[:output].to_s
+          html = MarkdownFilter.new(@text, PIPELINE_CONFIG).call
+          fragment = Redmine::WikiFormatting::HtmlParser.parse(html)
+          SANITIZER.call(fragment)
+
+          scrubbers = SCRUBBERS + post_processor_scrubbers
+          scrubber = Loofah::Scrubber.new do |node|
+            scrubbers.each do |s|
+              result = s.scrub(node)
+              break result if result == Loofah::Scrubber::STOP
+              break if node.parent.nil?
+            end
+          end
+
+          fragment.scrub!(scrubber)
+          fragment.to_s
+        end
+
+        private
+
+        def post_processor_scrubbers
+          [
+            Redmine::WikiFormatting::InlineAttachmentsScrubber.new(@options),
+            Redmine::WikiFormatting::HiresImagesScrubber.new
+          ]
         end
       end
     end

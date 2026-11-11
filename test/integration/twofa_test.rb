@@ -20,8 +20,6 @@
 require_relative '../test_helper'
 
 class TwofaTest < Redmine::IntegrationTest
-  fixtures :projects, :users, :email_addresses
-
   test "should require twofa setup when configured" do
     with_settings twofa: "2" do
       assert Setting.twofa_required?
@@ -90,6 +88,37 @@ class TwofaTest < Redmine::IntegrationTest
     end
   end
 
+  test 'should allow lost password even if twofa setup is required' do
+    with_settings twofa: '2' do
+      log_user('jsmith', 'jsmith')
+      follow_redirect!
+      assert_redirected_to '/my/twofa/totp/activate/confirm'
+
+      get '/account/lost_password'
+      assert_response :success
+      assert_select 'input[name=mail]'
+
+      post('/account/lost_password', :params => {:mail => 'jSmith@somenet.foo'})
+      assert_redirected_to '/login'
+
+      token = Token.find_by(:action => 'recovery', :user_id => User.find_by_login('jsmith').id)
+      get('/account/lost_password', :params => {:token => token.value})
+      assert_redirected_to '/account/lost_password'
+      follow_redirect!
+      assert_response :success
+
+      post(
+        '/account/lost_password',
+        :params => {
+          :token => token.value, :new_password => 'newpass123',
+          :new_password_confirmation => 'newpass123'
+        }
+      )
+      assert_redirected_to '/login'
+      assert_equal 'Password was successfully updated.', flash[:notice]
+    end
+  end
+
   test 'should allow logout even if twofa setup is required' do
     with_settings twofa: '2' do
       log_user('jsmith', 'jsmith')
@@ -104,6 +133,7 @@ class TwofaTest < Redmine::IntegrationTest
   end
 
   test "should generate and accept backup codes" do
+    # this also checks that all actions with secrets aren't cached
     log_user('jsmith', 'jsmith')
     get "/my/account"
     assert_response :success
@@ -111,6 +141,7 @@ class TwofaTest < Redmine::IntegrationTest
     assert_redirected_to "/my/twofa/totp/activate/confirm"
     follow_redirect!
     assert_response :success
+    assert_includes @response.headers['Cache-Control'], 'no-store'
 
     totp = ROTP::TOTP.new User.find_by_login('jsmith').twofa_totp_key
     post "/my/twofa/totp/activate", params: {twofa_code: totp.now}
@@ -123,12 +154,14 @@ class TwofaTest < Redmine::IntegrationTest
     assert_redirected_to "/my/twofa/backup_codes/confirm"
     follow_redirect!
     assert_response :success
+    assert_includes @response.headers['Cache-Control'], 'no-store'
     assert_select 'form', /Please enter your two-factor authentication code/i
 
     post "/my/twofa/backup_codes/create", params: {twofa_code: "wrong"}
     assert_redirected_to "/my/twofa/backup_codes/confirm"
     follow_redirect!
     assert_response :success
+    assert_includes @response.headers['Cache-Control'], 'no-store'
     assert_select 'form', /Please enter your two-factor authentication code/i
 
     # prevent replay attack prevention from kicking in
@@ -138,6 +171,7 @@ class TwofaTest < Redmine::IntegrationTest
     assert_redirected_to "/my/twofa/backup_codes"
     follow_redirect!
     assert_response :success
+    assert_includes @response.headers['Cache-Control'], 'no-store'
     assert_select ".flash", /your backup codes have been generated/i
 
     assert code = response.body.scan(/<code>([a-z0-9]{4} [a-z0-9]{4} [a-z0-9]{4})<\/code>/).flatten.first
@@ -157,6 +191,7 @@ class TwofaTest < Redmine::IntegrationTest
     }
     assert_redirected_to "/account/twofa/confirm"
     follow_redirect!
+    assert_includes @response.headers['Cache-Control'], 'no-store'
 
     assert_select "#login-form h3", /two-factor authentication/i
     post "/account/twofa", params: {twofa_code: code}
@@ -215,12 +250,34 @@ class TwofaTest < Redmine::IntegrationTest
     end
   end
 
+  test "should deny showing twofa information again" do
+    log_user('jsmith', 'jsmith')
+    get "/my/account"
+    assert_response :success
+    post "/my/twofa/totp/activate/init"
+    assert_redirected_to "/my/twofa/totp/activate/confirm"
+    follow_redirect!
+    assert_response :success
+
+    totp = ROTP::TOTP.new User.find_by_login('jsmith').twofa_totp_key
+    post "/my/twofa/totp/activate", params: {twofa_code: totp.now}
+    assert_redirected_to "/my/account"
+    follow_redirect!
+    assert_response :success
+    assert_select '.flash', /Two-factor authentication successfully enabled/i
+
+    get "/my/twofa/totp/activate/confirm"
+    assert_redirected_to "/my/account"
+  end
+
   def test_enable_twofa_should_destroy_tokens
     recovery_token = Token.create!(:user_id => 2, :action => 'recovery')
     autologin_token = Token.create!(:user_id => 2, :action => 'autologin')
+    other_session_token = Token.create!(:user_id => 2, :action => 'session')
 
     with_settings twofa: "2" do
       log_user('jsmith', 'jsmith')
+      assert_not_nil token = session[:tk]
       follow_redirect!
       assert_redirected_to "/my/twofa/totp/activate/confirm"
       follow_redirect!
@@ -235,9 +292,13 @@ class TwofaTest < Redmine::IntegrationTest
 
       post "/my/twofa/totp/activate", params: {twofa_code: totp.now}
       assert_redirected_to "/my/account"
+      assert_not_equal token, session[:tk]
+      assert_nil Token.find_by(:user_id => 2, :action => 'session', :value => token)
+      assert User.verify_session_token(2, session[:tk])
     end
 
     assert_nil Token.find_by_id(recovery_token.id)
     assert_nil Token.find_by_id(autologin_token.id)
+    assert_nil Token.find_by_id(other_session_token.id)
   end
 end

@@ -18,6 +18,11 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 Rails.application.routes.draw do
+  use_doorkeeper do
+    controllers :applications => 'oauth2_applications'
+  end
+
+  root :to => 'welcome#index'
   root :to => 'welcome#index', :as => 'home'
 
   match 'login', :to => 'account#login', :as => 'signin', :via => [:get, :post]
@@ -29,6 +34,8 @@ Rails.application.routes.draw do
   match 'account/lost_password', :to => 'account#lost_password', :via => [:get, :post], :as => 'lost_password'
   match 'account/activate', :to => 'account#activate', :via => :get
   get 'account/activation_email', :to => 'account#activation_email', :as => 'activation_email'
+
+  resources :webhooks, only: [:index, :new, :create, :edit, :update, :destroy]
 
   match '/news/preview', :controller => 'previews', :action => 'news', :as => 'preview_news', :via => [:get, :post, :put, :patch]
   match '/issues/preview', :to => 'previews#issue', :as => 'preview_issue', :via => [:get, :post, :put, :patch]
@@ -51,7 +58,7 @@ Rails.application.routes.draw do
   match '/wiki_pages/auto_complete', :to => 'auto_completes#wiki_pages', :via => :get, :as => 'auto_complete_wiki_pages'
 
   # Misc issue routes. TODO: move into resources
-  match '/issues/context_menu', :to => 'context_menus#issues', :as => 'issues_context_menu', :via => [:get, :post]
+  match '/issues/context_menu', :to => 'context_menus/issues#index', :as => 'issues_context_menu', :via => [:get, :post]
   match '/issues/changes', :to => 'journals#index', :as => 'issue_changes', :via => :get
   match '/issues/:id/quoted', :to => 'journals#new', :id => /\d+/, :via => :post, :as => 'quoted_issue'
 
@@ -60,6 +67,8 @@ Rails.application.routes.draw do
       get 'diff'
     end
   end
+
+  resources :reactions, only: [:create, :destroy]
 
   get '/projects/:project_id/issues/gantt', :to => 'gantts#show', :as => 'project_gantt'
   get '/issues/gantt', :to => 'gantts#show'
@@ -76,6 +85,8 @@ Rails.application.routes.draw do
         :defaults => {:type => 'TimeEntryImport'}, :as => 'new_time_entries_import'
   get   '/users/imports/new', :to => 'imports#new',
         :defaults => {:type => 'UserImport'}, :as => 'new_users_import'
+  get   '/non_working_dates/imports/new', :to => 'imports#new',
+        :defaults => {:type => 'NonWorkingDateImport'}, :as => 'new_non_working_dates_import'
   post  '/imports', :to => 'imports#create', :as => 'imports'
   get   '/imports/:id', :to => 'imports#show', :as => 'import'
   match '/imports/:id/settings', :to => 'imports#settings', :via => [:get, :post], :as => 'import_settings'
@@ -91,6 +102,9 @@ Rails.application.routes.draw do
   post 'my/api_key', :to => 'my#reset_api_key'
   post 'my/atom_key', :to => 'my#reset_atom_key', :as => 'my_atom_key'
   match 'my/password', :controller => 'my', :action => 'password', :via => [:get, :post]
+  get 'my/avatar', :to => 'avatars#edit', :as => 'my_avatar', :format => false
+  put 'my/avatar', :to => 'avatars#update', :format => false
+  delete 'my/avatar', :to => 'avatars#destroy', :format => false
   match 'my/add_block', :controller => 'my', :action => 'add_block', :via => :post
   match 'my/remove_block', :controller => 'my', :action => 'remove_block', :via => :post
   match 'my/order_blocks', :controller => 'my', :action => 'order_blocks', :via => :post
@@ -108,14 +122,20 @@ Rails.application.routes.draw do
   match 'my/twofa/backup_codes', :controller => 'twofa_backup_codes', :action => 'show', :via => [:get]
   match 'users/:user_id/twofa/deactivate', :controller => 'twofa', :action => 'admin_deactivate', :via => :post
 
-  match '/users/context_menu', to: 'context_menus#users', as: :users_context_menu, via: [:get, :post]
+  match '/users/context_menu', to: 'context_menus/users#index', as: :users_context_menu, via: [:get, :post]
   resources :users do
     collection do
       delete 'bulk_destroy'
+      post :bulk_lock
+      post :bulk_unlock
     end
     resources :memberships, :controller => 'principal_memberships'
     resources :email_addresses, :only => [:index, :create, :update, :destroy]
   end
+  get 'users/:user_id/avatar/:avatar_key(/:size)', :to => 'avatars#show', :user_id => /\d+/, :avatar_key => /\h{16}/, :size => /\d+/, :as => 'user_avatar'
+  get 'users/:user_id/avatar', :to => 'avatars#edit', :user_id => /\d+/, :as => 'edit_user_avatar', :format => false
+  put 'users/:user_id/avatar', :to => 'avatars#update', :user_id => /\d+/, :format => false
+  delete 'users/:user_id/avatar', :to => 'avatars#destroy', :user_id => /\d+/, :format => false
 
   post 'watchers/watch', :to => 'watchers#watch', :as => 'watch'
   delete 'watchers/watch', :to => 'watchers#unwatch'
@@ -152,6 +172,8 @@ Rails.application.routes.draw do
         end
       end
     end
+
+    get 'members', :to => 'members#index', :as => 'members'
 
     resource :enumerations, :controller => 'project_enumerations', :only => [:update, :destroy]
 
@@ -247,7 +269,7 @@ Rails.application.routes.draw do
     post 'add_attachment', :on => :member
   end
 
-  match '/time_entries/context_menu', :to => 'context_menus#time_entries', :as => :time_entries_context_menu, :via => [:get, :post]
+  match '/time_entries/context_menu', :to => 'context_menus/time_entries#index', :as => :time_entries_context_menu, :via => [:get, :post]
 
   resources :time_entries, :controller => 'timelog', :except => :destroy do
     member do
@@ -286,7 +308,7 @@ Rails.application.routes.draw do
         :controller => 'repositories',
         :action => action,
         :format => 'html',
-        :constraints => {:rev => /[a-z0-9\.\-_]+/, :path => /.*/}
+        :constraints => {:rev => /[a-z0-9.\-_]+/, :path => /.*/}
   end
 
   %w(browse entry raw changes annotate).each do |action|
@@ -300,7 +322,7 @@ Rails.application.routes.draw do
   get "projects/:id/repository/:repository_id/revisions/:rev/diff(/*path)",
       :to => 'repositories#diff',
       :format => 'html',
-      :constraints => {:rev => /[a-z0-9\.\-_]+/, :path => /.*/, :format => /(html|diff)/ }
+      :constraints => {:rev => /[a-z0-9.\-_]+/, :path => /.*/, :format => /(html|diff)/ }
 
   get "projects/:id/repository/:repository_id/diff(/*path)",
       :to => 'repositories#diff',
@@ -314,7 +336,7 @@ Rails.application.routes.draw do
 
   # additional routes for having the file name at the end of url
   get 'attachments/:id/:filename', :to => 'attachments#show', :id => /\d+/, :filename => /.*/, :as => 'named_attachment', :format => 'html'
-  get 'attachments/download/:id/:filename', :to => 'attachments#download', :id => /\d+/, :filename => /.*/, :as => 'download_named_attachment'
+  get 'attachments/download/:id/:filename', :to => 'attachments#download', :id => /\d+/, :filename => /.*/, :as => 'download_named_attachment', :format => 'html'
   get 'attachments/download/:id', :to => 'attachments#download', :id => /\d+/
   get 'attachments/thumbnail/:id(/:size)', :to => 'attachments#thumbnail', :id => /\d+/, :size => /\d+/, :as => 'thumbnail'
   resources :attachments, :only => [:show, :update, :destroy]
@@ -335,6 +357,7 @@ Rails.application.routes.draw do
 
   get 'groups/:id/users/new', :to => 'groups#new_users', :id => /\d+/, :as => 'new_group_users'
   post 'groups/:id/users', :to => 'groups#add_users', :id => /\d+/, :as => 'group_users'
+  delete 'groups/:id/users', :to => 'groups#remove_users', :id => /\d+/
   delete 'groups/:id/users/:user_id', :to => 'groups#remove_user', :id => /\d+/, :as => 'group_user'
 
   resources :trackers, :except => :show do
@@ -359,9 +382,14 @@ Rails.application.routes.draw do
   end
   resources :enumerations, :except => :show
   match 'enumerations/:type', :to => 'enumerations#index', :via => :get
+  match '/non_working_dates/context_menu', :to => 'context_menus/non_working_dates#index', :as => :non_working_dates_context_menu, :via => [:get, :post]
+  resources :non_working_dates, :except => :show do
+    collection do
+      delete 'bulk_destroy'
+    end
+  end
 
   get '(projects/:id)/search', :controller => 'search', :action => 'index', :as => 'search'
-
 
   get  'mail_handler', :to => 'mail_handler#new'
   post 'mail_handler', :to => 'mail_handler#index'
@@ -369,11 +397,12 @@ Rails.application.routes.draw do
   get 'admin', :to => 'admin#index'
   get 'admin/projects', :to => 'admin#projects'
   get 'admin/plugins', :to => 'admin#plugins'
+  get 'admin/webhooks', :to => 'admin#webhooks'
   get 'admin/info', :to => 'admin#info'
   post 'admin/test_email', :to => 'admin#test_email', :as => 'test_email'
   post 'admin/default_configuration', :to => 'admin#default_configuration'
 
-  match '/admin/projects_context_menu', :to => 'context_menus#projects', :as => 'projects_context_menu', :via => [:get, :post]
+  match '/admin/projects_context_menu', :to => 'context_menus/projects#index', :as => 'projects_context_menu', :via => [:get, :post]
 
   resources :auth_sources do
     member do
@@ -395,8 +424,11 @@ Rails.application.routes.draw do
     end
   end
 
+  get 'favicons/:digest', :to => 'favicons#show', :digest => /\h{8}/, :as => 'custom_favicon', :format => false
+
   match 'settings', :controller => 'settings', :action => 'index', :via => :get
   match 'settings/edit', :controller => 'settings', :action => 'edit', :via => [:get, :post]
+  delete 'settings/favicon', :controller => 'settings', :action => 'delete_favicon', :as => 'settings_favicon'
   match 'settings/plugin/:id', :controller => 'settings', :action => 'plugin', :via => [:get, :post], :as => 'plugin_settings'
 
   match 'sys/projects', :to => 'sys#projects', :via => :get
@@ -407,8 +439,16 @@ Rails.application.routes.draw do
 
   get 'robots.:format', :to => 'welcome#robots', :constraints => {:format => 'txt'}
 
+  if Rails.env.development?
+    get 'rails/info/svg_icons', :to => 'svg_icons#index'
+  end
+
   get 'help/wiki_syntax/(:type)', :controller => 'help', :action => 'show_wiki_syntax', :constraints => { :type => /detailed/ }, :as => 'help_wiki_syntax'
   get 'help/code_highlighting', :controller => 'help', :action => 'show_code_highlighting',  :as => 'help_code_highlighting'
+
+  # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
+  # Can be used by load balancers and uptime monitors to verify that the app is live.
+  get "up" => "rails/health#show", :as => :rails_health_check
 
   Redmine::Plugin.directory.glob("*/config/routes.rb").sort.each do |plugin_routes_path|
     instance_eval(plugin_routes_path.read, plugin_routes_path.to_s)

@@ -22,13 +22,13 @@ module Redmine
     module SectionHelper
       def get_section(index)
         section = extract_sections(index)[1]
-        hash = Digest::MD5.hexdigest(section)
+        hash = ActiveSupport::Digest.hexdigest(section)
         return section, hash
       end
 
       def update_section(index, update, hash=nil)
         t = extract_sections(index)
-        if hash.present? && hash != Digest::MD5.hexdigest(t[1])
+        if hash.present? && hash != ActiveSupport::Digest.hexdigest(t[1])
           raise Redmine::WikiFormatting::StaleSectionError
         end
 
@@ -42,7 +42,7 @@ module Redmine
         i = 0
         l = 1
         inside_pre = false
-        @text.split(/(^(?:\S+\r?\n\r?(?:\=+|\-+)|#+.+|(?:~~~|```).*)\s*$)/).each do |part|
+        @text.split(/(^(?:(?!\s*$|#).+\r?\n\r?(?:=+|-+)|#+ .+|(?:~~~|```).*)\s*$)/).each do |part|
           level = nil
           if part =~ /\A(~{3,}|`{3,})(\s*\S+)?\s*$/
             if !inside_pre
@@ -52,9 +52,9 @@ module Redmine
             end
           elsif inside_pre
             # nop
-          elsif part =~ /\A(#+).+/
+          elsif part =~ /\A(#+) .+/
             level = $1.size
-          elsif part =~ /\A.+\r?\n\r?(\=+|\-+)\s*$/
+          elsif part =~ /\A.+\r?\n\r?(=+|-+)\s*$/
             level = $1.include?('=') ? 1 : 2
           end
           if level

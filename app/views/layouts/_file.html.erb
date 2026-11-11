@@ -1,5 +1,5 @@
 <div class="contextual">
-  <%= link_to_attachment @attachment, :text => "#{l(:button_download)} (#{number_to_human_size(@attachment.filesize)})", :download => true, :class => 'icon icon-download' -%>
+  <%= link_to_attachment @attachment, :text => "#{l(:button_download)} (#{number_to_human_size(@attachment.filesize)})", :download => true, :class => 'icon icon-download', :icon => "download" -%>
 </div>
 
 <h2>
@@ -7,8 +7,14 @@
 </h2>
 
 <div class="attachments">
-<p><%= "#{@attachment.description} - " unless @attachment.description.blank? %>
-   <span class="author"><%= link_to_user(@attachment.author) %>, <%= format_time(@attachment.created_on) %></span></p>
+<p>
+  <% if @attachment.description.present? %><%= @attachment.description %><br><% end %>
+  <span class="author">
+    <%= safe_join([link_to_user(@attachment.author),
+                   format_time(@attachment.created_on),
+                   attachment_content_type_tag(@attachment)].compact, ', ') %>
+  </span>
+</p>
 </div>
 <div class="filecontent-container">
   <%= yield %>

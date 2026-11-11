@@ -18,6 +18,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 require 'fileutils'
+require 'timeout'
 
 module Redmine
   module Thumbnail
@@ -29,31 +30,68 @@ module Redmine
       ('gswin64c' if Redmine::Platform.mswin?) ||
       'gs'
     ).freeze
-    ALLOWED_TYPES = %w(image/bmp image/gif image/jpeg image/png image/webp application/pdf)
+    ALLOWED_TYPES = %w(image/avif image/bmp image/gif image/jpeg image/png image/webp application/pdf)
 
     # Generates a thumbnail for the source image to target
-    def self.generate(source, target, size, is_pdf = false)
+    # If crop is true, the image is cropped to a square around its center
+    def self.generate(source, target, size, crop: false)
       return nil unless convert_available?
-      return nil if is_pdf && !gs_available?
 
       unless File.exist?(target)
         # Make sure we only invoke Imagemagick if the file type is allowed
         mime_type = File.open(source) {|f| Marcel::MimeType.for(f)}
-        return nil if !ALLOWED_TYPES.include? mime_type
-        return nil if is_pdf && mime_type != "application/pdf"
+        return nil unless ALLOWED_TYPES.include? mime_type
 
         directory = File.dirname(target)
         FileUtils.mkdir_p directory
+        # Write to a temporary file first so that concurrent requests never
+        # serve a partially written thumbnail
+        extname = File.extname(target)
+        output = File.join(directory, "#{File.basename(target, extname)}.#{Redmine::Utils.random_hex(8)}.tmp#{extname}")
         size_option = "#{size}x#{size}>"
 
-        if is_pdf
-          cmd = "#{shell_quote CONVERT_BIN} #{shell_quote "#{source}[0]"} -thumbnail #{shell_quote size_option} #{shell_quote "png:#{target}"}"
+        if mime_type == 'application/pdf'
+          return nil unless gs_available?
+          return nil unless valid_pdf_magic?(source)
+
+          cmd = "#{shell_quote CONVERT_BIN} #{shell_quote "#{source}[0]"} -thumbnail #{shell_quote size_option} #{shell_quote "png:#{output}"}"
+        elsif crop
+          cmd = "#{shell_quote CONVERT_BIN} #{shell_quote source} -auto-orient -thumbnail #{shell_quote "#{size}x#{size}^"} " \
+                "-gravity center -extent #{shell_quote "#{size}x#{size}"} #{shell_quote output}"
         else
-          cmd = "#{shell_quote CONVERT_BIN} #{shell_quote source} -auto-orient -thumbnail #{shell_quote size_option} #{shell_quote target}"
+          cmd = "#{shell_quote CONVERT_BIN} #{shell_quote source} -auto-orient -thumbnail #{shell_quote size_option} #{shell_quote output}"
         end
-        unless system(cmd)
-          logger.error("Creating thumbnail failed (#{$?}):\nCommand: #{cmd}")
+
+        pid = nil
+        begin
+          Timeout.timeout(Redmine::Configuration['thumbnails_generation_timeout'].to_i) do
+            # Run the command in its own process group so that the whole
+            # process tree (eg. the gs process spawned by convert for PDF
+            # files) can be killed on timeout. Process groups are not
+            # available on Windows.
+            spawn_options = Redmine::Platform.mswin? ? {} : {:pgroup => true}
+            pid = Process.spawn(cmd, spawn_options)
+            _, status = Process.wait2(pid)
+            unless status.success?
+              logger.error("Creating thumbnail failed (#{status.exitstatus}):\nCommand: #{cmd}")
+              return nil
+            end
+          end
+          File.rename(output, target)
+        rescue Timeout::Error
+          if pid
+            begin
+              # A negative pid sends the signal to the whole process group
+              Process.kill('KILL', Redmine::Platform.mswin? ? pid : -pid)
+            rescue Errno::ESRCH
+              # The process is already gone
+            end
+            Process.detach(pid)
+          end
+          logger.error("Creating thumbnail timed out:\nCommand: #{cmd}")
           return nil
+        ensure
+          FileUtils.rm_f(output)
         end
       end
       target
@@ -83,6 +121,23 @@ module Redmine
       end
       logger.warn("gs binary (#{GS_BIN}) not available") unless @gs_available
       @gs_available
+    end
+
+    # Check PDF magic bytes to make sure the file looks like a PDF, not
+    # PostScript.
+    def self.valid_pdf_magic?(filename)
+      begin
+        magic = File.binread(filename, 8)
+        if magic.start_with?("%PDF-".b) || magic == "\xEF\xBB\xBF%PDF-".b
+          return true
+        end
+
+        logger.error "Source file does not appear be an actual PDF file!"
+      rescue => e
+        logger.error "Could not validate magic file header - #{e.class.name}: #{e.message}"
+      end
+
+      false
     end
 
     def self.logger

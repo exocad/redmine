@@ -20,19 +20,6 @@
 require_relative '../test_helper'
 
 class IssueRelationTest < ActiveSupport::TestCase
-  fixtures :projects,
-           :users,
-           :roles,
-           :members,
-           :member_roles,
-           :issues,
-           :issue_statuses,
-           :issue_relations,
-           :enabled_modules,
-           :enumerations,
-           :trackers,
-           :projects_trackers
-
   include Redmine::I18n
 
   def setup
@@ -202,25 +189,27 @@ class IssueRelationTest < ActiveSupport::TestCase
   def test_create_with_initialized_journals_should_create_journals
     from = Issue.find(1)
     to   = Issue.find(2)
-    from_journals = from.journals.size
-    to_journals   = to.journals.size
     relation = IssueRelation.new(:issue_from => from, :issue_to => to,
                                  :relation_type => IssueRelation::TYPE_PRECEDES)
     relation.init_journals User.find(1)
-    assert relation.save
-    from.reload
-    to.reload
-    relation.reload
-    assert_equal from.journals.size, (from_journals + 1)
-    assert_equal to.journals.size, (to_journals + 1)
-    assert_equal 'relation', from.journals.last.details.last.property
-    assert_equal 'precedes', from.journals.last.details.last.prop_key
-    assert_equal '2', from.journals.last.details.last.value
-    assert_nil   from.journals.last.details.last.old_value
-    assert_equal 'relation', to.journals.last.details.last.property
-    assert_equal 'follows', to.journals.last.details.last.prop_key
-    assert_equal '1', to.journals.last.details.last.value
-    assert_nil   to.journals.last.details.last.old_value
+
+    assert_difference(
+      ->{ from.reload.journals.size } => +1,
+      ->{ to.reload.journals.size } => +1
+    ) do
+      assert relation.save
+    end
+
+    from.journals.last.details.then do |details|
+      assert details.exists?(property: 'relation', prop_key: 'precedes', value: '2')
+    end
+
+    to.journals.last.details.then do |details|
+      assert_equal 3, details.count
+      assert details.exists?(property: 'relation', prop_key: 'follows', value: '1', old_value: nil)
+      assert details.exists?(property: 'attr', prop_key: 'due_date')
+      assert details.exists?(property: 'attr', prop_key: 'start_date')
+    end
   end
 
   def test_destroy_with_initialized_journals_should_create_journals
@@ -262,5 +251,33 @@ class IssueRelationTest < ActiveSupport::TestCase
     set_language_if_valid 'en'
     relation = IssueRelation.find(1)
     assert_equal "Blocks Bug #9", relation.to_s {|issue| "#{issue.tracker} ##{issue.id}"}
+  end
+
+  def test_visible
+    issue1 = Issue.find(1)
+    issue2 = Issue.find(2)
+    hidden_issue = Issue.generate!(:project_id => 1, :is_private => true)
+    user = User.find(3)
+
+    relation_visible = IssueRelation.create!(:issue_from => issue1, :issue_to => issue2, :relation_type => 'relates')
+    relation_hidden_to = IssueRelation.create!(:issue_from => issue1, :issue_to => hidden_issue, :relation_type => 'relates')
+    relation_hidden_from = IssueRelation.create!(:issue_from => hidden_issue, :issue_to => issue1, :relation_type => 'duplicates')
+
+    assert relation_visible.visible?(user)
+    assert_not relation_hidden_to.visible?(user)
+    assert_not relation_hidden_from.visible?(user)
+  end
+
+  def test_deletable
+    issue1 = Issue.find(1)
+    issue2 = Issue.find(2)
+    hidden_issue = Issue.generate!(:project_id => 1, :is_private => true)
+    user = User.find(3)
+
+    relation_visible = IssueRelation.create!(:issue_from => issue1, :issue_to => issue2, :relation_type => 'relates')
+    relation_hidden = IssueRelation.create!(:issue_from => issue1, :issue_to => hidden_issue, :relation_type => 'relates')
+
+    assert relation_visible.deletable?(user)
+    assert_not relation_hidden.deletable?(user)
   end
 end

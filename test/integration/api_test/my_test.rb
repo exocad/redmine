@@ -20,8 +20,6 @@
 require_relative '../../test_helper'
 
 class Redmine::ApiTest::MyTest < Redmine::ApiTest::Base
-  fixtures :users, :email_addresses, :members, :member_roles, :roles, :projects
-
   test "GET /my/account.json should return user" do
     assert Setting.rest_api_enabled?
     get '/my/account.json', :headers => credentials('dlopper', 'foo')
@@ -81,7 +79,7 @@ class Redmine::ApiTest::MyTest < Redmine::ApiTest::Base
         }
       },
       :headers => credentials('dlopper', 'foo'))
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     assert_equal 'application/xml', @response.media_type
     assert_select 'errors error', :text => "First name cannot be blank"
   end
@@ -95,11 +93,111 @@ class Redmine::ApiTest::MyTest < Redmine::ApiTest::Base
         }
       },
       :headers => credentials('dlopper', 'foo'))
-    assert_response :unprocessable_entity
+    assert_response :unprocessable_content
     assert_equal 'application/json', @response.media_type
     json = ActiveSupport::JSON.decode(response.body)
     assert_kind_of Hash, json
     assert json.has_key?('errors')
     assert_kind_of Array, json['errors']
+  end
+
+  test "PUT /my/account.json with a changed mail should not generate a session token" do
+    Token.create!(:user_id => 3, :action => 'session')
+
+    put(
+      '/my/account.json',
+      :params => {:user => {:mail => 'dave@somenet.foo'}},
+      :headers => credentials('dlopper', 'foo'))
+    assert_response :no_content
+
+    assert_equal 'dave@somenet.foo', User.find(3).mail
+    assert_empty Token.where(:user_id => 3, :action => 'session')
+  end
+
+  test "GET /my/account.json authenticated via OAuth should not disclose the api_key" do
+    application = Doorkeeper::Application.create!(
+      :name => 'Test App',
+      :redirect_uri => 'http://localhost/callback',
+      :scopes => 'view_issues'
+    )
+    token = Doorkeeper::AccessToken.create!(
+      :application_id => application.id,
+      :resource_owner_id => 2,
+      :scopes => 'view_issues',
+      :expires_in => 7200
+    )
+
+    get '/my/account.json', :headers => {'Authorization' => "Bearer #{token.plaintext_token}"}
+
+    assert_response :success
+    json = ActiveSupport::JSON.decode(response.body)
+    assert_equal 'jsmith', json['user']['login']
+    assert_not(
+      json['user'].key?('api_key'),
+      "OAuth-authenticated request must not disclose the permanent api_key"
+    )
+  end
+
+  test "GET /my/account.json authenticated via OAuth with a locked user should respond with 401" do
+    application = Doorkeeper::Application.create!(
+      :name => 'Test App',
+      :redirect_uri => 'http://localhost/callback',
+      :scopes => 'view_issues'
+    )
+    token = Doorkeeper::AccessToken.create!(
+      :application_id => application.id,
+      :resource_owner_id => 2,
+      :scopes => 'view_issues',
+      :expires_in => 7200
+    )
+    User.find(2).update_column(:status, User::STATUS_LOCKED)
+
+    get '/my/account.json', :headers => {'Authorization' => "Bearer #{token.plaintext_token}"}
+
+    assert_response :unauthorized
+  end
+
+  test "GET /my/account.json authenticated via API key should disclose the api_key" do
+    key = User.find(2).api_key
+
+    get '/my/account.json', :headers => {'X-Redmine-API-Key' => key}
+
+    assert_response :success
+    json = ActiveSupport::JSON.decode(response.body)
+    assert_equal 'jsmith', json['user']['login']
+    assert_equal key, json['user']['api_key']
+  end
+
+  test "PUT /my/account.json authenticated via OAuth should be forbidden" do
+    application = Doorkeeper::Application.create!(
+      :name => 'Test App',
+      :redirect_uri => 'http://localhost/callback',
+      :scopes => 'view_issues'
+    )
+    token = Doorkeeper::AccessToken.create!(
+      :application_id => application.id,
+      :resource_owner_id => 2,
+      :scopes => 'view_issues',
+      :expires_in => 7200
+    )
+    original_mail = User.find(2).mail
+
+    put '/my/account.json',
+        :params => {:user => {:mail => 'attacker@evil.example', :terms => '1'}},
+        :headers => {'Authorization' => "Bearer #{token.plaintext_token}"}
+
+    assert_response :forbidden
+    assert_equal original_mail, User.find(2).mail
+  end
+
+  test "PUT /my/account.json authenticated via API key should still update the account" do
+    key = User.find(2).api_key
+
+    put '/my/account.json',
+        :params => {:user => {:firstname => 'Renamed', :terms => '1'}},
+        :headers => {'X-Redmine-API-Key' => key}
+
+    assert_response :no_content
+    assert_equal 'Renamed', User.find(2).firstname
   end
 end

@@ -20,10 +20,6 @@
 require_relative '../test_helper'
 
 class WatchersControllerTest < Redmine::ControllerTest
-  fixtures :projects, :users, :roles, :members, :member_roles, :enabled_modules,
-           :issues, :trackers, :projects_trackers, :issue_statuses, :enumerations, :watchers,
-           :boards, :messages, :wikis, :wiki_pages
-
   def setup
     User.current = nil
   end
@@ -69,6 +65,14 @@ class WatchersControllerTest < Redmine::ControllerTest
     assert Issue.find(3).watched_by?(User.find(3))
   end
 
+  def test_watch_issue_xhr_should_target_watched_issue_sidebar_watchers_section
+    @request.session[:user_id] = 2
+    post :watch, :params => {:object_type => 'issue', :object_id => '1'}, :xhr => true
+    assert_response :success
+    assert_include "$('#watchers[data-watchable-id=\"1\"]')", response.body
+    assert_not_include "$('#watchers').html(", response.body
+  end
+
   def test_watch_a_news_module_should_add_watcher
     @request.session[:user_id] = 7
     assert_not_nil m = Project.find(1).enabled_module('news')
@@ -86,7 +90,7 @@ class WatchersControllerTest < Redmine::ControllerTest
 
     assert_no_difference 'Watcher.count' do
       post :watch, :params => {:object_type => 'enabled_module', :object_id => m.id.to_s}, :xhr => true
-      assert_response 403
+      assert_response :forbidden
     end
   end
 
@@ -95,7 +99,7 @@ class WatchersControllerTest < Redmine::ControllerTest
     @request.session[:user_id] = 3
     assert_no_difference('Watcher.count') do
       post :watch, :params => {:object_type => 'issue', :object_id => '1'}, :xhr => true
-      assert_response 403
+      assert_response :forbidden
     end
   end
 
@@ -103,7 +107,7 @@ class WatchersControllerTest < Redmine::ControllerTest
     @request.session[:user_id] = 3
     assert_no_difference('Watcher.count') do
       post :watch, :params => {:object_type => 'foo', :object_id => '1'}, :xhr => true
-      assert_response 404
+      assert_response :not_found
     end
   end
 
@@ -111,7 +115,7 @@ class WatchersControllerTest < Redmine::ControllerTest
     @request.session[:user_id] = 3
     assert_no_difference('Watcher.count') do
       post :watch, :params => {:object_type => 'issue', :object_id => '999'}, :xhr => true
-      assert_response 404
+      assert_response :not_found
     end
   end
 
@@ -159,7 +163,7 @@ class WatchersControllerTest < Redmine::ControllerTest
   def test_new_as_html_should_respond_with_404
     @request.session[:user_id] = 2
     get :new, :params => {:object_type => 'issue', :object_id => '2'}
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_new_for_message
@@ -206,9 +210,28 @@ class WatchersControllerTest < Redmine::ControllerTest
     assert_response :success
 
     assert_match(
-      %r{/watchers/autocomplete_for_user\?object_id%5B%5D=7&object_id%5B%5D=9&object_type=issue},
+      %r{/watchers/autocomplete_for_user\?object_id%5B%5D=7&amp;object_id%5B%5D=9&amp;object_type=issue},
       response.body
     )
+  end
+
+  def test_new_without_view_watchers_permission
+    @request.session[:user_id] = 2
+    Role.find(1).remove_permission! :view_issue_watchers
+    get :new, :params => {:object_type => 'issue', :object_id => '2'}, :xhr => true
+    assert_response :success
+    assert_match %r{name=\\"watcher\[user_ids\]\[\]\\" value=\\"2\\"}, response.body
+    # User should not be able to reverse engineer that User 3 is watching the issue already
+    assert_match %r{name=\\"watcher\[user_ids\]\[\]\\" value=\\"3\\"}, response.body
+  end
+
+  def test_new_dont_show_self_when_watching_without_view_watchers_permission
+    @request.session[:user_id] = 2
+    Role.find(1).remove_permission! :view_issue_watchers
+    Issue.find(2).add_watcher(User.find(2))
+    get :new, :params => {:object_type => 'issue', :object_id => '2'}, :xhr => true
+    assert_response :success
+    assert_no_match %r{name=\\"watcher\[user_ids\]\[\]\\" value=\\"2\\"}, response.body
   end
 
   def test_create_as_html
@@ -432,6 +455,32 @@ class WatchersControllerTest < Redmine::ControllerTest
     assert_not_include hidden.name, response.body
   end
 
+  def test_autocomplete_for_mention
+    @request.session[:user_id] = 1
+    get :autocomplete_for_mention, params: {
+      project_id: 'ecookbook',
+      object_type: 'issue',
+      object_id: '1',
+      q: 'john'
+    }, xhr: true
+
+    assert_response :success
+    assert_equal ['jsmith'], response.parsed_body.pluck('login')
+  end
+
+  def test_autocomplete_for_mention_without_query
+    @request.session[:user_id] = 1
+    get :autocomplete_for_mention, params: {
+      project_id: 'ecookbook',
+      object_type: 'issue',
+      object_id: '1',
+      q: ''
+    }, xhr: true
+
+    assert_response :success
+    assert_equal ['dlopper', 'jsmith'], response.parsed_body.pluck('login')
+  end
+
   def test_autocomplete_for_user_should_not_return_users_without_object_visibility
     @request.session[:user_id] = 1
     get :autocomplete_for_user, :params => {
@@ -458,11 +507,11 @@ class WatchersControllerTest < Redmine::ControllerTest
 
     assert_response :success
 
-    # All users from two projects eCookbook (7) and Private child of eCookbook (9)
-    assert_select 'input', :count => 5
+    # All users from two projects eCookbook (7) and Private child of eCookbook
+    # (9) who can see both issues
+    assert_select 'input', :count => 4
     assert_select 'input[name=?][value="1"]', 'watcher[user_ids][]'
     assert_select 'input[name=?][value="2"]', 'watcher[user_ids][]'
-    assert_select 'input[name=?][value="3"]', 'watcher[user_ids][]'
     assert_select 'input[name=?][value="8"]', 'watcher[user_ids][]'
     assert_select 'input[name=?][value="10"]', 'watcher[user_ids][]'
   end
@@ -559,6 +608,41 @@ class WatchersControllerTest < Redmine::ControllerTest
     assert !wiki_page.watched_by?(user)
   end
 
+  def test_destroy_without_permission
+    @request.session[:user_id] = 2
+    wiki_page = WikiPage.find(1)
+    user = User.find(1)
+    Role.find(1).remove_permission! :delete_wiki_page_watchers
+
+    assert wiki_page.watched_by?(user)
+    assert_no_difference('Watcher.count') do
+      delete :destroy, :params => {
+        :object_type => 'wiki_page', :object_id => '1', :user_id => '1'
+      }, :xhr => true
+      assert_response :forbidden
+    end
+    wiki_page.reload
+    assert wiki_page.watched_by?(user)
+  end
+
+  def test_create_without_permission
+    @request.session[:user_id] = 2
+    wiki_page = WikiPage.find(1)
+    user = User.find(1)
+    Role.find(1).remove_permission! :add_wiki_page_watchers
+    Watcher.delete_all
+
+    assert_not wiki_page.watched_by?(user)
+    assert_no_difference('Watcher.count') do
+      post :create, :params => {
+        :object_type => 'wiki_page', :object_id => '1', :user_id => '1'
+      }, :xhr => true
+      assert_response :forbidden
+    end
+    wiki_page.reload
+    assert_not wiki_page.watched_by?(user)
+  end
+
   def test_destroy_locked_user
     user = User.find(3)
     user.lock!
@@ -581,7 +665,143 @@ class WatchersControllerTest < Redmine::ControllerTest
       delete :destroy, :params => {
         :object_type => 'issue', :object_id => '2', :user_id => '999'
       }
-      assert_response 404
+      assert_response :not_found
     end
+  end
+
+  def test_new_renders_searchable_selection_controller
+    @request.session[:user_id] = 2
+    get :new, :params => {:object_type => 'issue', :object_id => '1'}, :xhr => true
+    assert_response :success
+    assert_match 'data-controller=\"searchable-selection\"', response.body
+    assert_match 'data-searchable-selection-target=\"input\"', response.body
+    assert_match 'data-searchable-selection-target=\"list\"', response.body
+    assert_match 'data-searchable-selection-target=\"hiddenContainer\"', response.body
+  end
+
+  def test_autocomplete_for_user_without_q_should_not_show_load_more_when_count_is_within_limit
+    @request.session[:user_id] = 2
+    get :autocomplete_for_user, :params => {:project_id => 'ecookbook'}, :xhr => true
+    assert_response :success
+    assert_select 'p.watcher-more-users', :count => 0
+  end
+
+  def test_autocomplete_for_user_without_q_should_show_load_more_when_count_exceeds_limit
+    @request.session[:user_id] = 2
+    role = Role.find(1)
+    project = Project.find('ecookbook')
+    105.times do
+      u = User.generate!
+      Member.create!(:project => project, :principal => u, :roles => [role])
+    end
+
+    get :autocomplete_for_user, :params => {:project_id => 'ecookbook'}, :xhr => true
+    assert_response :success
+    assert_select 'p.watcher-more-users', :count => 1
+    assert_select 'p.watcher-more-users a[href*="offset=100"]'
+    assert_select 'p.watcher-more-users a[data-action="searchable-selection#loadMore"]'
+    assert_select 'input[name=?]', 'watcher[user_ids][]', :count => 100
+  end
+
+  def test_autocomplete_for_user_with_offset_should_load_next_page
+    @request.session[:user_id] = 2
+    role = Role.find(1)
+    project = Project.find('ecookbook')
+    105.times do
+      u = User.generate!
+      Member.create!(:project => project, :principal => u, :roles => [role])
+    end
+
+    get :autocomplete_for_user, :params => {:project_id => 'ecookbook', :offset => 100}, :xhr => true
+    assert_response :success
+    assert_select 'p.watcher-more-users', :count => 0
+    assert_select 'input[name=?]', 'watcher[user_ids][]', :count => (project.principals.assignable_watchers.count - 100)
+  end
+
+  def test_autocomplete_for_user_with_negative_offset_should_default_to_zero
+    @request.session[:user_id] = 2
+    get :autocomplete_for_user, :params => {:project_id => 'ecookbook', :offset => -10}, :xhr => true
+    assert_response :success
+  end
+
+  def test_autocomplete_for_user_excludes_existing_watchers_in_scope
+    @request.session[:user_id] = 2
+    issue = Issue.find(1)
+    project = issue.project
+    role = Role.find(1)
+
+    20.times do
+      u = User.generate!
+      Member.create!(:project => project, :principal => u, :roles => [role])
+      Watcher.create!(:watchable => issue, :user => u)
+    end
+
+    105.times do
+      u = User.generate!
+      Member.create!(:project => project, :principal => u, :roles => [role])
+    end
+
+    get :autocomplete_for_user, :params => {:object_type => 'issue', :object_id => issue.id}, :xhr => true
+    assert_response :success
+    assert_select 'input[name=?]', 'watcher[user_ids][]', :count => 100
+    assert_select 'p.watcher-more-users', :count => 1
+  end
+
+  def test_autocomplete_for_user_with_q_should_not_show_load_more_when_count_is_within_limit
+    @request.session[:user_id] = 2
+    get :autocomplete_for_user, :params => {:project_id => 'ecookbook', :q => 'jsmith'}, :xhr => true
+    assert_response :success
+    assert_select 'p.watcher-more-users', :count => 0
+  end
+
+  def test_autocomplete_for_user_with_q_should_show_load_more_when_count_exceeds_limit
+    @request.session[:user_id] = 2
+    105.times do |i|
+      User.generate!(:firstname => sprintf("SearchTarget%03d", i), :lastname => "User")
+    end
+
+    get :autocomplete_for_user, :params => {:project_id => 'ecookbook', :q => 'SearchTarget'}, :xhr => true
+    assert_response :success
+    assert_select 'p.watcher-more-users', :count => 1
+    assert_select 'p.watcher-more-users a[href*="offset=100"]'
+    assert_select 'p.watcher-more-users a[href*="q=SearchTarget"]'
+    assert_select 'input[name=?]', 'watcher[user_ids][]', :count => 100
+  end
+
+  def test_autocomplete_for_user_with_blank_whitespace_q_defaults_to_project_members
+    @request.session[:user_id] = 2
+    # Non-member user
+    User.generate!(:firstname => 'WhitespaceNonMember')
+
+    get :autocomplete_for_user, :params => {:project_id => 'ecookbook', :q => '   '}, :xhr => true
+    assert_response :success
+    assert_not_include 'WhitespaceNonMember', response.body
+  end
+
+  def test_autocomplete_for_user_with_q_should_skip_users_without_object_visibility_across_batches
+    @request.session[:user_id] = 1
+    issue = Issue.find(14)
+    assert issue.is_private?
+
+    # Generate 105 users that cannot view the private issue (not members of the project)
+    105.times do |i|
+      User.generate!(:firstname => sprintf("SearchSkip%03d", i), :lastname => "User")
+    end
+
+    # Generate 1 admin user matching the search term who can view the private issue
+    valid_admin = User.generate!(:firstname => "SearchSkipAdmin", :lastname => "User", :admin => true)
+
+    get :autocomplete_for_user, :params => {
+      :object_type => 'issue',
+      :object_id => issue.id,
+      :project_id => issue.project.identifier,
+      :q => 'SearchSkip'
+    }, :xhr => true
+
+    assert_response :success
+    # The valid admin should be returned on the first page even though 105 invalid users matched first
+    assert_include valid_admin.name, response.body
+    # Since only 1 valid watcher was found, there are no more pages
+    assert_select 'p.watcher-more-users', :count => 0
   end
 end

@@ -1,5 +1,6 @@
 /.project
 /.idea
+/.vscode
 /.loadpath
 /.powrc
 /.rvmrc
@@ -14,10 +15,10 @@
 /config/initializers/secret_token.rb
 /coverage
 /db/*.db
-/db/*.sqlite3
-/db/*.sqlite3-*
+/db/*.sqlite3*
 /db/schema.rb
 /files/*
+/lib/redmine/scm/adapters/mercurial/__pycache__/*
 /lib/redmine/scm/adapters/mercurial/redminehelper.pyc
 /lib/redmine/scm/adapters/mercurial/redminehelper.pyo
 /log/*.log*
@@ -37,6 +38,7 @@
 /tmp/test/*
 /tmp/thumbnails/*
 /vendor/cache
+/vendor/javascript/mermaid.min.js
 *.rbc
 
 /.bundle

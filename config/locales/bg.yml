@@ -74,8 +74,8 @@ bg:
 
   number:
     format:
-      separator: "."
-      delimiter: ""
+      separator: ","
+      delimiter: " "
       precision: 3
 
     human:
@@ -96,8 +96,9 @@ bg:
 # Used in array.to_sentence.
   support:
     array:
-      sentence_connector: "и"
-      skip_last_comma: false
+      last_word_connector: " и "
+      two_words_connector: " и "
+      words_connector: ", "
 
   activerecord:
     errors:
@@ -138,6 +139,7 @@ bg:
         must_contain_digits: "трябва да съдържа цифри (0-9)"
         must_contain_special_chars: "трябва да съдържа специални символи (!, $, %, ...)"
         domain_not_allowed: "contains a domain not allowed (%{domain})"
+        too_simple: "is too simple"
 
   actionview_instancetag_blank_option: Изберете
 
@@ -146,8 +148,8 @@ bg:
   general_text_no: 'не'
   general_text_yes: 'да'
   general_lang_name: 'Bulgarian (Български)'
-  general_csv_separator: ','
-  general_csv_decimal_separator: '.'
+  general_csv_separator: ';'
+  general_csv_decimal_separator: ','
   general_csv_encoding: UTF-8
   general_pdf_fontname: freesans
   general_pdf_monospaced_fontname: freemono
@@ -207,14 +209,17 @@ bg:
   error_no_tracker_in_project: Няма асоциирани тракери с този проект. Проверете настройките на проекта.
   error_no_default_issue_status: Няма установено подразбиращо се състояние за задачите. Моля проверете вашата конфигурация (Вижте "Администрация -> Състояния на задачи").
   error_can_not_delete_custom_field: Невъзможност за изтриване на потребителско поле
-  error_can_not_delete_tracker: Този тракер съдържа задачи и не може да бъде изтрит.
+  error_can_not_delete_tracker_html: Този тракер съдържа задачи и не може да бъде изтрит.<p>The following projects have issues with this tracker:<br>%{projects}</p>
   error_can_not_remove_role: Тази роля се използва и не може да бъде изтрита.
+  error_can_not_remove_role_reason_members_html: "<p>Следващите проекти имат членове с тази роля:<br>%{projects}</p>"
   error_can_not_reopen_issue_on_closed_version: Задача, асоциирана със затворена версия не може да бъде отворена отново
   error_can_not_archive_project: Този проект не може да бъде архивиран
   error_issue_done_ratios_not_updated: Процентът на завършените задачи не е обновен.
   error_workflow_copy_source: Моля изберете source тракер или роля
   error_workflow_copy_target: Моля изберете тракер(и) и роля (роли).
   error_unable_delete_issue_status: Невъзможност за изтриване на състояние на задача (%{value})
+  error_issue_status_in_use_by_issues: Това състояние се използва от някои задачи
+  error_issue_status_default_for_trackers: Това състояние се използва като подразбиращо се от някои тракери
   error_unable_to_connect: Невъзможност за свързване с (%{value})
   error_attachments_too_many: Този файл не може да бъде качен, понеже с него се надхвърля максималният брой файлове, които могат да бъдат качени заедно (%{max_number_of_files})
   error_attachment_too_big: Този файл не може да бъде качен, понеже надхвърля максималната възможна големина (%{max_size})
@@ -237,7 +242,7 @@ bg:
   error_exceeds_maximum_hours_per_day: Не можете да запишете повече от %{max_hours} часа на един ден (%{logged_hours} часове вече са записани)
   error_can_not_delete_auth_source: Този режим за идентификация се използва и не може да бъде премахнат.
   error_spent_on_future_date: Не е възможно да се отчете изразходвано време на дата в бъдещето
-  error_not_allowed_to_log_time_for_other_users: Вие нямате разрешение да записвате изразходвано време за други потребители
+  error_spent_on_closed_issue: Не е възможно да се отчете изразходвано време за затворена задача
   error_can_not_execute_macro_html: Грешка при изпълнение на <strong>%{name}</strong> макрос
     (%{error})
   error_macro_does_not_accept_block: Този макрос не приема текстов блок
@@ -274,6 +279,8 @@ bg:
   mail_body_security_notification_notify_disabled: Имейл адрес %{value} вече не получава известия.
   mail_body_settings_updated: ! 'Изменения в конфигурацията:'
   mail_body_password_updated: Вашата парола е сменена.
+  mail_subject_test_email: Redmine тест
+  mail_body_test_email: Това е тестов имейл, изпратен от Redmine.
   mail_destroy_project_failed: Проект %{value} не беше изтрит.
   mail_destroy_project_successful: Проект %{value} беше изтрит успешно.
   mail_destroy_project_with_subprojects_successful: Проект %{value} и неговите подпроекти бяха изтрити успешно.
@@ -322,6 +329,7 @@ bg:
   field_is_public: Публичен
   field_parent: Подпроект на
   field_is_in_roadmap: Да се вижда ли в Пътна карта
+  field_private_by_default: По подразбиране личен(а)
   field_login: Потребител
   field_mail_notification: Известия по пощата
   field_admin: Администратор
@@ -368,6 +376,7 @@ bg:
   field_time_zone: Часова зона
   field_searchable: С възможност за търсене
   field_default_value: Стойност по подразбиране
+  field_default_value_mode: Default value mode
   field_comments_sorting: Сортиране на коментарите
   field_parent_title: Родителска страница
   field_editable: Editable
@@ -420,7 +429,11 @@ bg:
   field_default_issue_query: Заявка по подразбиране
   field_default_project_query: Заявка по подразбиране за проекта
   field_default_time_entry_activity: Дейност по подразбиране за изразходвано време
+  field_estimated_remaining_hours: Изчислено оставащо време
   field_any_searchable: Всички обекти с текст (заглавие, описание, коментари на задачи, потребителски полета)
+  field_last_activity_date: Последна активност
+  field_thousands_delimiter: Раделител на хилядите
+  field_ratio_interval: Ratio интервал
 
   setting_app_title: Заглавие
   setting_welcome_text: Допълнителен текст
@@ -478,6 +491,7 @@ bg:
   setting_default_projects_modules: Активирани модули по подразбиране за нов проект
   setting_issue_done_ratio: Изчисление на процента на готови задачи с
   setting_issue_done_ratio_issue_field: Използване на поле '% Прогрес'
+  setting_issue_done_ratio_interval: Done ratio options interval
   setting_issue_done_ratio_issue_status: Използване на състоянието на задачите
   setting_start_of_week: Първи ден на седмицата
   setting_rest_api_enabled: Разрешаване на REST web сървис
@@ -488,6 +502,7 @@ bg:
   setting_gantt_items_limit: Максимален брой обекти, които да се показват в мрежов график
   setting_gantt_months_limit: Максимален брой месеци, които да се показват в мрежов график
   setting_issue_group_assignment: Разрешено назначаването на задачи на групи
+  setting_assignee_dropdown_display_format: Формат за показване на списъка с потребители за назначаване на изпълнители на задачи  
   setting_default_issue_start_date_to_creation_date: Начална дата на новите задачи по подразбиране да бъде днешната дата
   setting_commit_cross_project_ref: Отбелязване и приключване на задачи от други проекти, несвързани с конкретното хранилище
   setting_unsubscribe: Потребителите могат да премахват профилите си
@@ -497,11 +512,13 @@ bg:
   setting_thumbnails_size: Размер на миниатюрите (в пиксели)
   setting_non_working_week_days: Не работни дни
   setting_jsonp_enabled: Разрешаване на поддръжка на JSONP
+  setting_webhooks_enabled: Разрешаване на webhooks
   setting_default_projects_tracker_ids: Тракери по подразбиране за нови проекти
   setting_mail_handler_excluded_filenames: Имена на прикачени файлове, които да се пропускат при приемане на e-mail-и (например *.vcf, companylogo.gif).
   setting_force_default_language_for_anonymous: Задължително език по подразбиране за анонимните потребители
   setting_force_default_language_for_loggedin: Задължително език по подразбиране за потребителите, влезли в Redmine
   setting_link_copied_issue: Свързване на задачите при копиране
+  setting_copy_attachments_on_issue_copy: Копиране на файловете при копиране
   setting_max_additional_emails: Максимален брой на допълнителните имейл адреси
   setting_email_domains_allowed: Разрешени имейл домейни
   setting_email_domains_denied: Забранени имейл домейни
@@ -516,9 +533,13 @@ bg:
   setting_timelog_accept_0_hours: Приемане на записи с 0 часа
   setting_timelog_max_hours_per_day: Максимум часове, които могат да бъдат записани за ден и за потребител
   setting_timelog_accept_future_dates: Разрешено отчитане на изразходвано време на дата в бъдещето
+  setting_timelog_accept_closed_issues: Разрешено отчитане на изразходвано време за затворени задачи
   setting_show_status_changes_in_mail_subject: Показване на промените на състоянието на задачите в поле Относно на имейлите
   setting_project_list_defaults: Проектен списък
   setting_twofa: Двуфакторна автентикация
+  setting_related_issues_default_columns: Колони по подразбиране за свързани и подзадачи
+  setting_display_related_issues_table_headers: Показване на заглавия на таблиците
+  setting_reactions_enabled: Разрешаване на реакциите
 
   permission_add_project: Създаване на проект
   permission_add_subprojects: Създаване на подпроекти
@@ -593,8 +614,15 @@ bg:
   permission_export_wiki_pages: Експорт на wiki страници
   permission_manage_subtasks: Управление на подзадачите
   permission_manage_related_issues: Управление на връзките между задачи и ревизии
+  permission_export_issues: Експорт на задачи
   permission_import_issues: Импорт на задачи
+  permission_export_time_entries: Експорт на записи за използвано време
+  permission_import_time_entries: Импортиране на записи за използвано време
   permission_log_time_for_other_users: Записване на изразходвано време за други потребители
+  permission_view_project: Разглеждане на проекти
+  permission_search_project: Търсене на проекти
+  permission_view_members: Разглеждане на членовете на проекти
+  permission_use_webhooks: Използване на webhooks
 
   project_module_issue_tracking: Тракинг
   project_module_time_tracking: Отделяне на време
@@ -609,6 +637,7 @@ bg:
 
   label_user: Потребител
   label_user_plural: Потребители
+  label_users_and_groups: Потребители и групи
   label_user_new: Нов потребител
   label_user_anonymous: Анонимен
   label_project: Проект
@@ -632,6 +661,7 @@ bg:
   label_issue_assigned_to_updated: Задачата е с назначен нов изпълнител
   label_issue_priority_updated: Обновен приоритет
   label_issue_fixed_version_updated: Променена версия
+  label_issue_attachment_added: Добавен файл
   label_document: Документ
   label_document_new: Нов документ
   label_document_plural: Документи
@@ -682,7 +712,6 @@ bg:
   label_activity: Дейност
   label_user_activity: "Активност на %{value}"
   label_new: Нов
-  label_logged_as: Здравейте,
   label_environment: Среда
   label_authentication: Удостоверяване
   label_auth_source: Начин на удостоверяване
@@ -705,6 +734,7 @@ bg:
   label_no_preview: Няма наличен преглед (preview)
   label_no_preview_alternative_html: Няма наличен преглед (preview). %{link} файл вместо това.
   label_no_preview_download: Изтегляне
+  label_open_in_full_view: Отвори за пълно разглеждане
   label_change_status: Промяна на състоянието
   label_history: История
   label_attachment: Файл
@@ -713,6 +743,10 @@ bg:
   label_attachment_plural: Файлове
   label_file_added: Добавен файл
   label_attachment_description: Описание на файла
+  label_attachment_summary:
+    zero: "%{filename}"
+    one: "%{filename} и 1 файл"
+    other: "%{filename} и %{count} файла"
   label_report: Справка
   label_report_plural: Справки
   label_news: Новини
@@ -732,7 +766,6 @@ bg:
   label_confirmation: Одобрение
   label_export_to: Експорт към
   label_read: Read...
-  label_public_projects: Публични проекти
   label_open_issues: отворена
   label_open_issues_plural: отворени
   label_closed_issues: затворена
@@ -758,6 +791,8 @@ bg:
   label_all: всички
   label_any: без значение
   label_none: никакви
+  label_absolute: Абсолютно 
+  label_relative: Относително
   label_nobody: никой
   label_next: Следващ
   label_previous: Предишен
@@ -768,8 +803,6 @@ bg:
   label_months_from: месеца от
   label_gantt: Мрежов график
   label_internal: Вътрешен
-  label_last_changes: "последни %{count} промени"
-  label_change_view_all: Виж всички промени
   label_comment: Коментар
   label_comment_plural: Коментари
   label_x_comments:
@@ -807,7 +840,6 @@ bg:
   label_last_month: последния месец
   label_next_month: следващият месец
   label_this_year: текущата година
-  label_date_range: Период
   label_less_than_ago: преди по-малко от
   label_more_than_ago: преди повече от
   label_ago: преди
@@ -828,7 +860,6 @@ bg:
   label_repository: Хранилище
   label_repository_new: Ново хранилище
   label_repository_plural: Хранилища
-  label_browse: Разглеждане
   label_branch: работен вариант
   label_tag: Версия
   label_revision: Ревизия
@@ -862,7 +893,6 @@ bg:
   label_wiki_page_new: Нова wiki страница
   label_index_by_title: Индекс
   label_index_by_date: Индекс по дата
-  label_current_version: Текуща версия
   label_preview: Преглед
   label_feed_plural: Емисии
   label_changes_details: Подробни промени
@@ -882,6 +912,7 @@ bg:
   label_diff_inline: хоризонтално
   label_diff_side_by_side: вертикално
   label_options: Опции
+  label_option_auto_lang: автоматично
   label_copy_workflow_from: Копирай работния процес от
   label_permissions_report: Справка за права
   label_watched_issues: Наблюдавани задачи
@@ -889,9 +920,9 @@ bg:
   label_applied_status: Установено състояние
   label_loading: Зареждане...
   label_relation_new: Нова релация
-  label_relation_delete: Изтриване на релация
+  label_relation_remove: Премахване на релация
   label_relates_to: свързана със
-  label_delete_link_to_subtask: Изтриване на релация
+  label_subtask_remove: Премахване на подзадача
   label_duplicates: дублира
   label_duplicated_by: дублирана от
   label_blocks: блокира
@@ -920,8 +951,6 @@ bg:
   label_year: Година
   label_month: Месец
   label_week: Седмица
-  label_date_from: От
-  label_date_to: До
   label_language_based: В зависимост от езика
   label_sort_by: "Сортиране по %{value}"
   label_send_test_email: Изпращане на тестов e-mail
@@ -949,6 +978,7 @@ bg:
   label_user_mail_option_only_my_events: Само за неща, в които съм включен/а
   label_user_mail_option_only_assigned: Само за неща, които наблюдавам или са назначени на мен
   label_user_mail_option_only_owner: Само за неща, които наблюдавам или съм техен собственик
+  label_user_mail_option_only_my_watches: Само за неща, които наблюдавам
   label_user_mail_no_self_notified: "Не искам известия за извършени от мен промени"
   label_user_mail_notify_about_high_priority_issues_html: Известявайте ме и за задачи с приоритет <em>%{prio}</em> или по-голям
   label_registration_activation_by_email: активиране на профила по email
@@ -967,10 +997,10 @@ bg:
   label_ldaps_warning: Препоръчително е да се използва криптирана LDAPS връзка със сертификат за предотвратяване на намеса по време на процеса на удостоверяване.
   label_downloads_abbr: D/L
   label_optional_description: Незадължително описание
-  label_add_another_file: Добавяне на друг файл
   label_auto_watch_on: Автоматично включване в наблюдателите
   label_auto_watch_on_issue_created: Задачи, които съм създал
   label_auto_watch_on_issue_contributed_to: Задачи, в които имам участие
+  label_auto_watch_on_issue_assigned_to_me: Задачи, назначени на мен
   label_preferences: Предпочитания
   label_chronological_order: Хронологичен ред
   label_reverse_chronological_order: Обратен хронологичен ред
@@ -1086,7 +1116,6 @@ bg:
   label_member_management_all_roles: Всички роли
   label_member_management_selected_roles_only: Само тези роли
   label_import_issues: Импорт на задачи
-  permission_import_time_entries: Импортиране на записи за използвано време
   label_select_file_to_import: Файл за импортиране
   label_fields_separator: Разделител между полетата
   label_fields_wrapper: Разделител в полетата (wrapper)
@@ -1099,6 +1128,8 @@ bg:
   label_relations_mapping: Съответствие между релациите
   label_file_content_preview: Предварителен преглед на съдържанието на файла
   label_create_missing_values: Създаване на липсващи стойности
+  label_position: Позиция
+  label_message: Съобщение
   label_api: API
   label_field_format_enumeration: Списък ключ/стойност
   label_default_values_for_new_users: Стойности по подразбиране за нови потребители
@@ -1141,6 +1172,57 @@ bg:
   label_default_query: Заявка по подразбиране
   label_edited: Редактирано
   label_time_by_author: "%{time} от %{author}"
+  label_involved_principals: Author / Recent participants
+  label_assignee_dropdown_display_format_users_then_groups: Потребители после групи
+  label_assignee_dropdown_display_format_groups_then_users: Групи после потребители
+  label_assignee_dropdown_display_format_users_by_group: Потребители по групи
+  label_progressbar: Прогрес бар
+  label_oauth_permission_admin: Администриране на тази инсталация на Redmine
+  label_oauth_admin_access: Администриране
+  label_oauth_application_plural: Приложения
+  label_oauth_authorized_application_plural: Оторизирани приложения
+  label_webhook_plural: Webhooks
+  label_webhook_new: Нов webhook
+  label_webhook_edit: Редактиране на webhook
+  label_webhook_events: Събития
+  label_integrations: Интеграции
+  label_alert_note: Бележка
+  label_alert_tip: Съвет
+  label_alert_warning: Предупреждение
+  label_alert_caution: Внимание
+  label_alert_important: Важно
+  label_last_used_on: 'Последно използван(о): преди %{value}'
+  label_never_used: не е използван(о) никога
+  label_enable_default_issue_due_date_offset: Разрешаване на дата по подразбиране за завършване на задачи
+  setting_default_issue_due_date_offset: Дата по подразбиране за приключване на задачите
+  label_days_relative_to_today: дена спрямо днес
+  label_wiki_toolbar_strong: Получер
+  label_wiki_toolbar_italic: Курсив
+  label_wiki_toolbar_underline: Подчертан
+  label_wiki_toolbar_deleted: Изтрит
+  label_wiki_toolbar_code: Вграден код
+  label_wiki_toolbar_heading_1: Заглавие 1
+  label_wiki_toolbar_heading_2: Заглавие 2
+  label_wiki_toolbar_heading_3: Заглавие 3
+  label_wiki_toolbar_unordered_list: Неподреден списък
+  label_wiki_toolbar_ordered_list: Подреден списък
+  label_wiki_toolbar_task_list: Task list
+  label_wiki_toolbar_quote: Цитат
+  label_wiki_toolbar_unquote: Премахване на цитат
+  label_wiki_toolbar_table: Table
+  label_wiki_toolbar_preformatted_text: Форматиран текст
+  label_wiki_toolbar_preformatted_code: Вграден код
+  label_wiki_toolbar_wiki_link: Връзка до Wiki страница
+  label_wiki_toolbar_image: Изображение
+  label_wiki_toolbar_help: Help
+
+  webhook_event_created: "%{object_name} създаден"
+  webhook_event_updated: "%{object_name} променен"
+  webhook_event_deleted: "%{object_name} изтрит"
+  webhook_url_info: Redmine ще изпрати POST заявка на този адрес, когато някое от избраните събития се появи в някой от избраните проекти.
+  webhook_secret_info_html: Ако е зададено,  Redmine ще използва това, за да създаде хеш сигнатура, която ще бъде изпращана с всяко съобщение като стойност на X-Redmine-Signature-256 хедър.
+  webhook_secret_keep_info: Паролата на друг потребител не е показана. Оставете това поле празно, за да остане то непроменено.
+  webhook_disabled_info_html: Webhooks са забранени, следователно никое от webhooks не се тригерира. Те са показани тук, за да има възмоност да бъдат преглеждани или премахвани. Webhooks могат да бъдат разрешени в %{link}.
 
   button_login: Вход
   button_submit: Изпращане
@@ -1150,12 +1232,15 @@ bg:
   button_collapse_all: Скриване всички
   button_expand_all: Разгъване всички
   button_delete: Изтриване
+  button_remove: Премахване
+  button_remove_from_group: Премахване от група
   button_create: Създаване
   button_create_and_continue: Създаване и продължаване
   button_test: Тест
   button_edit: Редакция
   button_edit_associated_wikipage: "Редактиране на асоциираната Wiki страница: %{page_title}"
   button_add: Добавяне
+  button_add_to_group: Добавяне към група
   button_change: Промяна
   button_apply: Приложи
   button_clear: Изчисти
@@ -1239,6 +1324,7 @@ bg:
   text_project_archive_confirmation: Сигурни ли сте, че желаете да архивирате проект '%{value}'?
   text_users_bulk_destroy_head: Вие сте на път да изтриете следните потребители и всички връзки към тях. Това не може да бъде върнато назад. Често заключването на потребителите вместо изтриването им е по-добро решение.
   text_users_bulk_destroy_confirm: За да потвърдите, моля въведете "%{yes}" по-долу.
+  text_users_remove_from_group_confirmation: Наистина ли желаете да премахнете избраните потребители от група %{group}?
   text_workflow_edit: Изберете роля и тракер за да редактирате работния процес
   text_are_you_sure: Сигурни ли сте?
   text_journal_changed: "%{label} променен от %{old} на %{new}"
@@ -1275,14 +1361,13 @@ bg:
   text_issues_destroy_confirmation: 'Сигурни ли сте, че искате да изтриете избраните задачи?'
   text_issues_destroy_descendants_confirmation: Тази операция ще премахне и %{count} подзадача(и).
   text_time_entries_destroy_confirmation: Сигурен ли сте, че изтриете избраните записи за изразходвано време?
-  text_select_project_modules: 'Изберете активните модули за този проект:'
   text_default_administrator_account_changed: Сменен фабричния администраторски профил
   text_file_repository_writable: Възможност за писане в хранилището с файлове
-  text_plugin_assets_writable: Папката на приставките е разрешена за запис
   text_all_migrations_have_been_run: Всички миграции на базата данни са изпълнени
   text_minimagick_available: Наличен MiniMagick (по избор)
   text_convert_available: Наличен ImageMagick convert (по избор)
   text_gs_available: Налична поддръжка за ImageMagick PDF (по избор)
+  text_pandoc_available: Pandoc е наличен (опция)
   text_default_active_job_queue_changed: Default queue adapter which is well suited only for dev/test changed
   text_destroy_time_entries_question: "%{hours} часа са отделени на задачите, които искате да изтриете. Какво избирате?"
   text_destroy_time_entries: Изтриване на отделеното време
@@ -1323,9 +1408,21 @@ bg:
   text_select_apply_tracker: Изберете тракер
   text_select_apply_issue_status: Изберете състояние
   text_avatar_server_config_html: Текущият сървър на аватари е <a href="%{url}">%{url}</a>.
-    Бие можете да го конфигурирате в config/configuration.yml.
+    Можете да го конфигурирате в config/configuration.yml.
   text_allowed_queries_to_select: Само публичните (за всички потребители) заявки са достъпни за избор
   text_setting_config_change: Вие можете да конфигурирате поведението в config/configuration.yml. Моля, рестартирайте Redmine след редактиране на файла.
+  text_setting_gravatar_default_initials_html: Инициалите на потребителите са изпратени на <a href="%{url}">%{url}</a> за генериране на техните аватари.
+  text_oauth_admin_permission: Пълен административен достъп. След оторизиране от администратор,
+    това приложение ще има възможност да чете и записва всички данни и да имитира други потребители.
+  text_oauth_admin_permission_info: Това приложение иска пълен административен достъп.
+    Ако вие сте Администратор (или станете такъв след време), то ще бъде способно да чете
+    и записва всички данни и да имитира други потребители за ваша сметка. Ако вие не желаете
+    такова поведение, оторизирайте го като потребител без административни привилегии.
+  text_oauth_copy_secret_now: Копирайте секретната фраза на сигурно място сега. Тя няма да бъде показана отново.
+  text_oauth_implicit_permissions: Разглеждане на вашето име, потребителско име (login) и главен email адрес
+  text_oauth_info_scopes: Изберете какво може да заявява приложението. На приложението няма да бъде позволено
+    повече от това, което е избрано тук. То също така ще бъде ограничено от ролите и членството в проекти на
+    на потребителя, който го е оторизирал.
 
   default_role_manager: Мениджър
   default_role_developer: Разработчик
@@ -1354,9 +1451,7 @@ bg:
   enumeration_doc_categories: Категории документи
   enumeration_activities: Дейности (time tracking)
   enumeration_system_activity: Системна активност
-  description_filter: Филтър
   description_search: Търсене
-  description_choose_project: Проекти
   description_project_scope: Обхват на търсенето
   description_notes: Бележки
   description_message_content: Съдържание на съобщението
@@ -1422,6 +1517,7 @@ bg:
   twofa_text_backup_codes_created_at: Резервни кодове генерирани на %{datetime}.
   twofa_backup_codes_already_shown: Резервните кодове не могат да бъдат показани отново, моля <a data-method="post"
     href="%{bc_path}">генерирайте нови резервни кодове</a>, ако е необходимо.
+  twofa_already_setup: Двуфактораната автентикация вече е направена.
   twofa_text_group_required: Този избор е ефективен само, когато глобалната двуфакторна автентикация е установена на 'по избор'.
     Понастоящем, двуфакторната автентикация се изисква за всички потребители.
   twofa_text_group_disabled: Този избор е ефективен само, когато глобалната двуфакторна автентикация е установена на 'по избор'.
@@ -1431,4 +1527,37 @@ bg:
     За да потвърдите, въведете името (%{login}) по-долу.
   text_project_destroy_enter_identifier: За да потвърдите действието, въведете идентификатора на проекта (%{identifier}) по-долу.
   field_name_or_email_or_login: Име, e-mail или login име
-  label_option_auto_lang: auto
+  setting_wiki_tablesort_enabled: Сортиране на таблици чрез JavaScript във wiki страници
+  reaction_text_x_other_users:
+    one: 1 друг
+    other: "%{count} други"
+  text_mermaid_available: Mermaid.js available (optional)
+  label_member_view_all: View all members
+  field_date: Date
+  label_non_working_date_plural: Non-working dates
+  label_non_working_date_new: New non-working date
+  text_non_working_dates_html: 'You can add non-working dates such as holidays: <a href="%{non_working_dates_path}">Manage
+    non-working dates</a>'
+  text_non_working_dates_export_all_years: Non-working dates of all years will be exported.
+  label_import_non_working_dates: Import non-working dates
+  field_avatar: Avatar
+  setting_avatar_enabled: Allow users to set their avatar
+  button_change_avatar: Change avatar
+  text_avatar_uploaded: The uploaded image is currently used as the avatar.
+  text_avatar_from_server_html: The image from <a href="%{url}">%{url}</a> associated
+    with the user's email address is currently used as the avatar. It can be changed
+    on that site. If no image is registered there, a default avatar is shown.
+  text_avatar_initials: The image generated from the user's name is currently used as
+    the avatar.
+  text_avatar_upload_instead: You can upload an image to use instead.
+  text_avatar_upload_disabled: Uploading an avatar image to Redmine has been disabled
+    by the administrator.
+  text_setting_avatar_enabled_imagemagick_unavailable: ImageMagick is not available,
+    so users cannot set their avatar.
+  text_setting_gravatar_enabled_fallback: If enabled, Gravatar is used for users who
+    have not set their avatar in Redmine.
+  label_show_more: Show more
+  setting_favicon: Custom favicon
+  text_setting_favicon_format: PNG or ICO, up to %{max_size}
+  notice_search_tokens_truncated: 'A maximum of %{max} search terms can be used. Only
+    the following terms were used: %{tokens}'

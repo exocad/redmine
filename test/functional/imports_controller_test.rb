@@ -20,20 +20,6 @@
 require_relative '../test_helper'
 
 class ImportsControllerTest < Redmine::ControllerTest
-  fixtures :projects, :enabled_modules,
-           :users, :email_addresses, :user_preferences,
-           :roles, :members, :member_roles,
-           :issues, :issue_statuses,
-           :trackers, :projects_trackers,
-           :versions,
-           :issue_categories,
-           :enumerations,
-           :workflows,
-           :custom_fields,
-           :custom_values,
-           :custom_fields_projects,
-           :custom_fields_trackers
-
   include Redmine::I18n
 
   def setup
@@ -52,6 +38,18 @@ class ImportsControllerTest < Redmine::ControllerTest
     assert_select 'input[name=?][type=?][value=?]', 'project_id', 'hidden', 'subproject1'
   end
 
+  def test_new_issue_import_without_add_issues_permission
+    Role.all.map { |role| role.remove_permission! :add_issues }
+    get(:new, :params => {:type => 'IssueImport', :project_id => 'subproject1'})
+    assert_response :forbidden
+  end
+
+  def test_new_time_entry_import_without_log_time_permission
+    Role.all.map { |role| role.remove_permission! :log_time }
+    get(:new, :params => {:type => 'TimeEntryImport', :project_id => 'subproject1'})
+    assert_response :forbidden
+  end
+
   def test_create_should_save_the_file
     import = new_record(Import) do
       post(
@@ -61,7 +59,7 @@ class ImportsControllerTest < Redmine::ControllerTest
           :file => uploaded_test_file('import_issues.csv', 'text/csv')
         }
       )
-      assert_response 302
+      assert_response :found
     end
     assert_equal 2, import.user_id
     assert_match /\A[0-9a-f]+\z/, import.filename
@@ -123,7 +121,7 @@ class ImportsControllerTest < Redmine::ControllerTest
         }
       }
     )
-    assert_response 302
+    assert_response :found
     import.reload
     assert_equal 2, import.total_items
   end
@@ -142,7 +140,7 @@ class ImportsControllerTest < Redmine::ControllerTest
         }
       }
     )
-    assert_response 200
+    assert_response :ok
     import.reload
     assert_nil import.total_items
     assert_select 'div#flash_error', /not a valid UTF-8 encoded file/
@@ -162,7 +160,7 @@ class ImportsControllerTest < Redmine::ControllerTest
         }
       }
     )
-    assert_response 200
+    assert_response :ok
     import.reload
     assert_nil import.total_items
     assert_select 'div#flash_error', /not a valid Shift_JIS encoded file/
@@ -182,11 +180,40 @@ class ImportsControllerTest < Redmine::ControllerTest
         }
       }
     )
-    assert_response 200
+    assert_response :ok
     import.reload
     assert_nil import.total_items
 
     assert_select 'div#flash_error', /The file is not a CSV file or does not match the settings below \([[:print:]]+\)/
+  end
+
+  def test_post_settings_with_crlf_and_newline_in_quoted_header_should_not_fail
+    import = new_record(Import) do
+      post(
+        :create,
+        :params => {
+          :type => 'IssueImport',
+          :file => uploaded_test_file('import_crlf_with_newline_in_quoted_header.csv', 'text/csv')
+        }
+      )
+      assert_response :found
+    end
+    assert_equal "\r\n", import.settings['newline']
+
+    post(
+      :settings,
+      :params => {
+        :id => import.to_param,
+        :import_settings => {
+          :separator => ',',
+          :wrapper => '"',
+          :encoding => 'UTF-8'
+        }
+      }
+    )
+    assert_response :found
+    import.reload
+    assert_equal 1, import.total_items
   end
 
   def test_post_settings_with_no_data_row_should_display_error
@@ -203,7 +230,7 @@ class ImportsControllerTest < Redmine::ControllerTest
         }
       }
     )
-    assert_response 200
+    assert_response :ok
     import.reload
     assert_equal 0, import.total_items
 
@@ -435,7 +462,7 @@ class ImportsControllerTest < Redmine::ControllerTest
     )
     ActionMailer::Base.deliveries.clear
     assert_difference 'Issue.count', 3 do
-      post(:run, :params => {:id => import,})
+      post(:run, :params => {:id => import})
       assert_response :found
     end
     actual_email_count = ActionMailer::Base.deliveries.size
@@ -474,5 +501,32 @@ class ImportsControllerTest < Redmine::ControllerTest
 
     assert_select 'table#unsaved-items'
     assert_select 'table#unsaved-items tbody tr', import.unsaved_items.count
+  end
+
+  def test_import_non_working_dates
+    @request.session[:user_id] = 1
+    import = NonWorkingDateImport.new
+    import.user_id = 1
+    import.file = uploaded_test_file('import_non_working_dates.csv', 'text/csv')
+    import.settings = {
+      'separator' => ',', 'wrapper' => '"', 'encoding' => 'UTF-8', 'date_format' => '%Y-%m-%d',
+      'mapping' => {'date' => '0', 'name' => '1'}
+    }
+    import.save!
+
+    get(:mapping, :params => {:id => import.to_param})
+    assert_response :success
+    assert_select 'select[name=?]', 'import_settings[mapping][date]'
+    assert_select 'select[name=?]', 'import_settings[mapping][name]'
+
+    assert_difference 'NonWorkingDate.count', 3 do
+      post(:run, :params => {:id => import.to_param})
+    end
+    assert_redirected_to "/imports/#{import.to_param}"
+
+    get(:show, :params => {:id => import.to_param})
+    assert_response :success
+    assert_select 'table#saved-items tbody tr', 3
+    assert_select 'a[href=?]', '/non_working_dates?year=2026', :text => 'Non-working dates'
   end
 end

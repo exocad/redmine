@@ -20,19 +20,16 @@
 require_relative '../../test_helper'
 
 class Redmine::ApiTest::WikiPagesTest < Redmine::ApiTest::Base
-  fixtures :projects, :users, :roles, :members, :member_roles,
-           :enabled_modules, :wikis, :wiki_pages, :wiki_contents,
-           :wiki_content_versions, :attachments
-
   test "GET /projects/:project_id/wiki/index.xml should return wiki pages" do
     get '/projects/ecookbook/wiki/index.xml'
-    assert_response 200
+    assert_response :ok
     assert_equal 'application/xml', response.media_type
     assert_select 'wiki_pages[type=array]' do
       assert_select 'wiki_page', :count => Wiki.find(1).pages.count
       assert_select 'wiki_page' do
         assert_select 'title', :text => 'CookBook_documentation'
         assert_select 'version', :text => '3'
+        assert_select 'project[id=1][name="eCookbook"]'
         assert_select 'created_on'
         assert_select 'updated_on'
       end
@@ -45,7 +42,7 @@ class Redmine::ApiTest::WikiPagesTest < Redmine::ApiTest::Base
 
   test "GET /projects/:project_id/wiki/:title.xml should return wiki page" do
     get '/projects/ecookbook/wiki/CookBook_documentation.xml'
-    assert_response 200
+    assert_response :ok
     assert_equal 'application/xml', response.media_type
     assert_select 'wiki_page' do
       assert_select 'title', :text => 'CookBook_documentation'
@@ -53,6 +50,7 @@ class Redmine::ApiTest::WikiPagesTest < Redmine::ApiTest::Base
       assert_select 'text'
       assert_select 'author'
       assert_select 'comments'
+      assert_select 'project[id=1][name="eCookbook"]'
       assert_select 'created_on'
       assert_select 'updated_on'
     end
@@ -60,7 +58,7 @@ class Redmine::ApiTest::WikiPagesTest < Redmine::ApiTest::Base
 
   test "GET /projects/:project_id/wiki/:title.xml?include=attachments should include attachments" do
     get '/projects/ecookbook/wiki/Page_with_an_inline_image.xml?include=attachments'
-    assert_response 200
+    assert_response :ok
     assert_equal 'application/xml', response.media_type
     assert_select 'wiki_page' do
       assert_select 'title', :text => 'Page_with_an_inline_image'
@@ -75,13 +73,13 @@ class Redmine::ApiTest::WikiPagesTest < Redmine::ApiTest::Base
 
   test "GET /projects/:project_id/wiki/:title.xml with unknown title and edit permission should respond with 404" do
     get '/projects/ecookbook/wiki/Invalid_Page.xml', :headers => credentials('jsmith')
-    assert_response 404
+    assert_response :not_found
     assert_equal 'application/xml', response.media_type
   end
 
   test "GET /projects/:project_id/wiki/:title/:version.xml should return wiki page version" do
     get '/projects/ecookbook/wiki/CookBook_documentation/2.xml'
-    assert_response 200
+    assert_response :ok
     assert_equal 'application/xml', response.media_type
     assert_select 'wiki_page' do
       assert_select 'title', :text => 'CookBook_documentation'
@@ -98,7 +96,7 @@ class Redmine::ApiTest::WikiPagesTest < Redmine::ApiTest::Base
     Role.anonymous.remove_permission! :view_wiki_edits
 
     get '/projects/ecookbook/wiki/CookBook_documentation/2.xml'
-    assert_response 401
+    assert_response :unauthorized
     assert_equal 'application/xml', response.media_type
   end
 
@@ -130,7 +128,7 @@ class Redmine::ApiTest::WikiPagesTest < Redmine::ApiTest::Base
     WikiContentVersion.find_by_id(2).update(author_id: nil)
 
     get '/projects/ecookbook/wiki/CookBook_documentation/2.xml'
-    assert_response 200
+    assert_response :ok
     assert_equal 'application/xml', response.media_type
     assert_select 'wiki_page' do
       assert_select 'author', 0
@@ -176,7 +174,7 @@ class Redmine::ApiTest::WikiPagesTest < Redmine::ApiTest::Base
           },
           :headers => credentials('jsmith')
         )
-        assert_response 409
+        assert_response :conflict
       end
     end
   end
@@ -194,11 +192,11 @@ class Redmine::ApiTest::WikiPagesTest < Redmine::ApiTest::Base
           },
           :headers => credentials('jsmith')
         )
-        assert_response 201
+        assert_response :created
       end
     end
 
-    page = WikiPage.order('id DESC').first
+    page = WikiPage.order(id: :desc).first
     assert_equal 'New_page_from_API', page.title
     assert_equal 'New content from API', page.content.text
     assert_equal 1, page.content.version
@@ -219,19 +217,21 @@ class Redmine::ApiTest::WikiPagesTest < Redmine::ApiTest::Base
               :text => 'New content from API with Attachments',
               :comments => 'API create with Attachments',
               :uploads => [
-                :token => attachment.token,
-                :filename => 'testfile.txt',
-                :content_type => "text/plain"
+                {
+                  :token => attachment.token,
+                  :filename => 'testfile.txt',
+                  :content_type => 'text/plain'
+                }
               ]
             }
           },
           :headers => credentials('jsmith')
         )
-        assert_response 201
+        assert_response :created
       end
     end
 
-    page = WikiPage.order('id DESC').first
+    page = WikiPage.order(id: :desc).first
     assert_equal 'New_page_from_API', page.title
     assert_include attachment, page.attachments
     assert_equal attachment.filename, page.attachments.first.filename
@@ -251,11 +251,11 @@ class Redmine::ApiTest::WikiPagesTest < Redmine::ApiTest::Base
           },
           :headers => credentials('jsmith')
         )
-        assert_response 201
+        assert_response :created
       end
     end
 
-    page = WikiPage.order('id DESC').first
+    page = WikiPage.order(id: :desc).first
     assert_equal 'New_subpage_from_API', page.title
     assert_equal WikiPage.find(1), page.parent
   end

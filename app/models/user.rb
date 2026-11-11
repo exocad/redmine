@@ -24,49 +24,59 @@ class User < Principal
   include Redmine::SafeAttributes
 
   # Different ways of displaying/sorting users
+  # rubocop:disable-next Lint/InterpolationCheck
   USER_FORMATS = {
     :firstname_lastname => {
       :string => '#{firstname} #{lastname}',
+      :initials => '#{firstname.to_s.first}#{lastname.to_s.first}',
       :order => %w(firstname lastname id),
       :setting_order => 1
     },
     :firstname_lastinitial => {
       :string => '#{firstname} #{lastname.to_s.chars.first}.',
+      :initials => '#{firstname.to_s.first}#{lastname.to_s.first}',
       :order => %w(firstname lastname id),
       :setting_order => 2
     },
     :firstinitial_lastname => {
       :string => '#{firstname.to_s.gsub(/(([[:alpha:]])[[:alpha:]]*\.?)/, \'\2.\')} #{lastname}',
+      :initials => '#{firstname.to_s.gsub(/(([[:alpha:]])[[:alpha:]]*\.?)/, \'\2.\').first}#{lastname.to_s.first}',
       :order => %w(firstname lastname id),
       :setting_order => 2
     },
     :firstname => {
       :string => '#{firstname}',
+      :initials => '#{firstname.to_s.first(2)}',
       :order => %w(firstname id),
       :setting_order => 3
     },
     :lastname_firstname => {
       :string => '#{lastname} #{firstname}',
+      :initials => '#{lastname.to_s.first}#{firstname.to_s.first}',
       :order => %w(lastname firstname id),
       :setting_order => 4
     },
     :lastnamefirstname => {
       :string => '#{lastname}#{firstname}',
+      :initials => '#{lastname.to_s.first}#{firstname.to_s.first}',
       :order => %w(lastname firstname id),
       :setting_order => 5
     },
     :lastname_comma_firstname => {
       :string => '#{lastname}, #{firstname}',
+      :initials => '#{lastname.to_s.first}#{firstname.to_s.first}',
       :order => %w(lastname firstname id),
       :setting_order => 6
     },
     :lastname => {
       :string => '#{lastname}',
+      :initials => '#{lastname.to_s.first(2)}',
       :order => %w(lastname id),
       :setting_order => 7
     },
     :username => {
       :string => '#{login}',
+      :initials => '#{login.to_s.first(2)}',
       :order => %w(login id),
       :setting_order => 8
     },
@@ -78,6 +88,7 @@ class User < Principal
     ['only_my_events', :label_user_mail_option_only_my_events],
     ['only_assigned', :label_user_mail_option_only_assigned],
     ['only_owner', :label_user_mail_option_only_owner],
+    ['only_my_watches', :label_user_mail_option_only_my_watches],
     ['none', :label_user_mail_option_none]
   ]
 
@@ -87,11 +98,18 @@ class User < Principal
                           :after_remove => Proc.new {|user, group| group.user_removed(user)}
   has_many :changesets, :dependent => :nullify
   has_one :preference, :dependent => :destroy, :class_name => 'UserPreference'
-  has_one :atom_token, lambda {where "action='feeds'"}, :class_name => 'Token'
-  has_one :api_token, lambda {where "action='api'"}, :class_name => 'Token'
-  has_one :email_address, lambda {where :is_default => true}, :autosave => true
+  has_one :atom_token, lambda {where "#{table.name}.action='feeds'"}, :class_name => 'Token'
+  has_one :api_token, lambda {where "#{table.name}.action='api'"}, :class_name => 'Token'
   has_many :email_addresses, :dependent => :delete_all
+  has_many :reactions, dependent: :delete_all
+  has_many :webhooks, dependent: :destroy
+  has_many :oauth_access_grants, :class_name => 'Doorkeeper::AccessGrant',
+           :foreign_key => :resource_owner_id, :dependent => :delete_all
+  has_many :oauth_access_tokens, :class_name => 'Doorkeeper::AccessToken',
+           :foreign_key => :resource_owner_id, :dependent => :delete_all
+
   belongs_to :auth_source
+  belongs_to :avatar, :class_name => 'Attachment', :dependent => :destroy
 
   scope :logged, lambda {where("#{User.table_name}.status <> #{STATUS_ANONYMOUS}")}
   scope :status, lambda {|arg| where(arg.blank? ? nil : {:status => arg.to_i})}
@@ -101,6 +119,9 @@ class User < Principal
   attr_accessor :password, :password_confirmation, :generate_password
   attr_accessor :last_before_login_on
   attr_accessor :remote_ip
+  attr_accessor :oauth_scope
+
+  AVATAR_CONTENT_TYPES = %w(image/avif image/gif image/jpeg image/png image/webp).freeze
 
   LOGIN_LENGTH_LIMIT = 60
   MAIL_LENGTH_LIMIT = 254
@@ -108,7 +129,7 @@ class User < Principal
   validates_presence_of :login, :firstname, :lastname, :if => Proc.new {|user| !user.is_a?(AnonymousUser)}
   validates_uniqueness_of :login, :if => Proc.new {|user| user.login_changed? && user.login.present?}, :case_sensitive => false
   # Login must contain letters, numbers, underscores only
-  validates_format_of :login, :with => /\A[a-z0-9_\-@\.]*\z/i
+  validates_format_of :login, :with => /\A[a-z0-9_\-@.]*\z/i
   validates_length_of :login, :maximum => LOGIN_LENGTH_LIMIT
   validates_length_of :firstname, :maximum => 30
   validates_length_of :lastname, :maximum => 255
@@ -117,6 +138,7 @@ class User < Principal
     validates_format_of :password, :with => v, :message => :"must_contain_#{k}", :allow_blank => true, :if => Proc.new {Setting.password_required_char_classes.include?(k)}
   end
   validate :validate_password_length
+  validate :validate_password_complexity
   validate do
     if password_confirmation && password != password_confirmation
       errors.add(:password, :confirmation)
@@ -126,11 +148,11 @@ class User < Principal
   self.valid_statuses = [STATUS_ACTIVE, STATUS_REGISTERED, STATUS_LOCKED]
 
   before_validation :instantiate_email_address
-  before_create :set_mail_notification
   before_save   :generate_password_if_needed, :update_hashed_password
+  before_create :set_mail_notification
   before_destroy :remove_references_before_destroy
-  after_save :update_notified_project_ids, :destroy_tokens, :deliver_security_notification
   after_destroy :deliver_security_notification
+  after_save :update_notified_project_ids, :destroy_tokens, :deliver_security_notification
 
   scope :admin, (lambda do |*args|
     admin = args.size > 0 ? !!args.first : true
@@ -167,7 +189,7 @@ class User < Principal
   end
 
   alias :base_reload :reload
-  def reload(*args)
+  def reload(*)
     @name = nil
     @roles = nil
     @projects_by_role = nil
@@ -178,7 +200,7 @@ class User < Principal
     @builtin_role = nil
     @visible_project_ids = nil
     @managed_roles = nil
-    base_reload(*args)
+    base_reload(*)
   end
 
   def mail
@@ -203,7 +225,7 @@ class User < Principal
   def self.try_to_login(login, password, active_only=true)
     try_to_login!(login, password, active_only)
   rescue AuthSourceException => e
-    logger.error "An error occured when authenticating #{login}: #{e.message}"
+    logger.error "An error occurred when authenticating #{login}: #{e.message}"
     nil
   end
 
@@ -251,6 +273,14 @@ class User < Principal
     USER_FORMATS[formatter || Setting.user_format] || USER_FORMATS[:firstname_lastname]
   end
 
+  # Returns true if the selected user format puts lastname before firstname.
+  def self.lastname_before_firstname?(formatter = nil)
+    order = name_formatter(formatter)[:order]
+    return false unless order.include?('firstname') && order.include?('lastname')
+
+    order.index('lastname') < order.index('firstname')
+  end
+
   # Returns an array of fields names than can be used to make an order statement for users
   # according to how user names are displayed
   # Examples:
@@ -272,8 +302,12 @@ class User < Principal
     end
   end
 
-  def active?
-    self.status == STATUS_ACTIVE
+  # Return user's initials based on name format
+  def initials(formatter = nil)
+    f = self.class.name_formatter(formatter)
+    format = f[:initials] || USER_FORMATS[:firstname_lastname][:initials]
+    initials = eval('"' + format + '"')
+    initials.upcase
   end
 
   def registered?
@@ -372,7 +406,7 @@ class User < Principal
     end
     chars = chars_list.flatten
     length.times {password << chars[SecureRandom.random_number(chars.size)]}
-    password = password.split('').shuffle(random: SecureRandom).join
+    password = password.chars.shuffle(random: SecureRandom).join
     self.password = password
     self.password_confirmation = password
     self
@@ -392,6 +426,69 @@ class User < Principal
 
   def pref
     self.preference ||= UserPreference.new(:user => self)
+  end
+
+  # Avatars are served only as thumbnails, which require ImageMagick
+  def self.avatar_available?
+    Setting.avatar_enabled? && Redmine::Thumbnail.convert_available?
+  end
+
+  # Replaces the avatar with the uploaded +file+ and returns true, or returns
+  # false with errors if the file cannot be used as an avatar
+  def update_avatar(file)
+    attachment = Attachment.new(:file => file, :author => User.current, :container => self)
+    # Avatars are served only as thumbnails
+    unless User.avatar_available? && AVATAR_CONTENT_TYPES.include?(Marcel::MimeType.for(file)) && attachment.thumbnailable?
+      errors.add(:avatar, :invalid)
+      return false
+    end
+
+    unless attachment.valid?
+      attachment.errors.full_messages.each {|message| errors.add(:base, message)}
+      return false
+    end
+
+    replaced = transaction do
+      attachment.save!
+      # Reject files that ImageMagick cannot convert, e.g. broken images,
+      # before replacing the current avatar
+      unless attachment.thumbnail(:size => 100, :crop => true)
+        errors.add(:avatar, :invalid)
+        raise ActiveRecord::Rollback
+      end
+
+      replace_avatar(attachment)
+      true
+    end
+    replaced == true
+  end
+
+  # Used in the URL of the avatar instead of the attachment id so that
+  # avatars of users cannot be retrieved by trying sequential ids
+  def avatar_key
+    return unless avatar_id
+
+    secret = Rails.application.key_generator.generate_key('avatar')
+    OpenSSL::HMAC.hexdigest('SHA256', secret, avatar_id.to_s).first(16)
+  end
+
+  def delete_avatar
+    replace_avatar(nil)
+  end
+
+  # Unlike the thumbnails, the original image of the avatar may contain
+  # metadata such as the location where it was taken
+  def attachments_visible?(user=User.current)
+    user == self || user.admin?
+  end
+
+  # Avatars can only be changed through AvatarsController
+  def attachments_editable?(user=User.current)
+    false
+  end
+
+  def attachments_deletable?(user=User.current)
+    false
   end
 
   def time_zone
@@ -448,6 +545,11 @@ class User < Principal
 
   def delete_autologin_token(value)
     Token.where(:user_id => id, :action => 'autologin', :value => value).delete_all
+  end
+
+  # Deletes all tokens that could be used to log in
+  def delete_login_tokens
+    Token.where(:user_id => id, :action => ['recovery', 'autologin', 'session']).delete_all
   end
 
   def twofa_totp_key
@@ -519,11 +621,17 @@ class User < Principal
   def self.find_by_login(login)
     login = Redmine::CodesetUtil.replace_invalid_utf8(login.to_s)
     if login.present?
+      users = where(:login => login)
       # First look for an exact match
-      user = where(:login => login).detect {|u| u.login == login}
+      user = users.detect {|u| u.login == login}
       unless user
         # Fail over to case-insensitive if none was found
-        user = find_by("LOWER(login) = ?", login.downcase)
+        if Redmine::Database.mysql? || Redmine::Database.sqlserver?
+          # MySQL and SQLServer are case-insensitive by default, we can search in the existing results
+          user = users.detect {|u| u.login.casecmp?(login)}
+        else
+          user = find_by("LOWER(login) = ?", login.downcase)
+        end
       end
       user
     end
@@ -611,10 +719,10 @@ class User < Principal
           where(Member.arel_table[:user_id].eq(id)).distinct
 
     if @roles.blank?
-      group_class = anonymous? ? GroupAnonymous : GroupNonMember
+      group = anonymous? ? Group.anonymous : Group.non_member
       @roles = Role.joins(members: :project).
         where(["#{Project.table_name}.status <> ? AND #{Project.table_name}.is_public = ?", Project::STATUS_ARCHIVED, true]).
-        where(Member.arel_table[:user_id].eq(group_class.first.id)).distinct
+        where(Member.arel_table[:user_id].eq(group.id)).distinct
     end
 
     @roles
@@ -644,7 +752,7 @@ class User < Principal
   def projects_by_role
     return @projects_by_role if @projects_by_role
 
-    result = Hash.new([])
+    result = Hash.new {|_h, _k| []}
     project_ids_by_role.each do |role, ids|
       result[role] = Project.where(:id => ids).to_a
     end
@@ -660,8 +768,8 @@ class User < Principal
     Project.unscoped do
       return @project_ids_by_role if @project_ids_by_role
 
-      group_class = anonymous? ? GroupAnonymous.unscoped : GroupNonMember.unscoped
-      group_id = group_class.pick(:id)
+      group = anonymous? ? Group.anonymous : Group.non_member
+      group_id = group.id
 
       members = Member.joins(:project, :member_roles).
         where("#{Project.table_name}.status <> 9").
@@ -677,7 +785,7 @@ class User < Principal
         hash[role_id] << project_id
       end
 
-      result = Hash.new([])
+      result = Hash.new {|_h, _k| []}
       if hash.present?
         roles = Role.where(:id => hash.keys).to_a
         hash.each do |role_id, proj_ids|
@@ -710,10 +818,24 @@ class User < Principal
     if arg.is_a?(User)
       self == arg
     elsif arg.is_a?(Group)
-      arg.users.include?(self)
+      group_ids.include?(arg.id)
     else
       false
     end
+  end
+
+  def admin?
+    if authorized_by_oauth?
+      # when signed in via oauth, the user only acts as admin when the admin scope is set
+      super and @oauth_scope.include?(:admin)
+    else
+      super
+    end
+  end
+
+  # true if the user has signed in via oauth
+  def authorized_by_oauth?
+    !@oauth_scope.nil?
   end
 
   # Return true if the user is allowed to do the specified action on a specific context
@@ -736,7 +858,7 @@ class User < Principal
 
       roles.any? do |role|
         (context.is_public? || role.member?) &&
-        role.allowed_to?(action) &&
+        role.allowed_to?(action, @oauth_scope) &&
         (block ? yield(role, self) : true)
       end
     elsif context && context.is_a?(Array)
@@ -755,7 +877,7 @@ class User < Principal
       # authorize if user has at least one role that has this permission
       roles = self.roles.to_a | [builtin_role]
       roles.any? do |role|
-        role.allowed_to?(action) &&
+        role.allowed_to?(action, @oauth_scope) &&
         (block ? yield(role, self) : true)
       end
     else
@@ -769,8 +891,8 @@ class User < Principal
   # NB: this method is not used anywhere in the core codebase as of
   # 2.5.2, but it's used by many plugins so if we ever want to remove
   # it it has to be carefully deprecated for a version or two.
-  def allowed_to_globally?(action, options={}, &block)
-    allowed_to?(action, nil, options.reverse_merge(:global => true), &block)
+  def allowed_to_globally?(action, options={}, &)
+    allowed_to?(action, nil, options.reverse_merge(:global => true), &)
   end
 
   def allowed_to_view_all_time_entries?(context)
@@ -829,6 +951,8 @@ class User < Principal
           is_or_belongs_to?(object.assigned_to) || is_or_belongs_to?(object.previous_assignee)
         when 'only_owner'
           object.author == self
+        when 'only_my_watches'
+          object.watched_by?(self)
         end
       when News
         # always send to project members except when mail_notification is set to 'none'
@@ -886,7 +1010,7 @@ class User < Principal
     project_ids.map(&:to_i)
   end
 
-  def self.prune(age)
+  def self.prune(age=30.days)
     User.where("created_on < ? AND status = ?", Time.now - age, STATUS_REGISTERED).destroy_all
   end
 
@@ -901,11 +1025,28 @@ class User < Principal
     end
   end
 
+  def validate_password_complexity
+    return if password.blank? && generate_password?
+    return if password.nil?
+
+    # TODO: Enhance to check for more common and simple passwords
+    # like 'password', '123456', 'qwerty', etc.
+    bad_passwords = [login, firstname, lastname, mail] + email_addresses.map(&:address)
+    errors.add(:password, :too_simple) if bad_passwords.any? {|p| password.casecmp?(p)}
+  end
+
   def instantiate_email_address
     email_address || build_email_address
   end
 
   private
+
+  def replace_avatar(attachment)
+    old_avatar = avatar
+    self.avatar = attachment
+    update_column(:avatar_id, avatar_id)
+    old_avatar&.destroy
+  end
 
   def generate_password_if_needed
     if generate_password? && auth_source.nil?
@@ -920,8 +1061,7 @@ class User < Principal
   # was compromised.
   def destroy_tokens
     if saved_change_to_hashed_password? || (saved_change_to_status? && !active?) || (saved_change_to_twofa_scheme? && twofa_scheme.present?)
-      tokens = ['recovery', 'autologin', 'session']
-      Token.where(:user_id => id, :action => tokens).delete_all
+      delete_login_tokens
     end
   end
 
@@ -936,6 +1076,7 @@ class User < Principal
     Issue.where(['author_id = ?', id]).update_all(['author_id = ?', substitute.id])
     Issue.where(['assigned_to_id = ?', id]).update_all('assigned_to_id = NULL')
     Journal.where(['user_id = ?', id]).update_all(['user_id = ?', substitute.id])
+    Journal.where(['updated_by_id = ?', id]).update_all(['updated_by_id = ?', substitute.id])
     JournalDetail.
       where(["property = 'attr' AND prop_key = 'assigned_to_id' AND old_value = ?", id.to_s]).
       update_all(['old_value = ?', substitute.id.to_s])
@@ -952,10 +1093,7 @@ class User < Principal
     Watcher.where('user_id = ?', id).delete_all
     WikiContent.where(['author_id = ?', id]).update_all(['author_id = ?', substitute.id])
     WikiContentVersion.where(['author_id = ?', id]).update_all(['author_id = ?', substitute.id])
-    user_custom_field_ids = CustomField.where(field_format: 'user').ids
-    if user_custom_field_ids.any?
-      CustomValue.where(custom_field_id: user_custom_field_ids, value: self.id.to_s).delete_all
-    end
+    remove_user_custom_field_references
   end
 
   # Singleton class method is public

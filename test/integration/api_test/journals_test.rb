@@ -20,13 +20,6 @@
 require_relative '../../test_helper'
 
 class Redmine::ApiTest::JournalTest < Redmine::ApiTest::Base
-  fixtures :projects, :issues, :issue_statuses, :journals, :journal_details,
-           :issue_relations, :workflows,
-           :users, :members, :member_roles, :roles, :enabled_modules,
-           :groups_users, :email_addresses,
-           :enumerations,
-           :projects_trackers, :trackers, :custom_fields
-
   test "PUT /journals/:id.xml with valid parameters should update the journal notes" do
     put(
       '/journals/1.xml',
@@ -59,10 +52,10 @@ class Redmine::ApiTest::JournalTest < Redmine::ApiTest::Base
     assert_equal 'changed notes', journal.notes
   end
 
-  test "PUT /journals/:id.xml without journal details should destroy journal" do
+  test "PUT /journals/:id.xml without journal details should not destroy journal" do
     journal = Journal.find(5)
     assert_equal [], journal.details
-    assert_difference('Journal.count', -1) do
+    assert_no_difference('Journal.count') do
       put(
         "/journals/#{journal.id}.xml",
         params: {
@@ -73,13 +66,13 @@ class Redmine::ApiTest::JournalTest < Redmine::ApiTest::Base
     end
     assert_response :no_content
     assert_equal '', @response.body
-    assert_nil Journal.find_by(id: 5)
+    assert_equal '', journal.reload.notes
   end
 
-  test "PUT /journals/:id.json without journal details should destroy journal" do
+  test "PUT /journals/:id.json without journal details should not destroy journal" do
     journal = Journal.find(5)
     assert_equal [], journal.details
-    assert_difference('Journal.count', -1) do
+    assert_no_difference('Journal.count') do
       put(
         "/journals/#{journal.id}.json",
         params: {
@@ -90,6 +83,6 @@ class Redmine::ApiTest::JournalTest < Redmine::ApiTest::Base
     end
     assert_response :no_content
     assert_equal '', @response.body
-    assert_nil Journal.find_by(id: 5)
+    assert_equal '', journal.reload.notes
   end
 end

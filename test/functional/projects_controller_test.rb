@@ -20,14 +20,6 @@
 require_relative '../test_helper'
 
 class ProjectsControllerTest < Redmine::ControllerTest
-  fixtures :projects, :versions, :users, :email_addresses, :roles, :members,
-           :member_roles, :issues, :journals, :journal_details,
-           :trackers, :projects_trackers, :issue_statuses,
-           :enabled_modules, :enumerations, :boards, :messages,
-           :attachments, :custom_fields, :custom_values, :time_entries,
-           :wikis, :wiki_pages, :wiki_contents, :wiki_content_versions,
-           :roles, :queries
-
   include Redmine::I18n
 
   def setup
@@ -130,7 +122,7 @@ class ProjectsControllerTest < Redmine::ControllerTest
     }
 
     assert_response :success
-    assert_select 'tr[id=?] td.name span[class=?]', 'project-5', 'icon icon-user my-project'
+    assert_select 'tr[id=?] td.name span[class=?]', 'project-5', 'icon-only icon-user my-project'
   end
 
   def test_index_as_list_should_indent_projects
@@ -252,6 +244,29 @@ class ProjectsControllerTest < Redmine::ControllerTest
     assert_select ".total-for-cf-#{field.id} span.value", :text => '9'
   end
 
+  def test_index_with_last_activity_date_column
+    with_settings :project_list_defaults => {'column_names' => %w(name short_description last_activity_date)} do
+      get :index, :params => {
+        :display_type => 'list'
+      }
+      assert_response :success
+    end
+    assert_equal ['Name', 'Description', 'Last activity'], columns_in_list
+    activity_time = Journal.find(3).created_on
+    assert_select "tr#project-1 td.last_activity_date a[href=?]",
+      project_activity_path(Project.find(1), :from => User.current.time_to_date(activity_time)),
+      :text => format_time(activity_time)
+    assert_select 'tr#project-4 td.last_activity_date', :text => ''
+  end
+
+  def test_index_with_query
+    query = ProjectQuery.find(11)
+    get :index, :params => { :query_id => query.id }
+    assert_response :success
+    assert_select 'h2', :text => query.name
+    assert_select '#sidebar a.query.selected[title=?]', query.description, :text => query.name
+  end
+
   def test_index_should_retrieve_default_query
     query = ProjectQuery.find(11)
     ProjectQuery.stubs(:default).returns query
@@ -260,6 +275,7 @@ class ProjectsControllerTest < Redmine::ControllerTest
       @request.session[:user_id] = user_id
       get :index
       assert_select 'h2', text: query.name
+      assert_select '#sidebar a.query.selected[title=?]', query.description, :text => query.name
     end
   end
 
@@ -732,9 +748,9 @@ class ProjectsControllerTest < Redmine::ControllerTest
           }
         }
       )
-      assert_response 302
+      assert_response :found
     end
-    project = Project.order('id desc').first
+    project = Project.order(id: :desc).first
     assert_equal 'inherited', project.name
     assert_equal parent, project.parent
     assert project.memberships.count > 0
@@ -768,6 +784,7 @@ class ProjectsControllerTest < Redmine::ControllerTest
     get(:show, :params => {:id => 1})
     assert_response :success
     assert_select '#header h1', :text => "eCookbook"
+    assert_select 'div.members.box a[href=?]', '/projects/ecookbook/members', :text => 'View all members'
   end
 
   def test_show_by_identifier
@@ -827,7 +844,7 @@ class ProjectsControllerTest < Redmine::ControllerTest
     project = Project.find_by_identifier('ecookbook')
     project.archive
     get(:show, :params => {:id => 'ecookbook'})
-    assert_response 403
+    assert_response :forbidden
     assert_select 'p', :text => /archived/
     assert_not_include project.name, response.body
   end
@@ -837,7 +854,7 @@ class ProjectsControllerTest < Redmine::ControllerTest
     project = Project.find_by_identifier('ecookbook')
     project.archive
     get(:show, :params => {:id => 'ecookbook'})
-    assert_response 403
+    assert_response :forbidden
     assert_select 'a', :text => "Unarchive"
   end
 
@@ -904,17 +921,28 @@ class ProjectsControllerTest < Redmine::ControllerTest
     assert_select 'input[type=checkbox][name=?]', 'project[inherit_members]'
   end
 
+  def test_settings_of_subproject_should_not_show_inherit_members_checkbox
+    user = User.generate!
+    child = Project.find('private-child')
+    User.add_to_project(user, child, Role.generate!(:permissions => [:edit_project]))
+    @request.session[:user_id] = user.id
+
+    get(:settings, :params => {:id => 'private-child'})
+    assert_response :success
+    assert_select 'input[type=checkbox][name=?]', 'project[inherit_members]', :count => 0
+  end
+
   def test_settings_should_be_denied_for_member_on_closed_project
     Project.find(1).close
     @request.session[:user_id] = 2 # manager
     get(:settings, :params => {:id => 1})
-    assert_response 403
+    assert_response :forbidden
   end
 
   def test_settings_should_be_denied_for_anonymous_on_closed_project
     Project.find(1).close
     get(:settings, :params => {:id => 1})
-    assert_response 403
+    assert_response :forbidden
   end
 
   def test_settings_should_accept_version_status_filter
@@ -994,6 +1022,214 @@ class ProjectsControllerTest < Redmine::ControllerTest
     )
     assert_response :success
     assert_select "tr#member-#{member.id}"
+    assert_select 'div#tab-content-members a.icon-link-break', :text => 'Remove'
+  end
+
+  def test_settings_members_should_link_to_principals
+    user = User.generate!
+    user_member = User.add_to_project(user, Project.find(1))
+    group_member = User.add_to_project(Group.find(10), Project.find(1))
+    @request.session[:user_id] = 2
+    get(
+      :settings,
+      :params => {
+        :id => 'ecookbook',
+        :tab => 'members'
+      }
+    )
+    assert_response :success
+    assert_select 'div#main-menu a.settings.selected'
+    assert_select "tr#member-#{user_member.id} td.name a[href=?]", "/users/#{user.id}", :text => user.name
+    assert_select "tr#member-#{group_member.id} td.name a[href=?]", '/groups/10', :text => 'A Team'
+  end
+
+  def test_settings_members_should_be_paginated
+    project = Project.find(1)
+    per_page = 25
+    (per_page + 5).times { User.add_to_project(User.generate!, project) }
+    @request.session[:user_id] = 2
+    with_settings :per_page_options => '25,50,100' do
+      get(
+        :settings,
+        :params => {:id => 'ecookbook', :tab => 'members'}
+      )
+    end
+    assert_response :success
+    assert_select 'div#tab-content-members table.list.members tbody tr.member', :count => per_page
+    assert_select 'div#tab-content-members span.pagination'
+    assert_select 'div#tab-content-members span.pagination a[href*=?]', 'settings/members?members_page='
+    assert_select 'div#tab-content-members span.pagination a[href*=?]', 'tab=members', :count => 0
+  end
+
+  def test_settings_members_with_multiple_roles_should_not_appear_on_two_pages
+    project = Project.find(1)
+    30.times { User.add_to_project(User.generate!, project) }
+    Member.where(:project_id => project.id).first.update!(:role_ids => [1, 2])
+    @request.session[:user_id] = 2
+    page1 = page2 = nil
+    with_settings :per_page_options => '25,50,100' do
+      get(:settings, :params => {:id => 'ecookbook', :tab => 'members'})
+      page1 = css_select('div#tab-content-members tr.member').pluck('id')
+      get(:settings, :params => {:id => 'ecookbook', :tab => 'members', :members_page => 2})
+      page2 = css_select('div#tab-content-members tr.member').pluck('id')
+    end
+    assert_not page1.intersect?(page2), 'a member must not appear on more than one page'
+  end
+
+  def test_settings_members_should_show_requested_page
+    project = Project.find(1)
+    per_page = 25
+    (per_page + 5).times { User.add_to_project(User.generate!, project) }
+    @request.session[:user_id] = 2
+    with_settings :per_page_options => '25,50,100' do
+      get(
+        :settings,
+        :params => {:id => 'ecookbook', :tab => 'members', :members_page => 2}
+      )
+    end
+    assert_response :success
+    assert_select 'div#tab-content-members table.list.members tbody tr.member'
+    assert_select 'div#tab-content-members span.pagination'
+  end
+
+  def test_settings_members_with_out_of_range_page_should_keep_pagination
+    project = Project.find(1)
+    per_page = 25
+    (per_page + 5).times { User.add_to_project(User.generate!, project) }
+    @request.session[:user_id] = 2
+    with_settings :per_page_options => '25,50,100' do
+      get(
+        :settings,
+        :params => {:id => 'ecookbook', :tab => 'members', :members_page => 99}
+      )
+    end
+    assert_response :success
+    assert_select 'div#tab-content-members p.nodata', :count => 0
+    assert_select 'div#tab-content-members table.list.members'
+    assert_select 'div#tab-content-members span.pagination a[href*=?]', 'settings/members?members_page='
+  end
+
+  def test_settings_members_without_members_should_show_no_data
+    project = Project.generate!
+    @request.session[:user_id] = 1
+    get(:settings, :params => {:id => project.id, :tab => 'members'})
+    assert_response :success
+    assert_select 'div#tab-content-members form#members-filter-form'
+    assert_select 'div#tab-content-members p.nodata'
+    assert_select 'div#tab-content-members table.list.members', :count => 0
+  end
+
+  def test_settings_members_should_display_filter_form
+    @request.session[:user_id] = 2
+    get(:settings, :params => {:id => 'ecookbook', :tab => 'members'})
+    assert_response :success
+    assert_select 'div#tab-content-members form#members-filter-form[action=?]', '/projects/ecookbook/settings/members' do
+      assert_select 'input[name=member_name]'
+      assert_select 'select[name=member_role_id][onchange=?]', 'this.form.submit(); return false;'
+      assert_select 'select[name=member_status][onchange=?]', 'this.form.submit(); return false;'
+      assert_select 'input[type=submit]'
+      assert_select 'a[href=?]', '/projects/ecookbook/settings/members'
+    end
+  end
+
+  def test_settings_members_should_filter_by_status
+    @request.session[:user_id] = 2
+    get(
+      :settings,
+      :params => {
+        :id => 'ecookbook',
+        :tab => 'members',
+        :member_status => '3'
+      }
+    )
+    assert_response :success
+    assert_select 'div#tab-content-members form#members-filter-form' do
+      assert_select 'select[name=member_status]' do
+        assert_select 'option[value="3"][selected=selected]'
+      end
+    end
+    assert_select 'div#tab-content-members tr#member-4'
+    assert_select 'div#tab-content-members tr#member-1', :count => 0
+    assert_select 'div#tab-content-members tr#member-2', :count => 0
+    assert_select 'a#tab-members[href*=?]', 'member_status=3'
+  end
+
+  def test_settings_members_should_filter_by_name
+    @request.session[:user_id] = 2
+    get(
+      :settings,
+      :params => {
+        :id => 'ecookbook',
+        :tab => 'members',
+        :member_name => 'John'
+      }
+    )
+    assert_response :success
+    assert_select 'div#tab-content-members form#members-filter-form' do
+      assert_select 'input[name=member_name][value=?]', 'John'
+    end
+    assert_select 'div#tab-content-members tr#member-1'
+    assert_select 'div#tab-content-members tr#member-2', :count => 0
+    assert_select 'a#tab-members[href*=?]', 'member_name=John'
+  end
+
+  def test_settings_members_should_filter_by_role
+    @request.session[:user_id] = 2
+    get(
+      :settings,
+      :params => {
+        :id => 'ecookbook',
+        :tab => 'members',
+        :member_role_id => '2'
+      }
+    )
+    assert_response :success
+    assert_select 'div#tab-content-members form#members-filter-form' do
+      assert_select 'select[name=member_role_id]' do
+        assert_select 'option[value="2"][selected=selected]'
+      end
+    end
+    assert_select 'div#tab-content-members tr#member-2'
+    assert_select 'div#tab-content-members tr#member-1', :count => 0
+    assert_select 'a#tab-members[href*=?]', 'member_role_id=2'
+  end
+
+  def test_settings_members_filter_with_no_matches_should_show_no_data
+    @request.session[:user_id] = 2
+    get(
+      :settings,
+      :params => {
+        :id => 'ecookbook',
+        :tab => 'members',
+        :member_name => 'NonexistentPrincipal'
+      }
+    )
+    assert_response :success
+    assert_select 'div#tab-content-members form#members-filter-form'
+    assert_select 'div#tab-content-members p.nodata'
+    assert_select 'div#tab-content-members table.list.members', :count => 0
+  end
+
+  def test_settings_members_pagination_should_preserve_filters
+    project = Project.find(1)
+    per_page = 25
+    (per_page + 5).times do
+      user = User.generate!
+      Member.create!(:project => project, :principal => user, :role_ids => [2])
+    end
+    @request.session[:user_id] = 2
+    with_settings :per_page_options => '25,50,100' do
+      get(
+        :settings,
+        :params => {
+          :id => 'ecookbook',
+          :tab => 'members',
+          :member_role_id => '2'
+        }
+      )
+    end
+    assert_response :success
+    assert_select 'div#tab-content-members span.pagination a[href*=?]', 'member_role_id=2'
   end
 
   def test_settings_should_show_tabs_depending_on_permission
@@ -1003,7 +1239,7 @@ class ProjectsControllerTest < Redmine::ControllerTest
     role.permissions = []
     role.save
     get(:settings, :params => {:id => project.id})
-    assert_response 403
+    assert_response :forbidden
 
     role.add_permission! :manage_repository, :manage_boards, :manage_project_activities
     get(:settings, :params => {:id => project.id})
@@ -1093,7 +1329,7 @@ class ProjectsControllerTest < Redmine::ControllerTest
         }
       }
     )
-    assert_response 403
+    assert_response :forbidden
     assert_equal 'eCookbook', Project.find(1).name
   end
 
@@ -1108,7 +1344,7 @@ class ProjectsControllerTest < Redmine::ControllerTest
         }
       }
     )
-    assert_response 403
+    assert_response :forbidden
     assert_equal 'eCookbook', Project.find(1).name
   end
 
@@ -1126,7 +1362,7 @@ class ProjectsControllerTest < Redmine::ControllerTest
         }
       }
     )
-    assert_response 302
+    assert_response :found
     assert_match /Successful update/, flash[:notice]
   end
 
@@ -1308,7 +1544,7 @@ class ProjectsControllerTest < Redmine::ControllerTest
           :confirm => 'ecookbook'
         }
       )
-      assert_response 403
+      assert_response :forbidden
     end
     assert Project.find(1)
   end
@@ -1316,7 +1552,7 @@ class ProjectsControllerTest < Redmine::ControllerTest
   def test_bulk_destroy_should_require_admin
     @request.session[:user_id] = 2 # non-admin
     delete :bulk_destroy, params: { ids: [1, 2], confirm: 'Yes' }
-    assert_response 403
+    assert_response :forbidden
   end
 
   def test_bulk_destroy_should_require_confirmation
@@ -1326,7 +1562,7 @@ class ProjectsControllerTest < Redmine::ControllerTest
     end
     assert Project.find(1)
     assert Project.find(2)
-    assert_response 200
+    assert_response :ok
   end
 
   def test_bulk_destroy_should_delete_projects
@@ -1403,7 +1639,7 @@ class ProjectsControllerTest < Redmine::ControllerTest
   def test_get_copy_with_invalid_source_should_respond_with_404
     @request.session[:user_id] = 1
     get(:copy, :params => {:id => 99})
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_get_copy_should_preselect_custom_fields

@@ -20,21 +20,9 @@
 require_relative '../../../../../test_helper'
 
 class Redmine::WikiFormatting::CommonMark::ApplicationHelperTest < Redmine::HelperTest
-  if Object.const_defined?(:CommonMarker)
+  if Object.const_defined?(:Commonmarker)
 
     include ERB::Util
-    include Rails.application.routes.url_helpers
-
-    fixtures :projects, :enabled_modules,
-             :users, :email_addresses,
-             :members, :member_roles, :roles,
-             :repositories, :changesets,
-             :projects_trackers,
-             :trackers, :issue_statuses, :issues, :versions, :documents, :journals,
-             :wikis, :wiki_pages, :wiki_contents,
-             :boards, :messages, :news,
-             :attachments, :enumerations,
-             :custom_values, :custom_fields, :custom_fields_projects
 
     def setup
       super
@@ -62,5 +50,33 @@ class Redmine::WikiFormatting::CommonMark::ApplicationHelperTest < Redmine::Help
       end
     end
 
+    def test_attached_image_alt_attribute_with_madkrown
+      attachments = Attachment.all
+      with_settings text_formatting: 'common_mark' do
+        # When alt text is set
+        assert_match %r[<img src=".+?" alt="alt text" loading=".+?">],
+          textilizable('![alt text](logo.gif)', attachments: attachments)
+
+        # When alt text is not set
+        assert_match %r[<img src=".+?" alt="This is a logo" title="This is a logo" loading=".+?">],
+          textilizable('![](logo.gif)', attachments: attachments)
+
+        # When alt text is not set and the attachment has no description
+        assert_match %r[<img src=".+?" alt="" loading=".+?">],
+          textilizable('![](testfile.PNG)', attachments: attachments)
+
+        # When no matching attachments are found
+        assert_match %r[<img src=".+?" alt="">],
+          textilizable('![](no-match.jpg)', attachments: attachments)
+        assert_match %r[<img src=".+?" alt="alt text">],
+          textilizable('![alt text](no-match.jpg)', attachments: attachments)
+
+        # When no attachment is registered
+        assert_match %r[<img src=".+?" alt="">],
+          textilizable('![](logo.gif)', attachments: [])
+        assert_match %r[<img src=".+?" alt="alt text">],
+          textilizable('![alt text](logo.gif)', attachments: [])
+      end
+    end
   end
 end

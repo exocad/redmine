@@ -41,17 +41,20 @@ class RepositoriesController < ApplicationController
 
   def new
     @repository.is_default = @project.repository.nil?
+    no_store
   end
 
   def create
     if @repository.save
       redirect_to settings_project_path(@project, :tab => 'repositories')
     else
+      no_store
       render :action => 'new'
     end
   end
 
   def edit
+    no_store
   end
 
   def update
@@ -59,6 +62,7 @@ class RepositoriesController < ApplicationController
     if @repository.save
       redirect_to settings_project_path(@project, :tab => 'repositories')
     else
+      no_store
       render :action => 'edit'
     end
   end
@@ -72,7 +76,7 @@ class RepositoriesController < ApplicationController
     @users.sort!
     if request.post? && params[:committers].present?
       # Build a hash with repository usernames as keys and corresponding user ids as values
-      @repository.committer_ids = params[:committers].values.inject({}) {|h, c| h[c.first] = c.last; h}
+      @repository.committer_ids = params[:committers].values.to_h { |c| [c.first, c.last] }
       flash[:notice] = l(:notice_successful_update)
       redirect_to settings_project_path(@project, :tab => 'repositories')
     end
@@ -89,7 +93,7 @@ class RepositoriesController < ApplicationController
     @entries = @repository.entries(@path, @rev)
     @changeset = @repository.find_changeset_by_name(@rev)
     if request.xhr?
-      @entries ? render(:partial => 'dir_list_content') : head(200)
+      @entries ? render(:partial => 'dir_list_content') : head(:ok)
     else
       (show_error_not_found; return) unless @entries
       @changesets = @repository.latest_changesets(@path, @rev)
@@ -160,7 +164,15 @@ class RepositoriesController < ApplicationController
       # Force the download
       send_opt = {:filename => filename_for_content_disposition(@path.split('/').last)}
       send_type = Redmine::MimeType.of(@path)
-      send_opt[:type] = send_type.to_s if send_type
+      case send_type
+      when nil
+        # No MIME type detected. Let Rails use the default type.
+      when 'application/javascript'
+        # Avoid ActionController::InvalidCrossOriginRequest exception by setting non-JS content type
+        send_opt[:type] = 'text/plain'
+      else
+        send_opt[:type] = send_type
+      end
       send_opt[:disposition] = disposition(@path)
       send_data @repository.cat(@path, @rev), send_opt
     else
@@ -264,7 +276,7 @@ class RepositoriesController < ApplicationController
     if params[:format] == 'diff'
       @diff = @repository.diff(@path, @rev, @rev_to)
       (show_error_not_found; return) unless @diff
-      filename = +"changeset_r#{@rev}"
+      filename = "changeset_r#{@rev}"
       filename << "_r#{@rev_to}" if @rev_to
       send_data @diff.join, :filename => "#{filename}.diff",
                             :type => 'text/x-patch',
@@ -279,7 +291,7 @@ class RepositoriesController < ApplicationController
         User.current.preference.save
       end
       @cache_key = "repositories/diff/#{@repository.id}/" +
-                      Digest::MD5.hexdigest("#{@path}-#{@rev}-#{@rev_to}-#{@diff_type}-#{current_language}")
+                      ActiveSupport::Digest.hexdigest("#{@path}-#{@rev}-#{@rev_to}-#{@diff_type}-#{current_language}")
       unless read_fragment(@cache_key)
         @diff = @repository.diff(@path, @rev, @rev_to)
         (show_error_not_found; return) unless @diff
@@ -314,7 +326,12 @@ class RepositoriesController < ApplicationController
   private
 
   def build_new_repository_from_params
-    scm = params[:repository_scm] || (Redmine::Scm::Base.all & Setting.enabled_scm).first
+    scm = if params[:repository_scm].present?
+            params[:repository_scm] if Setting.enabled_scm.include?(params[:repository_scm])
+          else
+            Setting.enabled_scm.first
+          end
+
     unless @repository = Repository.factory(scm)
       render_404
       return
@@ -341,7 +358,7 @@ class RepositoriesController < ApplicationController
     else
       @repository = @project.repository || @project.repositories.first
     end
-    (render_404; return false) unless @repository
+    (render_404; return false) unless @repository&.adapter_enabled?
     @path = params[:path].is_a?(Array) ? params[:path].join('/') : params[:path].to_s
 
     @rev = params[:rev].to_s.strip.presence || @repository.default_branch

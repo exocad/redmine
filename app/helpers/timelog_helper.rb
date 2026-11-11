@@ -84,7 +84,7 @@ module TimelogHelper
           "##{obj.id}"
         end
       else
-        format_object(obj, html)
+        format_object(obj, html: html)
       end
     elsif cf = criteria_options[:custom_field]
       format_value(value, cf)
@@ -146,5 +146,4 @@ module TimelogHelper
     fallback_path = project ? project_time_entries_path(project) : time_entries_path
     cancel_button_tag(fallback_path)
   end
-
 end

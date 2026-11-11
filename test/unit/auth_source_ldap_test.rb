@@ -21,8 +21,6 @@ require_relative '../test_helper'
 
 class AuthSourceLdapTest < ActiveSupport::TestCase
   include Redmine::I18n
-  fixtures :auth_sources
-
   def setup
     User.current = nil
   end
@@ -161,6 +159,13 @@ class AuthSourceLdapTest < ActiveSupport::TestCase
 
       assert auth.authenticate('example1', '123456')
       assert_nil auth.authenticate('edavis', '123456')
+    end
+
+    test '#authenticate with special characters in login should not allow filter manipulation' do
+      auth = AuthSourceLdap.find(1)
+
+      result = auth.authenticate("*", "123456")
+      assert_nil result
     end
 
     def test_authenticate_should_timeout

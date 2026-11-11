@@ -31,7 +31,7 @@ module Redmine
 
           attr_accessor :mentioned_users
 
-          send :include, Redmine::Acts::Mentionable::InstanceMethods
+          include Redmine::Acts::Mentionable::InstanceMethods
 
           after_save :parse_mentions
         end
@@ -86,7 +86,7 @@ module Redmine
           case text_formatting
           when 'textile'
             content = content.gsub(%r{<pre>(.*?)</pre>}m, '')
-          when 'markdown', 'common_mark'
+          when 'common_mark'
             content = content.gsub(%r{(~~~|```)(.*?)(~~~|```)}m, '')
           end
 

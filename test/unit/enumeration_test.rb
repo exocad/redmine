@@ -20,8 +20,6 @@
 require_relative '../test_helper'
 
 class EnumerationTest < ActiveSupport::TestCase
-  fixtures :enumerations, :issues, :custom_fields, :custom_values
-
   def setup
     User.current = nil
   end
@@ -97,7 +95,7 @@ class EnumerationTest < ActiveSupport::TestCase
   end
 
   def test_should_be_customizable
-    assert Enumeration.included_modules.include?(Redmine::Acts::Customizable::InstanceMethods)
+    assert Enumeration.include?(Redmine::Acts::Customizable::InstanceMethods)
   end
 
   def test_should_belong_to_a_project

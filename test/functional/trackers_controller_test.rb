@@ -20,8 +20,6 @@
 require_relative '../test_helper'
 
 class TrackersControllerTest < Redmine::ControllerTest
-  fixtures :trackers, :projects, :projects_trackers, :users, :issues, :custom_fields, :issue_statuses
-
   def setup
     User.current = nil
     @request.session[:user_id] = 1 # admin
@@ -42,7 +40,7 @@ class TrackersControllerTest < Redmine::ControllerTest
   def test_index_by_user_should_respond_with_406
     @request.session[:user_id] = 2
     get :index
-    assert_response 406
+    assert_response :not_acceptable
   end
 
   def test_new
@@ -123,14 +121,16 @@ class TrackersControllerTest < Redmine::ControllerTest
         :tracker => {
           :name => 'New tracker',
           :default_status_id => 1,
+          :private_by_default => '1',
           :project_ids => ['1', '', ''],
           :custom_field_ids => ['1', '6', '']
         }
       }
     end
     assert_redirected_to :action => 'index'
-    tracker = Tracker.order('id DESC').first
+    tracker = Tracker.order(id: :desc).first
     assert_equal 'New tracker', tracker.name
+    assert tracker.private_by_default?
     assert_equal [1], tracker.project_ids.sort
     assert_equal Tracker::CORE_FIELDS, tracker.core_fields
     assert_equal [1, 6], tracker.custom_field_ids.sort
@@ -148,7 +148,7 @@ class TrackersControllerTest < Redmine::ControllerTest
       }
     end
     assert_redirected_to :action => 'index'
-    tracker = Tracker.order('id DESC').first
+    tracker = Tracker.order(id: :desc).first
     assert_equal 'New tracker', tracker.name
     assert_equal %w(assigned_to_id fixed_version_id), tracker.core_fields
   end
@@ -274,11 +274,21 @@ class TrackersControllerTest < Redmine::ControllerTest
   end
 
   def test_destroy_tracker_in_use
-    assert_no_difference 'Tracker.count' do
-      delete :destroy, :params => {:id => 1}
+    tracker = Tracker.generate!(name: 'In use')
+    projects = Array.new(2) do
+      project = Project.generate!
+      Issue.generate!(project: project, tracker: tracker)
+      project
     end
-    assert_redirected_to :action => 'index'
-    assert_not_nil flash[:error]
+
+    assert_no_difference 'Tracker.count' do
+      delete :destroy, params: {id: tracker.id}
+    end
+    assert_response :success
+    assert_match /The following projects have issues with this tracker:/, flash[:error]
+    projects.each do |project|
+      assert_match /#{project.name}/, flash[:error]
+    end
   end
 
   def test_get_fields

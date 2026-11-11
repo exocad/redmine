@@ -20,10 +20,6 @@
 require_relative '../test_helper'
 
 class NewsControllerTest < Redmine::ControllerTest
-  fixtures :projects, :users, :email_addresses, :roles, :members, :member_roles,
-           :enabled_modules, :news, :comments,
-           :attachments, :user_preferences
-
   def setup
     User.current = nil
   end
@@ -44,14 +40,14 @@ class NewsControllerTest < Redmine::ControllerTest
     @request.session[:user_id] = 2
 
     get(:index, :params => {:project_id => 999})
-    assert_response 404
+    assert_response :not_found
   end
 
   def test_index_with_invalid_project_should_respond_with_302_for_anonymous
     Role.anonymous.remove_permission! :view_news
     with_settings :login_required => '0' do
       get(:index, :params => {:project_id => 999})
-      assert_response 302
+      assert_response :found
     end
   end
 
@@ -60,7 +56,7 @@ class NewsControllerTest < Redmine::ControllerTest
     @request.session[:user_id] = 2
 
     get :index
-    assert_response 403
+    assert_response :forbidden
   end
 
   def test_index_without_manage_news_permission_should_not_display_add_news_link
@@ -79,7 +75,7 @@ class NewsControllerTest < Redmine::ControllerTest
     get(:show, :params => {:id => 1})
     assert_response :success
     assert_select 'p.breadcrumb a[href=?]', '/projects/ecookbook/news', :text => 'News'
-    assert_select 'h2', :text => 'eCookbook first release !'
+    assert_select 'h2', :text => 'JS eCookbook first release !'
   end
 
   def test_show_should_show_attachments
@@ -107,7 +103,24 @@ class NewsControllerTest < Redmine::ControllerTest
 
   def test_show_not_found
     get(:show, :params => {:id => 999})
-    assert_response 404
+    assert_response :not_found
+  end
+
+  def test_show_should_display_reactions
+    @request.session[:user_id] = 1
+
+    get :show, params: { id: 1 }
+    assert_response :success
+    assert_select 'span[data-reaction-button-id=reaction_news_1] a.reaction-button.reacted'
+    assert_select 'span[data-reaction-button-id=reaction_comment_1] a.reaction-button'
+
+    # Should not display reactions when reactions feature is disabled.
+    with_settings reactions_enabled: '0' do
+      get :show, params: { id: 1 }
+
+      assert_response :success
+      assert_select 'span[data-reaction-button-id]', false
+    end
   end
 
   def test_get_new_with_project_id
@@ -216,8 +229,8 @@ class NewsControllerTest < Redmine::ControllerTest
         end
       end
     end
-    attachment = Attachment.order('id DESC').first
-    news = News.order('id DESC').first
+    attachment = Attachment.order(id: :desc).first
+    news = News.order(id: :desc).first
     assert_equal news, attachment.container
     assert_select_email do
       # link to the attachments download
@@ -290,7 +303,7 @@ class NewsControllerTest < Redmine::ControllerTest
         )
       end
     end
-    attachment = Attachment.order('id DESC').first
+    attachment = Attachment.order(id: :desc).first
     assert_equal News.find(1), attachment.container
   end
 

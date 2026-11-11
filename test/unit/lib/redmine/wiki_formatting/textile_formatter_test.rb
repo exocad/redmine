@@ -19,10 +19,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 require_relative '../../../../test_helper'
-require 'digest/md5'
 
-class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
+class Redmine::WikiFormatting::TextileFormatterTest < Redmine::HelperTest
   def setup
+    super
     @formatter = Redmine::WikiFormatting::Textile::Formatter
   end
 
@@ -86,6 +86,7 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
         'p{max-width:100px}. text'     => '<p style="max-width:100px;">text</p>',
         'p{height:40px}. text'         => '<p style="height:40px;">text</p>',
         'p{max-height:80px}. text'     => '<p style="max-height:80px;">text</p>',
+        'p{text-decoration: line-through}. text'     => '<p style="text-decoration: line-through;">text</p>',
       },
       false
     )
@@ -253,7 +254,7 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
     expected = <<~EXPECTED
       <p>John said:</p>
       <blockquote>
-      Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Maecenas sed libero.<br />
+      Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Maecenas sed libero.<br>
       Nullam commodo metus accumsan nulla. Curabitur lobortis dui id dolor.
       <ul>
         <li>Donec odio lorem,</li>
@@ -283,9 +284,11 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
       <p>This is a table with empty cells:</p>
 
       <table>
+        <tbody>
         <tr><td>cell11</td><td>cell12</td><td></td></tr>
         <tr><td>cell21</td><td></td><td>cell23</td></tr>
         <tr><td>cell31</td><td>cell32</td><td>cell33</td></tr>
+        </tbody>
       </table>
     EXPECTED
     assert_equal expected.gsub(%r{\s+}, ''), to_html(raw).gsub(%r{\s+}, '')
@@ -299,9 +302,11 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
     RAW
     expected = <<~EXPECTED
       <table>
+        <tbody>
         <tr><td style="text-align:right;">right</td></tr>
         <tr><td style="text-align:left;">left</td></tr>
         <tr><td style="text-align:justify;">justify</td></tr>
+        </tbody>
       </table>
     EXPECTED
     assert_equal expected.gsub(%r{\s+}, ''), to_html(raw).gsub(%r{\s+}, '')
@@ -319,9 +324,11 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
       <p>This is a table with trailing whitespace in one row:</p>
 
       <table>
+        <tbody>
         <tr><td>cell11</td><td>cell12</td></tr>
         <tr><td>cell21</td><td>cell22</td></tr>
         <tr><td>cell31</td><td>cell32</td></tr>
+        </tbody>
       </table>
     EXPECTED
     assert_equal expected.gsub(%r{\s+}, ''), to_html(raw).gsub(%r{\s+}, '')
@@ -344,21 +351,23 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
       <p>This is a table with line breaks:</p>
 
       <table>
+        <tbody>
         <tr>
-          <td>cell11<br />continued</td>
+          <td>cell11<br>continued</td>
           <td>cell12</td>
           <td></td>
         </tr>
         <tr>
           <td><del>cell21</del></td>
           <td></td>
-          <td>cell23<br/>cell23 line2<br/>cell23 <strong>line3</strong></td>
+          <td>cell23<br>cell23 line2<br>cell23 <strong>line3</strong></td>
         </tr>
         <tr>
           <td>cell31</td>
-          <td>cell32<br/>cell32 line2</td>
+          <td>cell32<br>cell32 line2</td>
           <td>cell33</td>
         </tr>
+        </tbody>
       </table>
     EXPECTED
     assert_equal expected.gsub(%r{\s+}, ''), to_html(raw).gsub(%r{\s+}, '')
@@ -381,18 +390,20 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
       <p>This is a table with lists:</p>
 
       <table>
+        <tbody>
         <tr>
           <td>cell11</td>
           <td>cell12</td>
         </tr>
         <tr>
           <td>cell21</td>
-          <td>ordered list<br /># item<br /># item 2</td>
+          <td>ordered list<br># item<br># item 2</td>
         </tr>
         <tr>
           <td>cell31</td>
-          <td>unordered list<br />* item<br />* item 2</td>
+          <td>unordered list<br>* item<br>* item 2</td>
         </tr>
+        </tbody>
       </table>
     EXPECTED
     assert_equal expected.gsub(%r{\s+}, ''), to_html(raw).gsub(%r{\s+}, '')
@@ -407,9 +418,9 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
     raw =
       '!/images/comment.png"onclick=&#x61;&#x6c;&#x65;&#x72;&#x74;&#x28;&#x27;&#x58;&#x53;&#x53;&#x27;&#x29;;&#x22;!'
     expected =
-      '<p><img src="/images/comment.png&quot;onclick=' \
+      '<p><img src="/images/comment.png%22onclick=' \
         '&amp;#x61;&amp;#x6c;&amp;#x65;&amp;#x72;&amp;#x74;&amp;#x28;' \
-        '&amp;#x27;&amp;#x58;&amp;#x53;&amp;#x53;&amp;#x27;&amp;#x29;;&amp;#x22;" alt="" /></p>'
+        '&amp;#x27;&amp;#x58;&amp;#x53;&amp;#x53;&amp;#x27;&amp;#x29;;&amp;#x22;" alt=""></p>'
     assert_equal expected.gsub(%r{\s+}, ''), to_html(raw).gsub(%r{\s+}, '')
   end
 
@@ -467,19 +478,19 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
     replacement = "New text"
 
     assert_equal(
-      [STR_WITHOUT_PRE[0], replacement, STR_WITHOUT_PRE[2..4]].flatten.join("\n\n"),
+      [STR_WITHOUT_PRE[0], replacement, STR_WITHOUT_PRE[2..4]].join("\n\n"),
       @formatter.new(TEXT_WITHOUT_PRE).update_section(2, replacement)
     )
     assert_equal(
-      [STR_WITHOUT_PRE[0..1], replacement, STR_WITHOUT_PRE[4]].flatten.join("\n\n"),
+      [STR_WITHOUT_PRE[0..1], replacement, STR_WITHOUT_PRE[4]].join("\n\n"),
       @formatter.new(TEXT_WITHOUT_PRE).update_section(3, replacement)
     )
     assert_equal(
-      [STR_WITHOUT_PRE[0..2], replacement, STR_WITHOUT_PRE[4]].flatten.join("\n\n"),
+      [STR_WITHOUT_PRE[0..2], replacement, STR_WITHOUT_PRE[4]].join("\n\n"),
       @formatter.new(TEXT_WITHOUT_PRE).update_section(5, replacement)
     )
     assert_equal(
-      [STR_WITHOUT_PRE[0..3], replacement].flatten.join("\n\n"),
+      [STR_WITHOUT_PRE[0..3], replacement].join("\n\n"),
       @formatter.new(TEXT_WITHOUT_PRE).update_section(6, replacement)
     )
     assert_equal TEXT_WITHOUT_PRE, @formatter.new(TEXT_WITHOUT_PRE).update_section(0, replacement)
@@ -489,15 +500,15 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
   def test_update_section_with_hash_should_update_the_requested_section
     replacement = "New text"
     assert_equal(
-      [STR_WITHOUT_PRE[0], replacement, STR_WITHOUT_PRE[2..4]].flatten.join("\n\n"),
+      [STR_WITHOUT_PRE[0], replacement, STR_WITHOUT_PRE[2..4]].join("\n\n"),
       @formatter.new(TEXT_WITHOUT_PRE).
-        update_section(2, replacement, Digest::MD5.hexdigest(STR_WITHOUT_PRE[1]))
+        update_section(2, replacement, ActiveSupport::Digest.hexdigest(STR_WITHOUT_PRE[1]))
     )
   end
 
   def test_update_section_with_wrong_hash_should_raise_an_error
     assert_raise Redmine::WikiFormatting::StaleSectionError do
-      @formatter.new(TEXT_WITHOUT_PRE).update_section(2, "New text", Digest::MD5.hexdigest("Old text"))
+      @formatter.new(TEXT_WITHOUT_PRE).update_section(2, "New text", ActiveSupport::Digest.hexdigest("Old text"))
     end
   end
 
@@ -553,7 +564,7 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
     text = STR_WITH_PRE.join("\n\n")
     replacement = "New text"
     assert_equal(
-      [STR_WITH_PRE[0..1], "New text"].flatten.join("\n\n"),
+      [STR_WITH_PRE[0..1], "New text"].join("\n\n"),
       @formatter.new(text).update_section(3, replacement)
     )
   end
@@ -604,7 +615,7 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
       "class=\"ruby \"foo\" bar\"" => "data-language=\"ruby \"",
     }.each do |classattr, codeattr|
       assert_html_output({"<code #{classattr}>test</code>" => "<code #{codeattr}>test</code>"}, false)
-      assert_html_output({"<pre #{classattr}>test</pre>" => "<pre>test</pre>"}, false)
+      assert_html_output({"<pre #{classattr}>test</pre>" => pre_wrapper('<pre data-clipboard-target="pre">test</pre>')}, false)
       assert_html_output({"<kbd #{classattr}>test</kbd>" => "<kbd>test</kbd>"}, false)
     end
 
@@ -636,16 +647,35 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
         "<code class=\"foolang\">unsupported language</code>" =>
           "<code data-language=\"foolang\">unsupported language</code>",
         "<code class=\"c-k&r\">special-char language</code>" =>
-          "<code data-language=\"c-k&#38;r\">special-char language</code>",
+          "<code data-language=\"c-k&amp;r\">special-char language</code>",
       },
       false
     )
   end
 
-  def test_should_not_allow_valid_language_class_attribute_on_non_code_offtags
-    %w(pre kbd).each do |tag|
-      assert_html_output({"<#{tag} class=\"ruby\">test</#{tag}>" => "<#{tag}>test</#{tag}>"}, false)
+  def test_should_not_allow_xss_in_code_class_attribute
+    payloads = [
+      %{<code class="x"><script>alert('XSS-1')</script></code>},
+      %{<code class="foo"><img src=x onerror=alert('XSS-2')></code>},
+      %{<pre><code class="unknownlang"><script>alert('XSS-3')</script></code></pre>},
+      %{<code class="x"><a href="javascript:alert(1)">click</a></code>},
+    ]
+    payloads.each do |payload|
+      output = to_html(payload)
+      doc = Nokogiri::HTML5.fragment(output)
+      doc.css('code').each do |code|
+        live_children = code.children.select(&:element?)
+        assert_empty(
+          live_children.map(&:name),
+          "payload #{payload.inspect} produced live HTML inside <code>: #{output}"
+        )
+      end
     end
+  end
+
+  def test_should_not_allow_valid_language_class_attribute_on_non_code_offtags
+    assert_html_output({"<pre class=\"ruby\">test</pre>" => pre_wrapper('<pre data-clipboard-target="pre">test</pre>')}, false)
+    assert_html_output({"<kbd class=\"ruby\">test</kbd>" => "<kbd>test</kbd>"}, false)
 
     assert_html_output({"<notextile class=\"ruby\">test</notextile>" => "test"}, false)
   end
@@ -653,11 +683,11 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
   def test_should_prefix_class_attribute_on_tags
     assert_html_output(
       {
-        '!(foo)test.png!' => "<p><img src=\"test.png\" class=\"wiki-class-foo\" alt=\"\" /></p>",
+        '!(foo)test.png!' => "<p><img src=\"test.png\" class=\"wiki-class-foo\" alt=\"\"></p>",
         '%(foo)test%'     => "<p><span class=\"wiki-class-foo\">test</span></p>",
         'p(foo). test'    => "<p class=\"wiki-class-foo\">test</p>",
         '|(foo). test|'   =>
-           "<table>\n\t\t<tr>\n\t\t\t<td class=\"wiki-class-foo\">test</td>\n\t\t</tr>\n\t</table>",
+           "<table>\n\t\t<tbody><tr>\n\t\t\t<td class=\"wiki-class-foo\">test</td>\n\t\t</tr>\n\t</tbody></table>",
       },
       false
     )
@@ -666,11 +696,11 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
   def test_should_prefix_id_attribute_on_tags
     assert_html_output(
       {
-        '!(#foo)test.png!' => "<p><img src=\"test.png\" id=\"wiki-id-foo\" alt=\"\" /></p>",
+        '!(#foo)test.png!' => "<p><img src=\"test.png\" id=\"wiki-id-foo\" alt=\"\"></p>",
         '%(#foo)test%'     => "<p><span id=\"wiki-id-foo\">test</span></p>",
         'p(#foo). test'    => "<p id=\"wiki-id-foo\">test</p>",
         '|(#foo). test|'   =>
-           "<table>\n\t\t<tr>\n\t\t\t<td id=\"wiki-id-foo\">test</td>\n\t\t</tr>\n\t</table>",
+           "<table>\n\t\t<tbody><tr>\n\t\t\t<td id=\"wiki-id-foo\">test</td>\n\t\t</tr>\n\t</tbody></table>",
       },
       false
     )
@@ -680,7 +710,7 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
     assert_html_output(
       {
         '!(wiki-class-foo#wiki-id-bar)test.png!' =>
-           "<p><img src=\"test.png\" class=\"wiki-class-foo\" id=\"wiki-id-bar\" alt=\"\" /></p>",
+           "<p><img src=\"test.png\" class=\"wiki-class-foo\" id=\"wiki-id-bar\" alt=\"\"></p>",
       },
       false
     )
@@ -712,8 +742,8 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
       </pree>
     STR
     expected = <<~EXPECTED
-      <p>&lt;pree&gt;<br />
-        This is some text<br />
+      <p>&lt;pree&gt;<br>
+        This is some text<br>
       &lt;/pree&gt;</p>
     EXPECTED
     assert_equal expected.gsub(%r{[\r\n\t]}, ''), to_html(text).gsub(%r{[\r\n\t]}, '')
@@ -746,17 +776,20 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
       </p>
       </pre>
     STR
-    expected = <<~EXPECTED
-      <p>Hello world.</p>
-
-      <p>Foo</p>
-
-      <pre>
+    pre = <<~PRE
+      <pre data-clipboard-target="pre">
       This is a code block.
       &lt;p&gt;
       &lt;!-- comments in a code block should be preserved --&gt;
       &lt;/p&gt;
       </pre>
+    PRE
+    expected = <<~EXPECTED
+      <p>Hello world.</p>
+
+      <p>Foo</p>
+
+      #{pre_wrapper(pre)}
 
     EXPECTED
     assert_equal expected.gsub(%r{[\r\n\t]}, ''), to_html(text).gsub(%r{[\r\n\t]}, '')
@@ -787,6 +820,55 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
     assert_equal expected.gsub(%r{[\r\n\t]}, ''), to_html(text).gsub(%r{[\r\n\t]}, '')
   end
 
+  def test_restore_redmine_links_should_not_break_out_of_attribute_values
+    # An auto-linked URL whose text mimics the version:"..." wiki-link syntax.
+    # restore_redmine_links must not un-escape the &quot; entities that
+    # auto_link! placed inside the href attribute, otherwise they close the
+    # attribute and inject event handlers (stored XSS).
+    payload = %{https://example.com/?a:"onmouseover=alert(document.domain)//"}
+    html = to_html(payload)
+
+    assert_includes html, 'href="https://example.com/?a:%22onmouseover', 'quotes inside the href must stay escaped'
+    assert_empty(
+      Nokogiri::HTML.fragment(html).css('[onmouseover]'),
+      "restore_redmine_links injected an attribute into the rendered HTML: #{html}"
+    )
+  end
+
+  def test_restore_redmine_links_should_not_bridge_across_tags
+    # Two auto-linked URLs: the first link's text carries an escaped quote that
+    # must not be paired with a quote inside the second link's href attribute,
+    # which would otherwise un-escape the attribute quote and inject markup.
+    payload = %{https://a.com/?p:"X https://b.com/?q:"onmouseover=alert(document.domain)//"}
+    html = to_html(payload)
+
+    assert_empty(
+      Nokogiri::HTML.fragment(html).css('[onmouseover]'),
+      "restore_redmine_links bridged across a tag boundary: #{html}"
+    )
+  end
+
+  def test_restore_redmine_links_restores_quoted_links_in_text
+    # The legitimate behaviour restore_redmine_links exists for: un-escape the
+    # quotes around values like version:"1.0" so the link parser can match them.
+    assert_includes to_html(%{version:"1.0"}), %{version:"1.0"}
+
+    # make sure handling of legitimate <> in version names etc stays the same
+    assert_includes to_html(%{version:"foo <bar>"}), %{version:"foo &lt;bar&gt;"}
+  end
+
+  def test_nested_notextile_tag_boundaries
+    ["<<notextile>div class=foo >",
+     "<</notextile>div class=foo >"].each do |payload|
+      html = to_html(payload)
+      assert_empty(
+        Nokogiri::HTML.fragment(html).css('.foo'),
+        "Attributes should not be restored as HTML tag attributes for payload '#{payload}': #{html}"
+      )
+      assert_not_includes html, "<div"
+    end
+  end
+
   private
 
   def assert_html_output(to_test, expect_paragraph = true)
@@ -809,6 +891,6 @@ class Redmine::WikiFormatting::TextileFormatterTest < ActionView::TestCase
     assert_kind_of Array, result
     assert_equal 2, result.size
     assert_equal expected, result.first, "section content did not match"
-    assert_equal Digest::MD5.hexdigest(expected), result.last, "section hash did not match"
+    assert_equal ActiveSupport::Digest.hexdigest(expected), result.last, "section hash did not match"
   end
 end

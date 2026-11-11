@@ -23,16 +23,7 @@ class Redmine::WikiFormatting::MacrosTest < Redmine::HelperTest
   include ActionView::Helpers::TextHelper
   include ActionView::Helpers::SanitizeHelper
   include ERB::Util
-  include Rails.application.routes.url_helpers
   extend ActionView::Helpers::SanitizeHelper::ClassMethods
-
-  fixtures :projects, :roles, :enabled_modules, :users,
-           :repositories, :changesets,
-           :trackers, :issue_statuses, :issues,
-           :versions, :documents,
-           :wikis, :wiki_pages, :wiki_contents,
-           :boards, :messages,
-           :attachments, :enumerations
 
   def setup
     super
@@ -149,12 +140,12 @@ class Redmine::WikiFormatting::MacrosTest < Redmine::HelperTest
 
   def test_macro_exception_should_be_displayed
     Redmine::WikiFormatting::Macros.macro :exception do |obj, args|
-      raise "My message"
+      raise "My exception's message"
     end
 
     text = "{{exception}}"
     assert_include(
-      '<div class="flash error">Error executing the <strong>exception</strong> macro (My message)</div>',
+      '<div class="flash error">Error executing the <strong>exception</strong> macro (My exception&#39;s message)</div>',
       textilizable(text)
     )
   end
@@ -241,6 +232,23 @@ class Redmine::WikiFormatting::MacrosTest < Redmine::HelperTest
     assert_include 'Page not found', textilizable(text)
   end
 
+  def test_include_macro_accepts_project_from_multiple_sources
+    project = Project.find(1)
+
+    # Resolve using the @project
+    @project = project
+    assert_include 'This is a link to a ticket', textilizable('{{include(Another page)}}')
+    @project = nil
+
+    # Resolve using object: project
+    assert_include 'This is a link to a ticket', textilizable('{{include(Another page)}}', {object: project})
+
+    # Resolve using issue.project
+    issue = Issue.first
+    issue.update(description: '{{include(Another page)}}')
+    assert_include 'This is a link to a ticket', textilizable(issue, :description)
+  end
+
   def test_macro_collapse
     text = "{{collapse\n*Collapsed* block of text\n}}"
     with_locale 'en' do
@@ -277,6 +285,13 @@ class Redmine::WikiFormatting::MacrosTest < Redmine::HelperTest
       assert_select_in result, 'a.collapsible.icon-collapsed', :text => 'Show example'
       assert_select_in result, 'a.collapsible.icon-expanded', :text => 'Hide example'
     end
+  end
+
+  def test_macro_collapse_with_arg_contains_comma
+    text = %|{{collapse("Click here, to see the example", Hide example)\n*Collapsed* block of text\n}}|
+    result = textilizable(text)
+    assert_select_in result, 'a.collapsible.icon-collapsed', :text => 'Click here, to see the example'
+    assert_select_in result, 'a.collapsible.icon-expanded', :text => 'Hide example'
   end
 
   def test_macro_collapse_should_not_break_toc
@@ -423,13 +438,16 @@ class Redmine::WikiFormatting::MacrosTest < Redmine::HelperTest
 
       {{hello_world(bar)}}
     RAW
-    expected = <<~EXPECTED
-      <p>Hello world! Object: NilClass, Arguments: foo and no block of text.</p>
-
-      <pre>
+    pre = <<~PRE
+      <pre data-clipboard-target="pre">
       {{hello_world(pre)}}
       !{{hello_world(pre)}}
       </pre>
+    PRE
+    expected = <<~EXPECTED
+      <p>Hello world! Object: NilClass, Arguments: foo and no block of text.</p>
+
+      #{pre_wrapper(pre)}
 
       <p>Hello world! Object: NilClass, Arguments: bar and no block of text.</p>
     EXPECTED
@@ -441,7 +459,7 @@ class Redmine::WikiFormatting::MacrosTest < Redmine::HelperTest
   def test_macros_should_be_escaped_in_pre_tags
     with_settings :text_formatting => 'textile' do
       text = '<pre>{{hello_world(<tag>)}}</pre>'
-      assert_equal '<pre>{{hello_world(&lt;tag&gt;)}}</pre>', textilizable(text)
+      assert_equal pre_wrapper('<pre data-clipboard-target="pre">{{hello_world(&lt;tag&gt;)}}</pre>'), textilizable(text)
     end
   end
 
@@ -500,5 +518,200 @@ class Redmine::WikiFormatting::MacrosTest < Redmine::HelperTest
         textilizable('{{issue(1, project=true)}}')
       )
     end
+  end
+
+  def test_recent_pages_macro
+    @project = Project.find(1)
+    freeze_time do
+      WikiContent.update_all(updated_on: Time.current)
+      @project.wiki.pages.each_with_index do |page, i|
+        page.content.update_attribute(:updated_on, (i + 1).days.ago)
+      end
+
+      result = textilizable('{{recent_pages}}')
+      assert_select_in result, 'ul>li', :count => 7
+      assert_select_in result, 'ul>li:first-of-type', :text => 'Another page'
+      assert_select_in result, 'ul>li:last-of-type', :text => 'Page with sections'
+    end
+  end
+
+  def test_recent_pages_macro_accepts_project_from_multiple_sources
+    project = Project.find(1)
+    freeze_time do
+      WikiContent.update_all(updated_on: Time.current)
+      project.wiki.pages.each_with_index do |page, i|
+        page.content.update_attribute(:updated_on, (i + 1).days.ago)
+      end
+
+      results = {}
+
+      # Resolve using the @project
+      @project = project
+      results[:project_instance_variable] = textilizable('{{recent_pages}}')
+      @project = nil
+
+      # Resolve using object: project
+      results[:object_project] = textilizable('{{recent_pages}}', {object: project})
+
+      # Resolve using issue.project
+      issue = Issue.first
+      issue.update(description: '{{recent_pages}}')
+      results[:issue_argument] = textilizable(issue, :description)
+
+      # Assertions
+      results.each do |key, result|
+        assert_select_in result, 'ul>li', {:count => 7}, "[#{key}] unexpected number of list items"
+        assert_select_in result, 'ul>li:first-of-type', {:text => 'Another page'}, "[#{key}] first list item text mismatch"
+        assert_select_in result, 'ul>li:last-of-type', {:text => 'Page with sections'}, "[#{key}] last list item text mismatch"
+      end
+    end
+  end
+
+  def test_recent_pages_macro_with_limit_option
+    @project = Project.find(1)
+    freeze_time do
+      WikiContent.update_all(updated_on: Time.current)
+      @project.wiki.pages.each_with_index do |page, i|
+        page.content.update_attribute(:updated_on, (i + 1).days.ago)
+      end
+
+      result = textilizable('{{recent_pages(limit=5)}}')
+      assert_select_in result, 'ul>li', :count => 5
+      assert_select_in result, 'ul>li:first-of-type', :text => 'Another page'
+      assert_select_in result, 'ul>li:last-of-type', :text => 'CookBook documentation'
+    end
+  end
+
+  def test_recent_pages_macro_with_time_option
+    @project = Project.find(1)
+    WikiContent.update_all(updated_on: Time.current)
+    freeze_time do
+      @project.wiki.pages.each_with_index do |page, i|
+        page.content.update_attribute(:updated_on, (i + 1).days.ago)
+      end
+
+      result = textilizable('{{recent_pages(time=true)}}')
+      assert_select_in result, 'ul>li:first-of-type', :text => 'Another page (1 day)'
+      assert_select_in result, 'ul>li:last-of-type', :text => 'Page with sections (7 days)'
+    end
+  end
+
+  def test_recent_pages_macro_with_days_option
+    @project = Project.find(1)
+    freeze_time do
+      WikiContent.update_all(updated_on: Time.current)
+      @project.wiki.pages.each_with_index do |page, i|
+        page.content.update_attribute(:updated_on, (i + 1).days.ago)
+      end
+
+      result = textilizable('{{recent_pages(time=true, days=3)}}')
+      assert_select_in result, 'ul>li', :count => 3
+      assert_select_in result, 'ul>li:first-of-type', :text => 'Another page (1 day)'
+      assert_select_in result, 'ul>li:last-of-type', :text => 'Child 1 1 (3 days)'
+    end
+  end
+
+  def test_recent_pages_macro_with_project_option
+    @project = Project.find(1)
+    freeze_time do
+      WikiContent.update_all(updated_on: Time.current)
+      @project.wiki.pages.each_with_index do |page, i|
+        page.content.update_attribute(:updated_on, (i + 1).days.ago)
+      end
+
+      result = textilizable('{{recent_pages(time=true, days=3, project=' + @project.identifier + ')}}')
+      assert_select_in result, 'ul>li', :count => 3
+      assert_select_in result, 'ul>li:first-of-type', :text => 'Another page (1 day)'
+      assert_select_in result, 'ul>li:last-of-type', :text => 'Child 1 1 (3 days)'
+    end
+  end
+
+  def test_recent_pages_macro_with_project_option_should_not_disclose_private_project
+    project = Project.find(5) # Private project
+
+    # Ensure project 5 is private and has the wiki module enabled
+    project.update_attribute(:is_public, false)
+    project.enabled_module_names = ["issue_tracking", "calendar", "gantt", "wiki"]
+
+    # Add a wiki page to the private project
+    page = WikiPage.create!(wiki: project.wiki, title: 'Private Page')
+    WikiContent.create!(page: page, text: 'content', author_id: 1, updated_on: 1.day.ago)
+
+    User.current = User.anonymous
+    result = textilizable("{{recent_pages(project=#{project.identifier})}}")
+    assert_select_in result, 'ul>li', :text => /Private Page/, :count => 0
+  end
+
+  def test_recent_pages_macro_with_include_subprojects_option
+    project = Project.find(1)
+    subproject = Project.find(3)
+    @project = project
+
+    # Ensure subproject has a wiki
+    subproject.create_wiki(start_page: 'Wiki')
+
+    # Add a wiki page to the subproject and update its content
+    page = WikiPage.create!(wiki: subproject.wiki, title: 'Subproject Page')
+    WikiContent.create!(page: page, text: 'content', author_id: 1, updated_on: 1.day.ago)
+
+    # Without include_subprojects=true
+    result = textilizable('{{recent_pages}}')
+    assert_select_in result, 'ul>li', :text => /Subproject Page/, :count => 0
+
+    # With include_subprojects=true
+    result = textilizable('{{recent_pages(include_subprojects=true)}}')
+
+    assert_select_in result, 'ul>li', :text => /Subproject Page/, :count => 1
+    assert_select_in result, 'a[href=?]', wiki_page_path(page)
+  end
+
+  def test_recent_pages_macro_should_not_include_projects_with_wiki_module_disabled
+    project = Project.find(1)
+    subproject = Project.find(3)
+    @project = project
+
+    # Ensure subproject has a wiki
+    subproject.create_wiki(start_page: 'Wiki')
+    # Ensure wiki module is not enabled
+    subproject.enabled_module_names = ["issue_tracking", "calendar", "gantt"]
+
+    # Add a wiki page to the subproject and update its content
+    page = WikiPage.create!(wiki: subproject.wiki, title: 'Subproject Page')
+    WikiContent.create!(page: page, text: 'content', author_id: 1, updated_on: 1.day.ago)
+
+    # With include_subprojects=true
+    result = textilizable('{{recent_pages(include_subprojects=true)}}')
+    assert_select_in result, 'ul>li', :text => /Subproject Page/, :count => 0
+  end
+
+  def test_recent_pages_macro_should_not_disclose_private_projects
+    project = Project.find(1)
+    private_subproject = Project.find(5) # Private child of project 1 in fixtures
+    @project = project
+
+    # Ensure project 5 is private
+    private_subproject.update_attribute(:is_public, false)
+    private_subproject.enabled_module_names = ["issue_tracking", "calendar", "gantt", "wiki"]
+
+    # Add a wiki page to the private subproject
+    page = WikiPage.create!(wiki: private_subproject.wiki, title: 'Private Page')
+    WikiContent.create!(page: page, text: 'content', author_id: 1, updated_on: 1.day.ago)
+
+    # Anonymous user should not see the private page even with include_subprojects=true
+    User.current = User.anonymous
+    result = textilizable('{{recent_pages(include_subprojects=true)}}')
+    assert_select_in result, 'ul>li', :text => /Private Page/, :count => 0
+
+    role = Role.find(1)
+    role.remove_permission! :view_wiki_pages
+    # User without view wiki page permissions
+    User.current = User.find(2) # Member of eCookbook
+    result = textilizable('{{recent_pages(include_subprojects=true)}}')
+    assert_select_in result, 'ul>li', :text => /Private Page/, :count => 0
+
+    # User with access should see it
+    User.current = User.find(8) # Member of eCookbook
+    result = textilizable('{{recent_pages(include_subprojects=true)}}')
+    assert_select_in result, 'ul>li', :text => /Private Page/, :count => 1
   end
 end

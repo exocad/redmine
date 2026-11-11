@@ -81,7 +81,7 @@ class UsersController < ApplicationController
     else
       respond_to do |format|
         format.html {render :layout => !request.xhr?}
-        format.csv {head :unprocessable_entity}
+        format.csv {head :unprocessable_content}
         format.api {render_validation_errors(@query)}
       end
     end
@@ -94,7 +94,7 @@ class UsersController < ApplicationController
     end
 
     # show projects based on current user visibility
-    @memberships = @user.memberships.preload(:roles, :project).where(Project.visible_condition(User.current)).to_a
+    @memberships = @user.memberships.visible.preload(:roles, :project).to_a
 
     @issue_counts = {}
     @issue_counts[:assigned] = {
@@ -121,6 +121,8 @@ class UsersController < ApplicationController
                      :mail_notification => Setting.default_notification_option)
     @user.safe_attributes = params[:user]
     @auth_sources = AuthSource.all
+
+    no_store
   end
 
   def create
@@ -157,8 +159,14 @@ class UsersController < ApplicationController
       @user.password = @user.password_confirmation = nil
 
       respond_to do |format|
-        format.html {render :action => 'new'}
-        format.api  {render_validation_errors(@user)}
+        format.html do
+          no_store
+          render :action => 'new'
+        end
+
+        format.api do
+          render_validation_errors(@user)
+        end
       end
     end
   end
@@ -166,6 +174,8 @@ class UsersController < ApplicationController
   def edit
     @auth_sources = AuthSource.all
     @membership ||= Member.new
+
+    no_store
   end
 
   def update
@@ -176,11 +186,17 @@ class UsersController < ApplicationController
     @user.safe_attributes = params[:user]
     # Was the account actived ? (do it before User#save clears the change)
     was_activated = (@user.status_change == [User::STATUS_REGISTERED, User::STATUS_ACTIVE])
+    mail_changed = @user.mail_changed?
     # TODO: Similar to My#account
     @user.pref.safe_attributes = params[:pref]
 
     if @user.save
       @user.pref.save
+
+      if mail_changed && @user == User.current
+        # The session token was destroyed by the email address change, generate a new one
+        renew_session_token
+      end
 
       Mailer.deliver_password_updated(@user, User.current) if is_updating_password
       if was_activated
@@ -203,8 +219,13 @@ class UsersController < ApplicationController
       @user.password = @user.password_confirmation = nil
 
       respond_to do |format|
-        format.html {render :action => :edit}
-        format.api  {render_validation_errors(@user)}
+        format.html do
+          no_store
+          render :action => :edit
+        end
+        format.api do
+          render_validation_errors(@user)
+        end
       end
     end
   end
@@ -231,15 +252,19 @@ class UsersController < ApplicationController
     @users = User.logged.where(id: params[:ids]).where.not(id: User.current)
     (render_404; return) unless @users.any?
 
-    if params[:lock]
-      @users.update_all status: User::STATUS_LOCKED
-      flash[:notice] = l(:notice_successful_update)
-      redirect_to users_path
-    elsif params[:confirm] == I18n.t(:general_text_Yes)
+    if params[:confirm] == I18n.t(:general_text_Yes)
       @users.destroy_all
       flash[:notice] = l(:notice_successful_delete)
       redirect_to users_path
     end
+  end
+
+  def bulk_lock
+    bulk_update_status(params[:ids], User::STATUS_LOCKED)
+  end
+
+  def bulk_unlock
+    bulk_update_status(params[:ids], User::STATUS_ACTIVE)
   end
 
   private
@@ -255,5 +280,14 @@ class UsersController < ApplicationController
     end
   rescue ActiveRecord::RecordNotFound
     render_404
+  end
+
+  def bulk_update_status(user_ids, status)
+    users = User.logged.where(id: user_ids).where.not(id: User.current)
+    (render_404; return) unless users.any?
+
+    users.each {|user| user.update_attribute(:status, status)}
+    flash[:notice] = l(:notice_successful_update)
+    redirect_to users_path
   end
 end

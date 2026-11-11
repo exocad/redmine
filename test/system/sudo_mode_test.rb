@@ -20,8 +20,6 @@
 require_relative '../application_system_test_case'
 
 class SudoModeSystemTest < ApplicationSystemTestCase
-  fixtures :users, :email_addresses
-
   def setup
     Redmine::SudoMode.stubs(:enabled?).returns(true)
     super
@@ -50,7 +48,6 @@ class SudoModeSystemTest < ApplicationSystemTestCase
         find('input[name=commit]').click
       end
 
-      assert_equal '/users', current_path
       assert page.has_content?("Confirm your password to continue")
       assert page.has_css?('form#sudo-form')
 
@@ -58,6 +55,8 @@ class SudoModeSystemTest < ApplicationSystemTestCase
         fill_in 'Password', :with => 'admin'
         click_button 'Submit'
       end
+
+      assert_text /User johnpaul created./
     end
   end
 

@@ -8,33 +8,60 @@
 <div class="<%= @issue.css_classes %> details">
   <% if @prev_issue_id || @next_issue_id %>
     <div class="next-prev-links contextual">
-      <%= link_to_if @prev_issue_id,
-                     "\xc2\xab #{l(:label_previous)}",
-                     (@prev_issue_id ? issue_path(@prev_issue_id) : nil),
-                     :title => "##{@prev_issue_id}",
-                     :accesskey => accesskey(:previous) %> |
-      <% if @issue_position && @issue_count %>
-        <span class="position">
-          <%= link_to_if @query_path,
-                         l(:label_item_position, :position => @issue_position, :count => @issue_count),
-                         @query_path %>
-        </span> |
-      <% end %>
-      <%= link_to_if @next_issue_id,
-                     "#{l(:label_next)} \xc2\xbb",
-                     (@next_issue_id ? issue_path(@next_issue_id) : nil),
-                     :title => "##{@next_issue_id}",
-                     :accesskey => accesskey(:next) %>
+      <span class="pagination">
+        <ul class="pages">
+          <li class="<%= @prev_issue_id ? 'previous page' : 'previous' %>">
+            <% if @prev_issue_id %>
+              <%= link_to "\xc2\xab #{l(:label_previous)}",
+                          issue_path(@prev_issue_id),
+                          :title => "##{@prev_issue_id}",
+                          :accesskey => accesskey(:previous) %>
+            <% else %>
+              <%= content_tag(:span, "\xc2\xab #{l(:label_previous)}") %>
+            <% end %>
+          </li>
+          <% if @issue_position && @issue_count %>
+            <li class="page position">
+              <% position_label = l(:label_item_position, :position => @issue_position, :count => @issue_count) %>
+              <% if @query_path %>
+                <%= link_to position_label, @query_path %>
+              <% else %>
+                <span><%= position_label %></span>
+              <% end %>
+            </li>
+          <% end %>
+          <li class="<%= @next_issue_id ? 'next page' : 'next' %>">
+            <% if @next_issue_id %>
+              <%= link_to "#{l(:label_next)} \xc2\xbb",
+                          issue_path(@next_issue_id),
+                          :title => "##{@next_issue_id}",
+                          :accesskey => accesskey(:next) %>
+            <% else %>
+              <%= content_tag(:span, "#{l(:label_next)} \xc2\xbb") %>
+            <% end %>
+          </li>
+        </ul>
+      </span>
     </div>
   <% end %>
 
-  <div class="gravatar-with-child">
+  <div class="avatar-with-child">
     <%= author_avatar(@issue.author, :size => "50") %>
-    <%= assignee_avatar(@issue.assigned_to, :size => "22", :class => "gravatar-child") if @issue.assigned_to %>
+    <%= assignee_avatar(@issue.assigned_to, :size => "22", :class => "avatar-child") if @issue.assigned_to %>
   </div>
 
-<div class="subject">
-<%= render_issue_subject_with_tree(@issue) %>
+<div data-controller="sticky-issue-header">
+  <div class="subject" data-sticky-issue-header-target="original">
+    <%= render_issue_subject_with_tree(@issue) %>
+  </div>
+  <div id="sticky-issue-header" data-sticky-issue-header-target="stickyHeader" class="issue">
+    <span class="issue-heading"><%= issue_heading(@issue) %>:</span>
+    <span class="subject"><%= @issue.subject %></span>
+  </div>
+</div>
+
+<div class="reaction">
+  <%= reaction_button @issue %>
 </div>
         <p class="author">
         <%= authoring @issue.created_on, @issue.author %>.
@@ -51,7 +78,7 @@
     rows.left l(:field_priority), @issue.priority.name, :class => 'priority'
   end
   unless @issue.disabled_core_fields.include?('assigned_to_id')
-    rows.left l(:field_assigned_to), (@issue.assigned_to ? link_to_principal(@issue.assigned_to) : "-"), :class => 'assigned-to'
+    rows.left l(:field_assigned_to), (@issue.assigned_to ? safe_join([(avatar(@issue.assigned_to, :size => "16") if @issue.assigned_to.is_a?(User)), link_to_principal(@issue.assigned_to)]) : "-"), :class => 'assigned-to'
   end
   unless @issue.disabled_core_fields.include?('category_id') || (@issue.category.nil? && @issue.project.issue_categories.none?)
     rows.left l(:field_category), (@issue.category ? @issue.category.name : "-"), :class => 'category'
@@ -82,13 +109,13 @@ end %>
 
 <% if @issue.description? %>
 <hr />
-<div class="description">
+<div class="description" data-controller="quote-reply">
   <div class="contextual">
-  <%= link_to l(:button_quote), quoted_issue_path(@issue), :remote => true, :method => 'post', :class => 'icon icon-comment' if @issue.notes_addable? %>
+  <%= quote_reply_button(url: quoted_issue_path(@issue)) if @issue.notes_addable? %>
   </div>
 
   <p><strong><%=l(:field_description)%></strong></p>
-  <div class="wiki">
+  <div id="issue_description_wiki" class="wiki" data-quote-reply-target="content">
   <%= textilizable @issue, :description, :attachments => @issue.attachments %>
   </div>
 </div>
@@ -96,7 +123,7 @@ end %>
 <% if @issue.attachments.any? %>
   <hr />
   <p><strong><%=l(:label_attachment_plural)%></strong></p>
-  <%= link_to_attachments @issue, :thumbnails => true %>
+  <%= link_to_attachments @issue, :thumbnails => true, :journals => journals_by_attachment_id(@journals) %>
 <% end %>
 
 <%= render_full_width_custom_fields_rows(@issue) %>
@@ -105,31 +132,31 @@ end %>
 
 <% if !@issue.leaf? || User.current.allowed_to?(:manage_subtasks, @project) %>
 <hr />
-<div id="issue_tree">
-<%= render :partial => 'subtasks' %>
-</div>
+<%= tag.div id: 'issue_tree', class: { 'with-related-issues-table-headers': Setting.display_related_issues_table_headers? } do %>
+  <%= render :partial => 'subtasks' %>
+<% end %>
 <% end %>
 
 <% if @relations.present? || User.current.allowed_to?(:manage_issue_relations, @project) %>
 <hr />
-<div id="relations">
-<%= render :partial => 'relations' %>
-</div>
+<%= tag.div id: 'relations', class: { 'with-related-issues-table-headers': Setting.display_related_issues_table_headers? } do %>
+  <%= render :partial => 'relations' %>
+<% end %>
 <% end %>
 
 </div>
 
 <%= render partial: 'action_menu_edit' if User.current.wants_comments_in_reverse_order? %>
 
-<div id="history">
+<div id="history" class="journals">
 <%= render_tabs issue_history_tabs, issue_history_default_tab %>
 </div>
 
 <%= render partial: 'action_menu_edit' unless User.current.wants_comments_in_reverse_order? %>
 
 <% other_formats_links do |f| %>
+  <%= f.link_to 'PDF' if User.current.allowed_to?(:export_issues, @project) %>
   <%= f.link_to 'Atom', :url => {:key => User.current.atom_key} %>
-  <%= f.link_to 'PDF' %>
 <% end %>
 
 <% html_title "#{@issue.tracker.name} ##{@issue.id}: #{@issue.subject}" %>
@@ -139,7 +166,7 @@ end %>
 
   <% if User.current.allowed_to?(:add_issue_watchers, @project) ||
     (@issue.watchers.present? && User.current.allowed_to?(:view_issue_watchers, @project)) %>
-    <div id="watchers">
+    <div id="watchers" data-watchable-id="<%= @issue.id %>">
       <%= render :partial => 'watchers/watchers', :locals => {:watched => @issue} %>
     </div>
   <% end %>

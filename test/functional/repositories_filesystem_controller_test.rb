@@ -22,9 +22,6 @@ require_relative '../test_helper'
 class RepositoriesFilesystemControllerTest < Redmine::RepositoryControllerTest
   tests RepositoriesController
 
-  fixtures :projects, :users, :email_addresses, :roles, :members, :member_roles,
-           :repositories, :enabled_modules
-
   REPOSITORY_PATH = Rails.root.join('tmp/test/filesystem_repository').to_s
   PRJ_ID = 3
 
@@ -32,7 +29,8 @@ class RepositoriesFilesystemControllerTest < Redmine::RepositoryControllerTest
     super
     @ruby19_non_utf8_pass = Encoding.default_external.to_s != 'UTF-8'
     User.current = nil
-    Setting.enabled_scm << 'Filesystem' unless Setting.enabled_scm.include?('Filesystem')
+    Setting.enabled_scm |= ['Filesystem']
+
     @project = Project.find(PRJ_ID)
     @repository =
       Repository::Filesystem.create(
@@ -54,9 +52,27 @@ class RepositoriesFilesystemControllerTest < Redmine::RepositoryControllerTest
           :repository_scm => 'Filesystem'
         }
       )
+
       assert_response :success
       assert_select 'select[name=?]', 'repository_scm' do
         assert_select 'option[value=?][selected=selected]', 'Filesystem'
+      end
+    end
+
+    def test_get_new_disable_adapter
+      @request.session[:user_id] = 1
+      @project.repository.destroy
+
+      with_settings(enabled_scm: Setting.enabled_scm - ['Filesystem']) do
+        get(
+          :new,
+          :params => {
+            :project_id => 'subproject1',
+            :repository_scm => 'Filesystem'
+          }
+        )
+
+        assert_response :not_found
       end
     end
 
@@ -83,6 +99,20 @@ class RepositoriesFilesystemControllerTest < Redmine::RepositoryControllerTest
       assert_select 'input[name=rev]', 0
       assert_select 'a', :text => 'Statistics', :count => 0
       assert_select 'a', :text => 'Atom', :count => 0
+    end
+
+    def test_browse_root_disabled_adapter
+      with_settings(enabled_scm: Setting.enabled_scm - ['Filesystem']) do
+        @repository.fetch_changesets
+        @repository.reload
+        get(
+          :show,
+          :params => {
+            :id => PRJ_ID
+          }
+        )
+        assert_response :not_found
+      end
     end
 
     def test_show_no_extension
@@ -126,7 +156,7 @@ class RepositoriesFilesystemControllerTest < Redmine::RepositoryControllerTest
         if @ruby19_non_utf8_pass
           puts "TODO: show repository file contents test fails " \
                "when Encoding.default_external is not UTF-8. " \
-               "Current value is '#{Encoding.default_external.to_s}'"
+               "Current value is '#{Encoding.default_external}'"
         else
           assert_select 'tr#L3 td.line-code', :text => /日本語/
         end
@@ -176,7 +206,7 @@ class RepositoriesFilesystemControllerTest < Redmine::RepositoryControllerTest
           }
         )
       end
-      assert_response 302
+      assert_response :found
       @project.reload
       assert_nil @project.repository
     end
@@ -198,7 +228,7 @@ class RepositoriesFilesystemControllerTest < Redmine::RepositoryControllerTest
           }
         )
       end
-      assert_response 302
+      assert_response :found
       @project.reload
       assert_nil @project.repository
     end

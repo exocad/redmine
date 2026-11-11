@@ -270,6 +270,7 @@ class Query < ApplicationRecord
 
   validates_presence_of :name
   validates_length_of :name, :maximum => 255
+  validates_length_of :description, :maximum => 255
   validates :visibility, :inclusion => {:in => [VISIBILITY_PUBLIC, VISIBILITY_ROLES, VISIBILITY_PRIVATE]}
   validate :validate_query_filters
   validate do |query|
@@ -342,6 +343,7 @@ class Query < ApplicationRecord
     :search => [ "~", "*~", "!~" ],
     :integer => [ "=", ">=", "<=", "><", "!*", "*" ],
     :float => [ "=", ">=", "<=", "><", "!*", "*" ],
+    :hour => [ "=", ">=", "<=", "><", "!*", "*" ],
     :relation => ["=", "!", "=p", "=!p", "!p", "*o", "!o", "!*", "*"],
     :tree => ["=", "~", "!*", "*"]
   }
@@ -353,6 +355,8 @@ class Query < ApplicationRecord
 
   # Permission required to view the queries, set on subclasses.
   class_attribute :view_permission
+
+  class_attribute :layout, default: 'base'
 
   # Scope of queries that are global or on the given project
   scope :global_or_on_project, (lambda do |project|
@@ -416,7 +420,7 @@ class Query < ApplicationRecord
       true
     when VISIBILITY_ROLES
       if project
-        (user.roles_for_project(project) & roles).any?
+        user.roles_for_project(project).intersect?(roles)
       else
         user.memberships.joins(:member_roles).where(:member_roles => {:role_id => roles.map(&:id)}).any?
       end
@@ -501,6 +505,17 @@ class Query < ApplicationRecord
           if values_for(field).detect {|v| v.present? && !/\A[+-]?\d+(\.\d*)?\z/.match?(v)}
             add_filter_error(field, :invalid)
           end
+        when :hour
+          case operator_for(field)
+          when "><"
+            unless values_for(field).all? {|v| v.present? && !v.to_s.to_hours.nil? }
+              add_filter_error(field, :invalid)
+            end
+          when "=", ">=", "<="
+            if values_for(field).detect {|v| v.present? && v.to_s.to_hours.nil? }
+              add_filter_error(field, :invalid)
+            end
+          end
         when :date, :date_past
           case operator_for(field)
           when "=", ">=", "<=", "><"
@@ -532,6 +547,28 @@ class Query < ApplicationRecord
     errors.add(:base, m)
   end
 
+  # Filter types and operators whose value is split into tokens
+  # by Redmine::Search::Tokenizer
+  TOKENIZED_FILTER_TYPES = [:string, :text, :search].freeze
+  TOKENIZED_FILTER_OPERATORS = ["~", "*~", "!~", "^", "$"].freeze
+
+  # Unlike errors, warnings do not prevent the query from being run
+  def filter_warnings
+    return [] unless filters
+
+    filters.keys.filter_map do |field|
+      next unless TOKENIZED_FILTER_TYPES.include?(type_for(field)) &&
+                    TOKENIZED_FILTER_OPERATORS.include?(operator_for(field))
+
+      tokenizer = Redmine::Search::Tokenizer.new(values_for(field)&.first)
+      next unless tokenizer.truncated?
+
+      tokens = tokenizer.tokens.map {|token| %("#{token}")}.join(l(:'support.array.words_connector'))
+      message = l(:notice_search_tokens_truncated, :max => Redmine::Search::Tokenizer::MAX_TOKENS, :tokens => tokens)
+      "#{label_for(field)}: #{message}"
+    end
+  end
+
   def editable_by?(user)
     return false unless user
 
@@ -548,7 +585,7 @@ class Query < ApplicationRecord
 
   # Returns a hash of localized labels for all filter operators
   def self.operators_labels
-    operators.inject({}) {|h, operator| h[operator.first] = l(*operator.last); h}
+    operators.transform_values {|label| l(*label)}
   end
 
   # Returns a representation of the available filters for JSON serialization
@@ -620,14 +657,14 @@ class Query < ApplicationRecord
   end
 
   def users
-    principals.select {|p| p.is_a?(User)}
+    principals.grep(User)
   end
 
   def author_values
     author_values = []
     author_values << ["<< #{l(:label_me)} >>", "me"] if User.current.logged?
     author_values +=
-      users.sort_by(&:status).
+      users.sort_by{|p| [p.status, p]}.
         collect{|s| [s.name, s.id.to_s, l("status_#{User::LABEL_BY_STATUS[s.status]}")]}
     author_values << [l(:label_user_anonymous), User.anonymous.id.to_s]
     author_values
@@ -637,7 +674,7 @@ class Query < ApplicationRecord
     assigned_to_values = []
     assigned_to_values << ["<< #{l(:label_me)} >>", "me"] if User.current.logged?
     assigned_to_values +=
-      (Setting.issue_group_assignment? ? principals : users).sort_by(&:status).
+      (Setting.issue_group_assignment? ? principals : users).sort_by{|p| [p.status, p]}.
         collect{|s| [s.name, s.id.to_s, l("status_#{User::LABEL_BY_STATUS[s.status]}")]}
     assigned_to_values
   end
@@ -667,7 +704,7 @@ class Query < ApplicationRecord
     watcher_values = [["<< #{l(:label_me)} >>", "me"]]
     if User.current.allowed_to?(:view_issue_watchers, self.project, global: true)
       watcher_values +=
-        principals.sort_by(&:status).
+        principals.sort_by{|p| [p.status, p]}.
           collect{|s| [s.name, s.id.to_s, l("status_#{User::LABEL_BY_STATUS[s.status]}")]}
     end
     watcher_values
@@ -796,9 +833,8 @@ class Query < ApplicationRecord
 
   # Returns a Hash of columns and the key for sorting
   def sortable_columns
-    available_columns.inject({}) do |h, column|
-      h[column.name.to_s] = column.sortable
-      h
+    available_columns.to_h do |column|
+      [column.name.to_s, column.sortable]
     end
   end
 
@@ -1003,7 +1039,7 @@ class Query < ApplicationRecord
         end
       end
 
-      if field == 'project_id' || (self.type == 'ProjectQuery' && %w[id parent_id].include?(field))
+      if field == 'project_id' || (is_a?(ProjectQuery) && %w[id parent_id].include?(field))
         if v.delete('mine')
           v += User.current.memberships.pluck(:project_id).map(&:to_s)
         end
@@ -1096,13 +1132,13 @@ class Query < ApplicationRecord
 
   private
 
-  def grouped_query(&block)
+  def grouped_query(&)
     r = nil
     if grouped?
       r = yield base_group_scope
       c = group_by_column
       if c.is_a?(QueryCustomFieldColumn)
-        r = r.keys.inject({}) {|h, k| h[c.custom_field.cast_value(k)] = r[k]; h}
+        r = r.keys.to_h { |k| [c.custom_field.cast_value(k), r[k]] }
       end
     end
     r
@@ -1135,13 +1171,13 @@ class Query < ApplicationRecord
       group(group_by_statement)
   end
 
-  def total_for_custom_field(custom_field, scope, &block)
+  def total_for_custom_field(custom_field, scope, &)
     total = custom_field.format.total_for_scope(custom_field, scope)
     total = map_total(total) {|t| custom_field.format.cast_total_value(custom_field, t)}
     total
   end
 
-  def map_total(total, &block)
+  def map_total(total, &)
     if total.is_a?(Hash)
       total.each_key {|k| total[k] = yield total[k]}
     else
@@ -1158,7 +1194,9 @@ class Query < ApplicationRecord
 
     if filter[:field].format.target_class && filter[:field].format.target_class <= User
       if value.delete('me')
-        value.push User.current.id.to_s
+        types = filter[:field].format.try(:selectable_principal_types, filter[:field]) || ['User']
+        value.push User.current.id.to_s if types.include?('User')
+        value += User.current.group_ids.map(&:to_s) if types.include?('Group')
       end
     end
     not_in = nil
@@ -1206,7 +1244,6 @@ class Query < ApplicationRecord
       "  SELECT customized_id FROM #{CustomValue.table_name}" +
       "  WHERE customized_type='#{target_class}' AND custom_field_id=#{chained_custom_field_id}" +
       "  AND #{sql_for_field(field, operator, value, CustomValue.table_name, 'value', true)}))"
-
   end
 
   def sql_for_custom_field_attribute(field, operator, value, custom_field_id, attribute)
@@ -1252,7 +1289,7 @@ class Query < ApplicationRecord
           else
             sql = "1=0"
           end
-        when :float
+        when :float, :hour
           if is_custom_filter
             sql =
               "(#{db_table}.#{db_field} <> '' AND " \
@@ -1411,12 +1448,12 @@ class Query < ApplicationRecord
       day_of_week = User.current.today.cwday
       from =
         -(
-            if day_of_week >= first_day_of_week
-              day_of_week - first_day_of_week
-            else
-              day_of_week + 7 - first_day_of_week
-            end
-          ) + 7
+          if day_of_week >= first_day_of_week
+            day_of_week - first_day_of_week
+          else
+            day_of_week + 7 - first_day_of_week
+          end
+        ) + 7
       sql = relative_date_clause(db_table, db_field, from, from + 6, is_custom_filter)
     when "m"
       # = this month
@@ -1446,6 +1483,7 @@ class Query < ApplicationRecord
       sql = sql_contains("#{db_table}.#{db_field}", value.first)
     when "!~"
       sql = sql_contains("#{db_table}.#{db_field}", value.first, :match => false)
+      sql += " OR #{db_table}.#{db_field} IS NULL" if is_custom_filter
     when "*~"
       sql = sql_contains("#{db_table}.#{db_field}", value.first, :all_words => false)
     when "^"
@@ -1500,7 +1538,7 @@ class Query < ApplicationRecord
     )
   end
 
-  # rubocop:disable Lint/IneffectiveAccessModifier
+  # rubocop:disable-next Lint/IneffectiveAccessModifier
   def self.tokenized_like_conditions(db_field, value, **options)
     tokens = Redmine::Search::Tokenizer.new(value).tokens
     tokens = [value] unless tokens.present?
@@ -1521,7 +1559,6 @@ class Query < ApplicationRecord
     end.transpose
     [sql.join(logical_opr), *values]
   end
-  # rubocop:enable Lint/IneffectiveAccessModifier
 
   # Adds a filter for the given custom field
   def add_custom_field_filter(field, assoc=nil)

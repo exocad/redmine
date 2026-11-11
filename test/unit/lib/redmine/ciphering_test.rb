@@ -20,7 +20,9 @@
 require_relative '../../../test_helper'
 
 class Redmine::CipheringTest < ActiveSupport::TestCase
-  fixtures :auth_sources
+  setup do
+    skip "Subversion is unavailable" unless Repository::Subversion.scm_available
+  end
 
   def test_password_should_be_encrypted
     Redmine::Configuration.with 'database_cipher_key' => 'secret' do
@@ -61,7 +63,7 @@ class Redmine::CipheringTest < ActiveSupport::TestCase
     end
 
     Redmine::Configuration.with 'database_cipher_key' => 'secret' do
-      r = Repository.order('id DESC').first
+      r = Repository.order(id: :desc).first
       assert_equal 'clear', r.password
     end
   end
@@ -72,7 +74,7 @@ class Redmine::CipheringTest < ActiveSupport::TestCase
     end
 
     Redmine::Configuration.with 'database_cipher_key' => '' do
-      r = Repository.order('id DESC').first
+      r = Repository.order(id: :desc).first
       # password can not be deciphered
       assert_nothing_raised do
         assert r.password.match(/\Aaes-256-cbc:.+\Z/)
@@ -89,7 +91,7 @@ class Redmine::CipheringTest < ActiveSupport::TestCase
 
     Redmine::Configuration.with 'database_cipher_key' => 'secret' do
       assert Repository.encrypt_all(:password)
-      r = Repository.order('id DESC').first
+      r = Repository.order(id: :desc).first
       assert_equal 'bar', r.password
       assert r.read_attribute(:password).match(/\Aaes-256-cbc:.+\Z/)
     end
@@ -102,7 +104,7 @@ class Redmine::CipheringTest < ActiveSupport::TestCase
       Repository::Subversion.create!(:password => 'bar', :url => 'file:///tmp', :identifier => 'bar')
 
       assert Repository.decrypt_all(:password)
-      r = Repository.order('id DESC').first
+      r = Repository.order(id: :desc).first
       assert_equal 'bar', r.password
       assert_equal 'bar', r.read_attribute(:password)
     end

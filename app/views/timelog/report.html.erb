@@ -1,10 +1,10 @@
 <div class="contextual">
-<%= link_to l(:button_log_time),
+<%= link_to sprite_icon('time-add', l(:button_log_time)),
             _new_time_entry_path(@project, @issue),
             :class => 'icon icon-time-add' if User.current.allowed_to?(:log_time, @project, :global => true) %>
-<%= link_to_if_authorized l(:label_settings),
-            {:controller => 'projects', :action => 'settings', :id => @project, :tab => 'activities'},
-            :class => 'icon icon-settings' if User.current.allowed_to?(:manage_project_activities, @project) %>
+<%= link_to_if_authorized sprite_icon('settings', l(:label_settings)),
+                          {:controller => 'projects', :action => 'settings', :id => @project, :tab => 'activities'},
+                          :class => 'icon icon-settings' if User.current.allowed_to?(:manage_project_activities, @project) %>
 </div>
 
 <h2><%= @query.new_record? ? l(:label_spent_time) : @query.name %></h2>
@@ -13,6 +13,7 @@
   <% @report.criteria.each do |criterion| %>
     <%= hidden_field_tag 'criteria[]', criterion, :id => nil %>
   <% end %>
+  <%# Report view does not use query options for results, so the options section is hidden by CSS. %>
   <%= render :partial => 'timelog/date_range' %>
 
   <p><label for='columns'><%= l(:label_details) %></label>: <%= select_tag 'columns', options_for_select([[l(:label_year), 'year'],
@@ -26,7 +27,7 @@
                                                           :style => 'width: 200px',
                                                           :disabled => (@report.criteria.length >= 3),
                                                           :id => "criterias") %>
-     <%= link_to l(:button_clear), {:params => request.query_parameters.merge(:criteria => nil)}, :class => 'icon icon-reload' %></p>
+     <%= link_to sprite_icon('reload', l(:button_clear)), {:params => request.query_parameters.merge(:criteria => nil)}, :class => 'icon icon-reload' %></p>
   <%= hidden_field_tag 'encoding', l(:general_csv_encoding) unless l(:general_csv_encoding).casecmp('UTF-8') == 0 %>
 <% end %>
 
@@ -65,9 +66,9 @@
 </table>
 </div>
 
+<% if export_allowed?(:export_time_entries, @query.base_scope) %>
 <% other_formats_links do |f| %>
   <%= f.link_to_with_query_parameters 'CSV', {}, :onclick => "showModal('csv-export-options', '330px'); return false;" %>
-<% end %>
 <% end %>
 <div id="csv-export-options" style="display: none;">
   <h3 class="title"><%= l(:label_export_options, :export_format => 'CSV') %></h3>
@@ -78,6 +79,8 @@
     <%= submit_tag l(:button_cancel), :name => nil, :onclick => 'hideModal(this);', :type => 'button' %>
   </p>
 </div>
+<% end %>
+<% end %>
 <% end %>
 <% end %>
 

@@ -20,10 +20,6 @@
 require_relative '../test_helper'
 
 class MailHandlerControllerTest < Redmine::ControllerTest
-  fixtures :users, :email_addresses, :projects, :enabled_modules,
-           :roles, :members, :member_roles, :issues, :issue_statuses,
-           :trackers, :projects_trackers, :enumerations, :versions
-
   FIXTURES_PATH = File.dirname(__FILE__) + '/../fixtures/mail_handler'
 
   def setup
@@ -42,14 +38,14 @@ class MailHandlerControllerTest < Redmine::ControllerTest
           :params => {
             :key => 'secret',
             :email =>
-               IO.read(
+               File.read(
                  File.join(FIXTURES_PATH, 'ticket_on_given_project.eml')
                )
           }
         )
       end
     end
-    assert_response 201
+    assert_response :created
   end
 
   def test_should_create_issue_with_options
@@ -64,7 +60,7 @@ class MailHandlerControllerTest < Redmine::ControllerTest
           :params => {
             :key => 'secret',
             :email =>
-              IO.read(
+              File.read(
                 File.join(FIXTURES_PATH, 'ticket_on_given_project.eml')
               ),
             :issue => {
@@ -74,7 +70,7 @@ class MailHandlerControllerTest < Redmine::ControllerTest
         )
       end
     end
-    assert_response 201
+    assert_response :created
     issue = Issue.order(:id => :desc).first
     assert_equal true, issue.is_private
   end
@@ -91,13 +87,13 @@ class MailHandlerControllerTest < Redmine::ControllerTest
             :index,
             :params => {
               :key => 'secret',
-              :email => IO.read(File.join(FIXTURES_PATH, 'ticket_reply.eml'))
+              :email => File.read(File.join(FIXTURES_PATH, 'ticket_reply.eml'))
             }
           )
         end
       end
     end
-    assert_response 201
+    assert_response :created
   end
 
   def test_should_respond_with_422_if_not_created
@@ -112,12 +108,12 @@ class MailHandlerControllerTest < Redmine::ControllerTest
           :params => {
             :key => 'secret',
             :email =>
-              IO.read(File.join(FIXTURES_PATH, 'ticket_on_given_project.eml'))
+              File.read(File.join(FIXTURES_PATH, 'ticket_on_given_project.eml'))
           }
         )
       end
     end
-    assert_response 422
+    assert_response :unprocessable_content
   end
 
   def test_should_not_allow_with_api_disabled
@@ -132,12 +128,12 @@ class MailHandlerControllerTest < Redmine::ControllerTest
           :params => {
             :key => 'secret',
             :email =>
-              IO.read(File.join(FIXTURES_PATH, 'ticket_on_given_project.eml'))
+              File.read(File.join(FIXTURES_PATH, 'ticket_on_given_project.eml'))
           }
         )
       end
     end
-    assert_response 403
+    assert_response :forbidden
     assert_include 'Access denied', response.body
   end
 
@@ -152,12 +148,12 @@ class MailHandlerControllerTest < Redmine::ControllerTest
           :params => {
             :key => 'wrong',
             :email =>
-              IO.read(File.join(FIXTURES_PATH, 'ticket_on_given_project.eml'))
+              File.read(File.join(FIXTURES_PATH, 'ticket_on_given_project.eml'))
           }
         )
       end
     end
-    assert_response 403
+    assert_response :forbidden
     assert_include 'Access denied', response.body
   end
 

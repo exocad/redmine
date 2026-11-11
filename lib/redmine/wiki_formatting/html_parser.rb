@@ -22,12 +22,15 @@ require 'loofah/helpers'
 module Redmine
   module WikiFormatting
     class HtmlParser
-
       class_attribute :tags
       self.tags = {
         'br' => {:post => "\n"},
         'style' => ''
       }
+
+      def self.parse(html)
+        Loofah.html5_fragment(html)
+      end
 
       def self.to_text(html)
         html = html.gsub(/[\n\r]/, ' ')

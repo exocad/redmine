@@ -19,12 +19,11 @@
 
 module Redmine
   module Search
-
     mattr_accessor :available_search_types
     @@available_search_types = []
 
     class << self
-      def map(&block)
+      def map(&)
         yield self
       end
 
@@ -128,18 +127,36 @@ module Redmine
     end
 
     class Tokenizer
+      MAX_TOKENS = 5
+
       def initialize(question)
         @question = question.to_s
       end
 
+      # Returns the tokens to search for (no more than MAX_TOKENS)
       def tokens
-        # extract tokens from the question
-        # eg. hello "bye bye" => ["hello", "bye bye"]
-        tokens = @question.scan(%r{(([[:space:]]|^)"[^"]+"([[:space:]]|$)|[[:^space:]]+)}).collect {|m| m.first.gsub(%r{(^[[:space:]]*"[[:space:]]*|[[:space:]]*"[[:space:]]*$)}, '')}
-        # tokens must be at least 2 characters long
-        # but for Chinese characters (Chinese HANZI/Japanese KANJI), tokens can be one character
-        # no more than 5 tokens to search for
-        tokens.uniq.select{|w| w.length > 1 || w =~ /\p{Han}/}.first 5
+        all_tokens.first(MAX_TOKENS)
+      end
+
+      def truncated?
+        all_tokens.size > MAX_TOKENS
+      end
+
+      private
+
+      def all_tokens
+        @all_tokens ||= begin
+          # extract tokens from the question
+          # eg. hello "bye bye" => ["hello", "bye bye"]
+          tokens = @question.scan(/"[^"]+"|[^\p{Zs}]+/).map do |token|
+            # Remove quotes from quoted tokens, strip surrounding whitespace
+            # e.g. "\" foo bar \"" => "foo bar"
+            token.gsub(/\A"\p{Zs}*|\p{Zs}*"\Z/, '')
+          end
+          # tokens must be at least 2 characters long
+          # but for Chinese characters (Chinese HANZI/Japanese KANJI), tokens can be one character
+          tokens.uniq.select{|w| w.length > 1 || w =~ /\p{Han}/}
+        end
       end
     end
 

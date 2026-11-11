@@ -19,7 +19,6 @@
 
 module Redmine
   module Helpers
-
     # Simple class to compute the start and end dates of a calendar
     class Calendar
       include Redmine::I18n
@@ -58,9 +57,9 @@ module Redmine
       end
 
       def day_css_classes(day)
-        css = day.month==month ? +'even' : +'odd'
+        css = day.month==month ? +'this-month' : +'other-month'
         css << " today" if User.current.today == day
-        css << " nwday" if non_working_week_days.include?(day.cwday)
+        css << " nwday" if non_working_day?(day)
         css
       end
 
@@ -68,7 +67,7 @@ module Redmine
       def events=(events)
         @events = events
         @ending_events_by_days = @events.group_by {|event| event.due_date}
-        @starting_events_by_days = @events.group_by {|event| event.start_date}
+        @starting_events_by_days = @events.grep_v(Version).group_by {|event| event.start_date}
       end
 
       # Returns events for the given day
@@ -84,20 +83,19 @@ module Redmine
       # Return the first day of week
       # 1 = Monday ... 7 = Sunday
       def first_wday
-        case Setting.start_of_week.to_i
-        when 1
-          @first_dow ||= (1 - 1)%7 + 1
-        when 6
-          @first_dow ||= (6 - 1)%7 + 1
-        when 7
-          @first_dow ||= (7 - 1)%7 + 1
-        else
-          @first_dow ||= (l(:general_first_day_of_week).to_i - 1)%7 + 1
+        @first_wday ||= begin
+          start_of_week = Setting.start_of_week.to_i
+          case start_of_week
+          when 1, 6, 7
+            ((start_of_week - 1) % 7) + 1
+          else
+            ((l(:general_first_day_of_week).to_i - 1) % 7) + 1
+          end
         end
       end
 
       def last_wday
-        @last_dow ||= (first_wday + 5)%7 + 1
+        @last_wday ||= ((first_wday + 5) % 7) + 1
       end
     end
   end

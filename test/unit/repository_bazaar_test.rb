@@ -20,8 +20,6 @@
 require_relative '../test_helper'
 
 class RepositoryBazaarTest < ActiveSupport::TestCase
-  fixtures :projects
-
   include Redmine::I18n
 
   REPOSITORY_PATH = repository_path('bazaar')
@@ -37,8 +35,7 @@ class RepositoryBazaarTest < ActiveSupport::TestCase
   # On Windows, because it is too hard to change system locale,
   # you cannot run Bazaar non ASCII path tests.
   #
-  RUN_LATIN1_OUTPUT_TEST = (RUBY_PLATFORM != 'java' &&
-                             Encoding.locale_charmap == "ISO-8859-1")
+  RUN_LATIN1_OUTPUT_TEST = (Encoding.locale_charmap == "ISO-8859-1")
 
   CHAR_1_UTF8_HEX   = 'Ü'
   CHAR_1_LATIN1_HEX = "\xdc".b
@@ -52,6 +49,22 @@ class RepositoryBazaarTest < ActiveSupport::TestCase
         :log_encoding => 'UTF-8'
       )
     assert @repository
+    skip "SCM command is unavailable" unless @repository.class.scm_available
+  end
+
+  def test_scm_available
+    klass = Repository::Bazaar
+    assert_equal "Bazaar", klass.scm_name
+    assert klass.scm_adapter_class
+    assert_not_equal "", klass.scm_command
+
+    Redmine::Configuration.with 'scm_bazaar_path_regexp' => '' do
+      assert_equal false, klass.scm_available
+    end
+
+    Redmine::Configuration.with 'scm_bazaar_path_regexp' => Regexp.escape(REPOSITORY_PATH) do
+      assert_equal true, klass.scm_available
+    end
   end
 
   def test_blank_path_to_repository_error_message
@@ -167,7 +180,22 @@ class RepositoryBazaarTest < ActiveSupport::TestCase
     end
 
     if File.directory?(REPOSITORY_PATH_NON_ASCII) && RUN_LATIN1_OUTPUT_TEST
+      # https://www.redmine.org/issues/42024
+      def skip_bzr_failure_on_ubuntu
+        return unless File.exist?('/etc/os-release')
+
+        os_release = File.read('/etc/os-release')
+        name = os_release[/^NAME="(.+?)"$/, 1]
+        version = os_release[/^VERSION_ID="(.+?)"$/, 1]
+
+        if name == 'Ubuntu' && %w(24.04 26.04).include?(version)
+          skip "bzr command fails on Ubuntu #{version}, causing this test to fail"
+        end
+      end
+
       def test_cat_latin1_path
+        skip_bzr_failure_on_ubuntu
+
         latin1_repo = create_latin1_repo
         buf =
           latin1_repo.cat(
@@ -188,6 +216,8 @@ class RepositoryBazaarTest < ActiveSupport::TestCase
       end
 
       def test_annotate_latin1_path
+        skip_bzr_failure_on_ubuntu
+
         latin1_repo = create_latin1_repo
         ann1 =
           latin1_repo.annotate(
@@ -208,6 +238,8 @@ class RepositoryBazaarTest < ActiveSupport::TestCase
       end
 
       def test_diff_latin1_path
+        skip_bzr_failure_on_ubuntu
+
         latin1_repo = create_latin1_repo
         diff1 =
           latin1_repo.diff(
@@ -219,6 +251,8 @@ class RepositoryBazaarTest < ActiveSupport::TestCase
       end
 
       def test_entries_latin1_path
+        skip_bzr_failure_on_ubuntu
+
         latin1_repo = create_latin1_repo
         entries = latin1_repo.entries("test-#{CHAR_1_UTF8_HEX}-dir", 2)
         assert_kind_of Redmine::Scm::Adapters::Entries, entries
@@ -229,6 +263,8 @@ class RepositoryBazaarTest < ActiveSupport::TestCase
       end
 
       def test_entry_latin1_path
+        skip_bzr_failure_on_ubuntu
+
         latin1_repo = create_latin1_repo
         ["test-#{CHAR_1_UTF8_HEX}-dir",
          "/test-#{CHAR_1_UTF8_HEX}-dir",
@@ -247,6 +283,8 @@ class RepositoryBazaarTest < ActiveSupport::TestCase
       end
 
       def test_changeset_latin1_path
+        skip_bzr_failure_on_ubuntu
+
         latin1_repo = create_latin1_repo
         assert_equal 0, latin1_repo.changesets.count
         latin1_repo.fetch_changesets

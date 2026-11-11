@@ -20,10 +20,6 @@
 require_relative '../test_helper'
 
 class CustomFieldTest < ActiveSupport::TestCase
-  fixtures :custom_fields, :roles, :projects,
-           :trackers, :issue_statuses,
-           :issues, :users
-
   def setup
     User.current = nil
   end
@@ -52,6 +48,15 @@ class CustomFieldTest < ActiveSupport::TestCase
     assert field.save
   end
 
+  def test_regexp_validation_with_invalid_regex_and_default_value
+    field = IssueCustomField.new(:name => 'regexp', :field_format => 'text', :regexp => '[', :default_value => 'abc')
+    assert !field.save
+    assert_include I18n.t('activerecord.errors.messages.invalid'),
+                   field.errors[:regexp]
+    field.regexp = '[a-z0-9]'
+    assert field.save
+  end
+
   def test_default_value_should_be_validated
     field = CustomField.new(:name => 'Test', :field_format => 'int')
     field.default_value = 'abc'
@@ -64,6 +69,52 @@ class CustomFieldTest < ActiveSupport::TestCase
     field = CustomField.new(:name => 'Test', :field_format => 'list',
                             :possible_values => ['a', 'b'], :is_required => true,
                             :default_value => '')
+    assert field.valid?
+  end
+
+  def test_date_default_value_should_return_date_offset_from_today
+    user = User.generate!
+    user.stubs(:today).returns(Date.parse('2026-03-21'))
+    User.current = user
+
+    field = IssueCustomField.new(:name => 'Date', :field_format => 'date', :default_value_mode => 'date_offset')
+
+    field.default_value = '0'
+    assert_equal '2026-03-21', field.default_value
+
+    field.default_value = '5'
+    assert_equal '2026-03-26', field.default_value
+
+    field.default_value = '-3'
+    assert_equal '2026-03-18', field.default_value
+  end
+
+  def test_date_default_value_should_be_validated_when_date_offset_mode_is_selected
+    field = IssueCustomField.new(:name => 'Date', :field_format => 'date', :default_value_mode => 'date_offset')
+
+    field.default_value = 'invalid'
+    assert field.invalid?
+
+    field.default_value = '1.5'
+    assert field.invalid?
+
+    field.default_value = '+5'
+    assert field.valid?
+
+    field.default_value = '-3'
+    assert field.valid?
+
+    field.default_value = ''
+    assert field.valid?
+  end
+
+  def test_date_default_value_should_be_validated_when_fixed_date_mode_is_selected
+    field = IssueCustomField.new(:name => 'Date', :field_format => 'date', :default_value_mode => 'fixed_date')
+
+    field.default_value = 'invalid'
+    assert field.invalid?
+
+    field.default_value = '2026-03-21'
     assert field.valid?
   end
 
@@ -320,7 +371,7 @@ class CustomFieldTest < ActiveSupport::TestCase
     user = User.generate!
     User.add_to_project(user, Project.first, Role.find(3))
 
-    assert_equal [fields[0], fields[2]], CustomField.visible(user).order("id").to_a
+    assert_equal [fields[0], fields[2]], CustomField.visible(user).order(:id).to_a
   end
 
   def test_visibile_scope_with_anonymous_user_should_return_visible_custom_fields
@@ -332,7 +383,7 @@ class CustomFieldTest < ActiveSupport::TestCase
       CustomField.generate!(:visible => false, :role_ids => [1, 2]),
     ]
 
-    assert_equal [fields[0]], CustomField.visible(User.anonymous).order("id").to_a
+    assert_equal [fields[0]], CustomField.visible(User.anonymous).order(:id).to_a
   end
 
   def test_float_cast_blank_value_should_return_nil
